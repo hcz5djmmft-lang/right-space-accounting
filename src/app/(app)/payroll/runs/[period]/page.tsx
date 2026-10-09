@@ -24,6 +24,7 @@ export default async function RunPage({ params, searchParams }: { params: Promis
   const R = rates(settings.payroll);
   const ed = r.run.status === 'draft' || r.run.status === 'rejected';
   const t = r.totals;
+  const sum = (k: 'basic' | 'allowances' | 'overtime') => r.lines.reduce((s, l) => s + l[k], 0);
   const today = new Date().toISOString().slice(0, 10);
   const missing = settings.require_cc ? r.lines.filter(l => !l.project_id && !l.dept_id).map(l => l.name) : [];
   return (
@@ -50,7 +51,7 @@ export default async function RunPage({ params, searchParams }: { params: Promis
               <td className="num">{ed ? <input className="inp mono" style={{ minWidth: 90 }} name={'ded_' + l.employee_id} inputMode="decimal" defaultValue={l.deductions || ''} /> : fmt(l.deductions)}</td>
               <td className="num"><b>{fmt(l.net)}</b></td><td className="num hide-sm muted">{fmt(l.soc_co)}</td></tr>))}
           </tbody>
-          <tfoot><tr><td colSpan={2} className="hide-sm">Total</td><td className="hide-sm" colSpan={2}></td><td></td><td className="num">{fmt(t.gross)}</td><td className="num">{fmt(t.soc_emp)}</td><td className="num">{fmt(t.tax)}</td><td className="num">{fmt(t.deductions)}</td><td className="num">{fmt(t.net)}</td><td className="num hide-sm">{fmt(t.soc_co)}</td></tr></tfoot>
+          <tfoot><tr><td>Total</td><td className="hide-sm"></td><td className="num hide-sm">{fmt(sum('basic'))}</td><td className="num hide-sm">{fmt(sum('allowances'))}</td><td className="num">{fmt(sum('overtime'))}</td><td className="num">{fmt(t.gross)}</td><td className="num">{fmt(t.soc_emp)}</td><td className="num">{fmt(t.tax)}</td><td className="num">{fmt(t.deductions)}</td><td className="num">{fmt(t.net)}</td><td className="num hide-sm">{fmt(t.soc_co)}</td></tr></tfoot>
         </table></div>
         {ed && (
           <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 14 }}>
