@@ -41,7 +41,7 @@ export default async function PrintInvoice({ params }: { params: Promise<{ id: s
       <div className="meta">
         <div><b>Invoice no.</b>{r.no}</div><div><b>Date</b>{r.date}</div>
         <div><b>Bill to</b><span dir="auto">{c?.full_name || r.customer}</span></div><div><b>Due</b>{r.due ?? '—'}</div>
-        <div><b>Customer tax ID</b>{c?.tax_id || '—'}</div><div><b>Project</b>{r.project_code ? `${r.project_code} · ${r.project_name}` : '—'}</div>
+        <div><b>Customer tax ID</b>{c?.tax_id || '—'}</div><div><b>Project</b>{r.project_code ? (r.project_name && r.project_name !== r.project_code ? `${r.project_code} · ${r.project_name}` : r.project_code) : '—'}</div>
         <div><b>Reference</b>{r.ref || '—'}</div><div><b>From</b>{settings.company_name}</div>
       </div>
       <table><thead><tr><th>#</th><th>Description</th><th className="n">Qty</th><th className="n">Unit price</th><th className="n">Amount (EGP)</th></tr></thead>
