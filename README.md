@@ -44,9 +44,11 @@ receipt photos), both in Frankfurt. The step-by-step guide for the owner is in t
 
 - Environment variables on Vercel, for Production only: `DATABASE_URL` (the Supabase transaction pooler, port 6543),
   `APP_URL`, `APP_TZ=Africa/Cairo`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `STORAGE_BUCKET=attachments`, `SETUP_CODE`;
-  later `SMTP_URL` and `EMAIL_FROM` for the approval emails. A test copy gets its own values under Preview.
+  later `SMTP_URL` and `EMAIL_FROM` for the approval emails. A test copy gets its own values under Preview, plus
+  `MIGRATE_PREVIEW=1`.
 - `npm run build` applies `db/migrations/*.sql` before building, so every deployment updates its own database
-  (under an advisory lock, so two builds cannot collide). A production build without `DATABASE_URL` fails on purpose.
+  (under an advisory lock, so two builds cannot collide). A production build without `DATABASE_URL` fails on purpose;
+  a preview build leaves tables alone unless `MIGRATE_PREVIEW=1` is set for the Preview environment.
 - Connections outside localhost use TLS; prepared statements are off on port 6543. Each function keeps at most two
   connections; the pooler multiplexes them.
 - Server actions accept bodies up to 9 MB; phone photos above 1.5 MB are shrunk in the browser before upload.

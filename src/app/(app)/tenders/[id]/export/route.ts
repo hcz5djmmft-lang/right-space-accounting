@@ -3,8 +3,7 @@ import { hasRole } from '@/lib/roles';
 import { loadTender } from '@/lib/tenders';
 import { clientRows, tenderTotals, uRate } from '@/lib/tender-calc';
 import { r2 } from '@/lib/money';
-
-const q = (v: unknown) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+import { toCsv } from '@/lib/reports';
 
 /** CSV for Excel: the client BOQ with client prices, or the full comparison of every bidder's unit rates. */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,7 +23,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     out.push(['Trade', 'Item no.', 'Description', 'Unit', 'Qty', 'Bidder', 'Unit rate', 'Total']);
     for (const tr of t.trades) for (const it of tr.items) for (const b of tr.bidders) { const u = uRate(t, tr, b, it); out.push([tr.name, it.no, it.description, it.unit, it.qty, b.name, u ?? '', u === null ? '' : r2(u * (it.qty ?? 0))]); }
   }
-  const csv = '﻿' + out.map(r => r.map(q).join(',')).join('\r\n');
+  const csv = toCsv(out); // same quoting and formula guard as the reports
   const name = `${t.no} ${t.name} ${kind === 'client' ? 'client BOQ' : 'comparison'}.csv`.replace(/[\\/:*?"<>|]/g, '-');
   return new Response(csv, { headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}` } });
 }

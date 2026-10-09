@@ -8,10 +8,16 @@ import postgres from 'postgres';
 import { dbOptions } from './db-options.mjs';
 
 const url = process.env.DATABASE_URL;
+const onBuild = process.argv.includes('--if-configured');
 if (!url) {
-  if (process.argv.includes('--if-configured') && process.env.VERCEL_ENV !== 'production') { console.log('migrate: DATABASE_URL not set, skipped'); process.exit(0); }
+  if (onBuild && process.env.VERCEL_ENV !== 'production') { console.log('migrate: DATABASE_URL not set, skipped'); process.exit(0); }
   console.error(process.env.VERCEL ? 'migrate: DATABASE_URL is not set. Add it under Settings → Environment Variables in Vercel and redeploy.' : 'Set DATABASE_URL');
   process.exit(1);
+}
+// A preview build (a branch, a pull request) never changes tables unless the Preview environment says so with
+// MIGRATE_PREVIEW=1, so a variable mistakenly shared with Production cannot alter the live books from a branch.
+if (onBuild && process.env.VERCEL_ENV && process.env.VERCEL_ENV !== 'production' && process.env.MIGRATE_PREVIEW !== '1') {
+  console.log(`migrate: ${process.env.VERCEL_ENV} build without MIGRATE_PREVIEW=1, tables left as they are`); process.exit(0);
 }
 if (process.env.VERCEL_ENV) console.log(`migrate: ${process.env.VERCEL_ENV} build`);
 const sql = postgres(url, { ...dbOptions(url), max: 1 });
