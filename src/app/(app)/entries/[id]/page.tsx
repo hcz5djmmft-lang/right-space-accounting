@@ -5,6 +5,9 @@ import { canPostDirect, getSettings } from '@/lib/books';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { approveAction, deleteAction, returnAction, reverseAction } from '../actions';
+import { listAttachments } from '@/lib/attachments';
+import { Attachments } from '@/components/Attachments';
+import { hasRole } from '@/lib/roles';
 
 export default async function EntryPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   const user = await requireUser();
@@ -13,7 +16,7 @@ export default async function EntryPage({ params, searchParams }: { params: Prom
   const [e] = await sql<{ id: string; no: string; date: string; memo: string; ref: string; kind: string; status: string; reverses_id: string | null; reversed_by: string | null; source_type: string | null; created_by: string | null }[]>`
     select id, no, to_char(date,'YYYY-MM-DD') date, memo, ref, kind, status, reverses_id, reversed_by, source_type, created_by from journal_entries where id = ${id}`;
   if (!e) notFound();
-  const [lines, log, links, settings] = await Promise.all([
+  const [lines, log, links, settings, files] = await Promise.all([
     sql<{ account: string; name: string; dr: number; cr: number; cc: string | null; party: string | null; description: string }[]>`
       select l.account, a.name, l.dr, l.cr, coalesce(p.code, d.name) cc, pt.name party, l.description
       from journal_lines l join accounts a on a.code = l.account
@@ -24,6 +27,7 @@ export default async function EntryPage({ params, searchParams }: { params: Prom
       from audit_log g left join users u on u.id = g.user_id where g.entity = 'journal' and g.entity_id = ${id} order by g.at`,
     sql<{ id: string; no: string }[]>`select id, no from journal_entries where id in (${e.reverses_id ?? ''}, ${e.reversed_by ?? ''})`,
     getSettings(),
+    listAttachments('journal', id),
   ]);
   const dr = lines.reduce((s, l) => s + l.dr, 0), cr = lines.reduce((s, l) => s + l.cr, 0);
   const approver = canPostDirect(user, settings);
@@ -67,6 +71,7 @@ export default async function EntryPage({ params, searchParams }: { params: Prom
             <button className="btn bad">Post reversal</button>
           </form></details>)}
 
+      {typed && <Attachments entity="journal" id={id} path={`/entries/${id}`} items={files} userId={user.id} canRemove={hasRole(user, 'finance')} locked={e.status === 'posted'} />}
       <div className="card"><h2>History</h2>
         <div className="log">{log.map((g, i) => <div key={i}>{g.at} · {g.who ?? 'Imported'} · {g.action}{g.note ? ' — ' + g.note : ''}</div>)}</div></div>
     </>
