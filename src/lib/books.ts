@@ -34,7 +34,7 @@ async function accountTypes(tx: Tx, codes: string[]) {
 }
 
 /** Checks the rules every entry must meet before it is saved. */
-async function validateLines(tx: Tx, lines: Line[], settings: Settings) {
+export async function validateLines(tx: Tx, lines: Line[], settings: Settings) {
   assertBalanced(lines);
   const accs = await accountTypes(tx, lines.map(l => l.account));
   const [office] = await tx<{ id: string }[]>`select id from projects where is_office limit 1`;
@@ -57,14 +57,14 @@ async function validateLines(tx: Tx, lines: Line[], settings: Settings) {
 
 export const canPostDirect = (u: User, s: Settings) => !s.require_approval || hasRole(u, 'finance');
 
-async function writeLines(tx: Tx, entryId: string, lines: Line[]) {
+export async function writeLines(tx: Tx, entryId: string, lines: Line[]) {
   await tx`delete from journal_lines where entry_id = ${entryId}`;
   for (const [i, l] of lines.entries())
     await tx`insert into journal_lines (entry_id, line_no, account, dr, cr, project_id, dept_id, party_id, description)
       values (${entryId}, ${i + 1}, ${l.account}, ${r2(l.dr)}, ${r2(l.cr)}, ${l.project_id ?? null}, ${l.dept_id ?? null}, ${l.party_id ?? null}, ${l.description ?? ''})`;
 }
 
-function checkLock(s: Settings, date: string) {
+export function checkLock(s: Settings, date: string) {
   if (s.lock_date && date <= s.lock_date) throw new RuleError(`The books are locked up to ${s.lock_date}. Pick a later date or change the lock date in Settings.`);
 }
 

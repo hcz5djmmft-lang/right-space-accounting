@@ -92,3 +92,8 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; colo
   .line-card > :nth-child(1), .line-card > :nth-child(2), .line-card > :nth-child(3) { grid-column: 1 / -1; }
   .hide-sm { display: none; }
 }
+.line-card.pr { grid-template-columns: 1.2fr 1.5fr 1.4fr .5fr .9fr auto; }
+@media (max-width: 860px) { .line-card.pr { grid-template-columns: 1fr 1fr; } }
+.steps { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.steps > div { flex: 1; min-width: 150px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+.steps > div.cur { border-color: var(--gold); }
