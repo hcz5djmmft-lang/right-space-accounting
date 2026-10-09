@@ -39,8 +39,10 @@ Settings → Approvers sets who signs each payment-request step; until other peo
 
 Done: logins and roles, chart of accounts, cost centers with automatic project GL codes, customers and vendors,
 Expense / Collection / Transfer entries with approval, return and reversal, full history per entry,
-trial balance, income statement, balance sheet, general ledger, import of the old app's data.
+trial balance, income statement, balance sheet, general ledger, import of the old app's data,
+payment requests (إذن صرف) with Finance → Engineering → Management approval and email, vendor payments,
+settings (approvers per step, people and roles, company rules), receipt photos and PDFs on payment requests
+and expense entries (phone camera; stored on disk locally, in a private Supabase Storage bucket in production).
 
-Next: payment requests (إذن صرف) with Finance → Engineering → Management approval and email,
-vendor payments and receipts, receipt photo attachments, sales invoices, banks and reconciliation, payroll,
-tasks, tenders, aging and budget vs actual, Excel/PDF export, users screen, settings screen.
+Next: sales invoices and customer receipts, banks and reconciliation, payroll, tasks, tenders,
+aging and budget vs actual, Excel/PDF export.
