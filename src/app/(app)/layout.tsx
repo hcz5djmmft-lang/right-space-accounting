@@ -26,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: '/payment-requests', label: 'Payment requests' },
     { href: '/sales-invoices', label: 'Sales invoices' },
     { href: '/parties', label: 'Customers & vendors' },
+    ...(hasRole(user, 'finance') ? ['People', { href: '/payroll', label: 'Payroll' }] as NavItem[] : []),
     'Insight',
     { href: '/reports', label: 'Reports' },
     ...(hasRole(user, 'management') ? ['Admin', { href: '/settings', label: 'Settings' }] as NavItem[] : []),
