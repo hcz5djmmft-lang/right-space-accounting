@@ -25,6 +25,16 @@ npm run dev                         # http://localhost:3000
 
 Tests: `npm test` (needs a throwaway database at TEST_DATABASE_URL, default `rsa_test`; it is wiped on every run).
 
+## First login
+
+Create the first Management login from the command line, then add everyone else in Settings:
+
+```sh
+npm run create-user -- Adel_hassan@live.com "Adel Maksoud" <password> management,finance,engineering
+```
+
+Settings → Approvers sets who signs each payment-request step; until other people are named, Adel signs all three.
+
 ## Build status
 
 Done: logins and roles, chart of accounts, cost centers with automatic project GL codes, customers and vendors,
