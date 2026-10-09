@@ -42,7 +42,8 @@ Expense / Collection / Transfer entries with approval, return and reversal, full
 trial balance, income statement, balance sheet, general ledger, import of the old app's data,
 payment requests (إذن صرف) with Finance → Engineering → Management approval and email, vendor payments,
 settings (approvers per step, people and roles, company rules), receipt photos and PDFs on payment requests
-and expense entries (phone camera; stored on disk locally, in a private Supabase Storage bucket in production).
+and expense entries (phone camera; stored on disk locally, in a private Supabase Storage bucket in production),
+sales invoices (INV-00001…, VAT 14%, printable, void by reversal) and customer receipts (RCT-00001…, allocated
+to invoices, WHT withheld by the customer goes to WHT receivable).
 
-Next: sales invoices and customer receipts, banks and reconciliation, payroll, tasks, tenders,
-aging and budget vs actual, Excel/PDF export.
+Next: banks and reconciliation, payroll, tasks, tenders, aging and budget vs actual, Excel/PDF export.
