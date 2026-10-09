@@ -42,7 +42,7 @@ Settings → Approvers sets who signs each payment-request step; until other peo
 Production runs on Vercel (the app) and Supabase (Postgres with daily backups, and a private Storage bucket for the
 receipt photos), both in Frankfurt. The step-by-step guide for the owner is in the project's go-live document.
 
-- Environment variables on Vercel, for Production only: `DATABASE_URL` (the Supabase transaction pooler, port 6543),
+- Environment variables on Vercel, for Production only: `DATABASE_URL` (the Supabase **Session pooler**, port 5432; the transaction pooler on 6543 loses replies to pipelined queries),
   `APP_URL`, `APP_TZ=Africa/Cairo`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `STORAGE_BUCKET=attachments`, `SETUP_CODE`;
   later `SMTP_URL` and `EMAIL_FROM` for the approval emails. A test copy gets its own values under Preview, plus
   `MIGRATE_PREVIEW=1`.
@@ -50,7 +50,7 @@ receipt photos), both in Frankfurt. The step-by-step guide for the owner is in t
   (under an advisory lock, so two builds cannot collide). A production build without `DATABASE_URL` fails on purpose;
   a preview build leaves tables alone unless `MIGRATE_PREVIEW=1` is set for the Preview environment.
 - Connections outside localhost use TLS; prepared statements are off on port 6543. Each function keeps at most two
-  connections; the pooler multiplexes them.
+  connections (ten on the transaction pooler, where pipelining onto a busy connection can lose a reply).
 - Server actions accept bodies up to 9 MB; phone photos above 1.5 MB are shrunk in the browser before upload.
 - Ten wrong passwords in a row lock a login for fifteen minutes. Temporary passwords are shown once on screen and
   never written to the address bar or the log.
