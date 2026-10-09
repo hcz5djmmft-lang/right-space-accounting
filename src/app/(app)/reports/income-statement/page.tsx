@@ -4,6 +4,7 @@ import { listDepartments, listProjects } from '@/lib/queries';
 import { fmt } from '@/lib/money';
 import { natural } from '@/lib/ledger';
 import { ReportFilter, parseCC } from '@/components/ReportFilter';
+import { ReportTools } from '@/components/ReportTools';
 
 export default async function IncomeStatement({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; cc?: string }> }) {
   await requireUser();
@@ -19,7 +20,7 @@ export default async function IncomeStatement({ searchParams }: { searchParams: 
       <tr className="hdr"><td>Total {title.toLowerCase()}</td><td className="num">{fmt(sum(list))}</td></tr></>);
   return (
     <>
-      <div className="head"><div><h1>Income statement</h1><p>{from} to {to}</p></div></div>
+      <div className="head"><div><h1>Income statement</h1><p>{from} to {to}</p></div><ReportTools report="is" query={{ from, to, cc: q.cc }} /></div>
       <ReportFilter from={from} to={to} cc={q.cc} projects={projects} departments={departments} />
       <div className="tw"><table><tbody>
         {section('Revenue', rev)}{section('Expenses', exp)}

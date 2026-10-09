@@ -6,7 +6,7 @@ import { type User, hasRole } from './roles';
 
 export type Settings = {
   company_name: string; vat_rate: number; require_approval: boolean; require_cc: boolean;
-  lock_date: string | null; pr_prefix: string; cats: Record<string, string[]>; account_map: AccountMap;
+  lock_date: string | null; pr_prefix: string; fy_start_month: number; cats: Record<string, string[]>; account_map: AccountMap;
   payroll: Record<string, unknown>;
 };
 export async function getSettings(tx: Tx = sql): Promise<Settings> {

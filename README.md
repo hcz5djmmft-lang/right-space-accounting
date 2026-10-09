@@ -51,6 +51,9 @@ pay with the 20,000 exemption and progressive brackets, posting per project or d
 Tasks (board To do → In progress → Review → Done, assignee, due date, priority, comments, links from documents),
 Tenders (BOQ per trade with paste from Excel, up to 12 bidders per trade with currency, wastage and discount,
 comparison and award per trade, markup per trade and client price with VAT, Excel CSV and printable offer,
-a won tender becomes a cost center with its contract value and cost budget; Tenders role).
+a won tender becomes a cost center with its contract value and cost budget; Tenders role),
+Reports: cost centers (revenue, cost and budget used per project, grouped by type, service or unit), budget vs actual
+per GL code (with committed payment requests), aging of payables and receivables by days past due, VAT, WHT and
+deductions for the returns; every report exports to Excel (CSV) and prints to PDF.
 
-Next: aging and budget vs actual, Excel/PDF export.
+Next: deployment (Supabase + Vercel) and the cut-over import of the live books.
