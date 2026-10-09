@@ -107,3 +107,13 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; colo
 .thumb figcaption span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lnk { background: none; border: 0; padding: 0; color: var(--gold-ink, #9a6400); cursor: pointer; font: inherit; text-align: left; }
 .lnk.bad { color: var(--bad); }
+
+/* ---- tasks board ---- */
+.board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.col { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; min-height: 120px; }
+.col h3 { margin: 0 0 8px; font-size: 13px; display: flex; justify-content: space-between; color: var(--muted); }
+.col h3 span { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 0 7px; font-size: 12px; }
+.task { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-bottom: 8px; display: grid; gap: 4px; }
+.task .t { font-weight: 600; text-decoration: none; color: var(--text); }
+.task .m { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+@media (max-width: 860px) { .board { grid-template-columns: 1fr; } }

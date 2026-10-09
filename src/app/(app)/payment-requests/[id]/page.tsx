@@ -38,6 +38,7 @@ export default async function PRPage({ params, searchParams }: { params: Promise
           <p dir="auto">{r.date} · {r.vendor} · {r.cc ?? 'per line'}{r.ref ? ` · Invoice ${r.ref}` : ''} · raised by {r.requester || r.created_by_name || 'imported'}</p></div>
         <div className="row">
           <a className="btn" href={`/print/payment-request/${id}`} target="_blank">Print</a>
+          <Link className="btn" href={`/tasks/new?link_type=payment-request&link_id=${id}&link_label=${encodeURIComponent(r.no + ' · ' + r.vendor)}`}>Add task</Link>
           {mayEdit && <Link className="btn" href={`/payment-requests/${id}/edit`}>Edit</Link>}
           {mayEdit && <form action={deletePR.bind(null, id)}><button className="btn bad">Delete</button></form>}
           {r.status === 'posted' && open > 0.004 && hasRole(user, 'finance') && <Link className="btn pri" href={`/payments/new?vendor=${r.party_id}`}>Pay</Link>}

@@ -47,6 +47,7 @@ sales invoices (INV-00001…, VAT 14%, printable, void by reversal) and customer
 to invoices, WHT withheld by the customer goes to WHT receivable), Banks & cash (balances, activity with running
 balance, statement reconciliation by ticking cleared lines; Finance only), Payroll (employees, monthly runs with
 overtime and deductions, Egyptian social insurance 11% / 18.75% between 2,700 and 16,700, salary tax on annualised
-pay with the 20,000 exemption and progressive brackets, posting per project or department, salary payment; Finance only).
+pay with the 20,000 exemption and progressive brackets, posting per project or department, salary payment; Finance only),
+Tasks (board To do → In progress → Review → Done, assignee, due date, priority, comments, links from documents).
 
-Next: tasks, tenders, aging and budget vs actual, Excel/PDF export.
+Next: tenders, aging and budget vs actual, Excel/PDF export.
