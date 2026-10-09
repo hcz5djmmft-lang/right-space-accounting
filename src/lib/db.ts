@@ -18,6 +18,10 @@ export const sql: postgres.Sql =
     connect_timeout: 10,
     ssl: local ? false : 'require',
     prepare: !/:6543\b/.test(url),
+    // on Vercel every statement (text only, never the values) and every connection event goes to Logs,
+    // so a database that stops answering shows exactly where the request stopped
+    debug: serverless ? (_c, q) => console.log('db:', q.replace(/\s+/g, ' ').trim().slice(0, 100)) : undefined,
+    onclose: serverless ? (id: number) => console.log('db: connection', id, 'closed') : undefined,
     types: { numeric: { to: 1700, from: [1700], serialize: (x: unknown) => String(x), parse: (x: string) => Number(x) } },
   });
 if (process.env.NODE_ENV !== 'production') g.__sql = sql;

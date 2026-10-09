@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = { title: 'Right Space Accounting' };
+// a request that waits on the database gives up after half a minute instead of Vercel's five
+export const maxDuration = 30;
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
