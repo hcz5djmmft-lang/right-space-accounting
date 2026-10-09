@@ -27,13 +27,33 @@ Tests: `npm test` (needs a throwaway database at TEST_DATABASE_URL, default `rsa
 
 ## First login
 
-Create the first Management login from the command line, then add everyone else in Settings:
+On a fresh database the app shows a welcome page (`/setup`) that creates the first Management login from the browser;
+everyone else is added in Settings → People. With `SETUP_CODE` set, the welcome page asks for that code first.
+Locally the command line works too:
 
 ```sh
 npm run create-user -- Adel_hassan@live.com "Adel Maksoud" <password> management,finance,engineering
 ```
 
 Settings → Approvers sets who signs each payment-request step; until other people are named, Adel signs all three.
+
+## Deployment
+
+Production runs on Vercel (the app) and Supabase (Postgres with daily backups, and a private Storage bucket for the
+receipt photos), both in Frankfurt. The step-by-step guide for the owner is in the project's go-live document.
+
+- Environment variables on Vercel, for Production only: `DATABASE_URL` (the Supabase transaction pooler, port 6543),
+  `APP_URL`, `APP_TZ=Africa/Cairo`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `STORAGE_BUCKET=attachments`, `SETUP_CODE`;
+  later `SMTP_URL` and `EMAIL_FROM` for the approval emails. A test copy gets its own values under Preview, plus
+  `MIGRATE_PREVIEW=1`.
+- `npm run build` applies `db/migrations/*.sql` before building, so every deployment updates its own database
+  (under an advisory lock, so two builds cannot collide). A production build without `DATABASE_URL` fails on purpose;
+  a preview build leaves tables alone unless `MIGRATE_PREVIEW=1` is set for the Preview environment.
+- Connections outside localhost use TLS; prepared statements are off on port 6543. Each function keeps at most two
+  connections; the pooler multiplexes them.
+- Server actions accept bodies up to 9 MB; phone photos above 1.5 MB are shrunk in the browser before upload.
+- Ten wrong passwords in a row lock a login for fifteen minutes. Temporary passwords are shown once on screen and
+  never written to the address bar or the log.
 
 ## Build status
 
@@ -56,4 +76,4 @@ Reports: cost centers (revenue, cost and budget used per project, grouped by typ
 per GL code (with committed payment requests), aging of payables and receivables by days past due, VAT, WHT and
 deductions for the returns; every report exports to Excel (CSV) and prints to PDF.
 
-Next: deployment (Supabase + Vercel) and the cut-over import of the live books.
+Next: the owner creates the Supabase and Vercel accounts and deploys (see Deployment); then the cut-over import of the live books.

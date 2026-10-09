@@ -2,9 +2,12 @@
   "name": "right-space-accounting",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/migrate.mjs --if-configured && next build",
     "start": "next start",
     "migrate": "node scripts/migrate.mjs",
     "import:old": "node scripts/import-old.mjs",

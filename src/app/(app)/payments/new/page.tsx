@@ -6,6 +6,7 @@ import { sql } from '@/lib/db';
 import { fmt, parseAmount } from '@/lib/money';
 import { RuleError } from '@/lib/ledger';
 import { openRequests, postVendorPayment } from '@/lib/documents';
+import { today } from '@/lib/dates';
 
 async function pay(form: FormData) {
   'use server';
@@ -48,7 +49,7 @@ export default async function NewPayment({ searchParams }: { searchParams: Promi
         <form action={pay} className="card">
           <input type="hidden" name="party" value={vendor} />
           <div className="grid g4">
-            <label className="f"><span>Date</span><input className="inp" type="date" name="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
+            <label className="f"><span>Date</span><input className="inp" type="date" name="date" defaultValue={today()} /></label>
             <label className="f"><span>Paid from</span><select className="inp" name="bank">{banks.map(b => <option key={b.code} value={b.code}>{b.code} · {b.name}</option>)}</select></label>
             <label className="f"><span>Amount (EGP)</span><input className="inp mono" name="amount" inputMode="decimal" defaultValue={due.length ? String(due.reduce((s, d) => s + d.open, 0)) : ''} required /></label>
             <label className="f"><span>Reference</span><input className="inp" name="ref" placeholder="Transfer / cheque no." /></label>

@@ -5,6 +5,7 @@ import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
 import { r2 } from './money';
 import { CURRENCIES, MAX_BIDDERS, parseItems, parsePrices, STATUSES, tenderTotals, type Bidder, type Item, type Price, type Tender, type Trade } from './tender-calc';
+import { today } from './dates';
 
 // Tenders: 1 Details → 2 BOQ → 3 Bidders & prices → 4 Comparison & award → 5 Client price.
 // The Tenders role (and Management) edits; the maths lives in tender-calc.ts.
@@ -201,7 +202,7 @@ export async function tenderToProject(user: User, id: string) {
   return sql.begin(async tx => {
     const code = t.no.replace('TND-', 'PRJ-');
     const [{ id: pid }] = await tx<{ id: string }[]>`insert into projects (code, name, client_id, type, service, unit, location, contract, budget, status, start_date, description)
-      values (${code}, ${t.name}, ${t.client_id}, ${t.type}, ${t.service}, ${t.unit}, ${t.location || null}, ${T.client}, ${T.cost}, 'Active', current_date, ${t.notes || null}) returning id`;
+      values (${code}, ${t.name}, ${t.client_id}, ${t.type}, ${t.service}, ${t.unit}, ${t.location || null}, ${T.client}, ${T.cost}, 'Active', ${today()}, ${t.notes || null}) returning id`;
     await createProjectCodes(tx, pid, code);
     await tx`update tenders set project_id = ${pid} where id = ${id}`;
     await audit(tx, user, 'tender', id, 'Cost center created', `${code} · contract ${T.client} · budget ${T.cost}`);

@@ -5,7 +5,9 @@
 // Runs in one transaction: either everything is imported or nothing is.
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { pathToFileURL } from 'node:url';
 import postgres from 'postgres';
+import { dbOptions } from './db-options.mjs';
 
 
 export function readExport(f) {
@@ -62,7 +64,8 @@ export async function importOld(sql, d, { replace = false } = {}) {
         alter table journal_lines disable trigger journal_lines_guard;
         alter table accounts disable trigger accounts_guard;
         truncate payment_allocations, payments, invoice_approvals, invoice_lines, invoices,
-          journal_lines, journal_entries, audit_log, accounts, employees, projects, parties, departments, counters, tenders cascade;
+          journal_lines, journal_entries, audit_log, accounts, employees, projects, parties, departments, counters, tenders,
+          payroll_lines, payroll_runs, bank_cleared, bank_statements, attachments, task_comments, tasks cascade;
         alter table journal_entries enable trigger journal_entries_guard;
         alter table journal_lines enable trigger journal_lines_guard;
         alter table accounts enable trigger accounts_guard;`);
@@ -72,12 +75,14 @@ export async function importOld(sql, d, { replace = false } = {}) {
     await tx`update settings set
       company_name = ${c.company || 'Right Space Development'}, vat_rate = ${num(c.vat) ?? 14},
       require_approval = ${c.requireApproval !== false}, require_cc = ${c.requireCC !== false},
-      lock_date = ${blank(c.lockDate)}, pr_prefix = ${c.prPrefix || 'C-'}, fy_start_month = ${Number(c.fyStart || 1)},
+      lock_date = null, pr_prefix = ${c.prPrefix || 'C-'}, fy_start_month = ${Number(c.fyStart || 1)},
       cats = ${tx.json(c.cats || {})}, account_map = ${tx.json(c.map || {})}, payroll = ${tx.json(c.pay || {})}
       where id = 1`;
+    // the step names come from the old app; the approvers ticked in the new Settings page stay as they are
     if (Array.isArray(c.chain) && c.chain.length) {
-      await tx`delete from approval_steps`;
-      for (const [i, s] of c.chain.entries()) await tx`insert into approval_steps (position, name) values (${i + 1}, ${s.name})`;
+      for (const [i, s] of c.chain.entries())
+        await tx`insert into approval_steps (position, name) values (${i + 1}, ${s.name}) on conflict (position) do update set name = excluded.name`;
+      await tx`delete from approval_steps where position > ${c.chain.length}`;
     }
 
     for (const x of vals(d.departments))
@@ -186,19 +191,32 @@ export async function importOld(sql, d, { replace = false } = {}) {
     };
     for (const [name, value] of Object.entries(counters))
       await tx`insert into counters (name, value) values (${name}, ${value}) on conflict (name) do update set value = excluded.value`;
+
+    // the lock date goes on last: with it set earlier, the ledger guard would refuse the old entries dated before it
+    await tx`update settings set lock_date = ${blank(c.lockDate)} where id = 1`;
   });
   return counts;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const [file, flag] = process.argv.slice(2);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const [file, ...flags] = process.argv.slice(2);
   if (!file || !process.env.DATABASE_URL) {
-    console.error('Usage: DATABASE_URL=... node scripts/import-old.mjs <export file> [--replace]');
+    console.error('Usage: DATABASE_URL=... node scripts/import-old.mjs <export file> [--replace --yes]');
     process.exit(1);
   }
-  const sql = postgres(process.env.DATABASE_URL, { onnotice: () => {} });
+  const replace = flags.includes('--replace');
+  const sql = postgres(process.env.DATABASE_URL, dbOptions(process.env.DATABASE_URL));
   try {
-    const counts = await importOld(sql, readExport(file), { replace: flag === '--replace' });
+    if (replace) {
+      // wiping posted books cannot be undone: say which database and how much it holds, and ask for --yes
+      const [n] = await sql`select (select count(*) from journal_entries)::int entries, (select count(*) from payroll_runs)::int payroll_runs,
+        (select count(*) from attachments)::int attachments, (select count(*) from tasks)::int tasks`;
+      console.log(`--replace wipes the books on ${new URL(process.env.DATABASE_URL).host}: ${n.entries} entries, ${n.payroll_runs} payroll runs, ${n.attachments} attachments, ${n.tasks} tasks. Logins and settings stay.`);
+      if (!flags.includes('--yes')) throw new Error('Add --yes to go ahead.');
+    }
+    const counts = await importOld(sql, readExport(file), { replace });
     console.log('Imported', counts);
+  } catch (e) {
+    console.error(e.message); process.exitCode = 1;
   } finally { await sql.end(); }
 }

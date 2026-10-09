@@ -3,10 +3,11 @@ import { trialBalance } from '@/lib/books';
 import { fmt } from '@/lib/money';
 import { natural, type AccountType } from '@/lib/ledger';
 import { ReportTools } from '@/components/ReportTools';
+import { today } from '@/lib/dates';
 
 export default async function BalanceSheet({ searchParams }: { searchParams: Promise<{ to?: string }> }) {
   await requireUser();
-  const { to = new Date().toISOString().slice(0, 10) } = await searchParams;
+  const { to = today() } = await searchParams;
   const rows = await trialBalance({ to });
   const of = (t: AccountType) => rows.filter(r => r.type === t && Math.abs(r.dr - r.cr) > 0.004);
   const sum = (t: AccountType) => rows.filter(r => r.type === t).reduce((s, r) => s + natural(r.type, r.dr, r.cr), 0);

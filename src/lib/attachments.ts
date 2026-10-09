@@ -5,6 +5,7 @@ import { audit } from './books';
 import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
 import { storage } from './storage';
+import { TZ } from './dates';
 
 /** Documents that can carry files. The names match audit_log.entity so the history shows uploads. */
 export const ENTITIES = { invoice: 'invoices', journal: 'journal_entries' } as const;
@@ -36,7 +37,7 @@ async function docStatus(entity: Entity, id: string): Promise<string> {
 export async function listAttachments(entity: Entity, id: string) {
   return sql<Attachment[]>`
     select a.id, a.file_name, a.mime_type, a.size_bytes::int size_bytes, a.uploaded_by, u.name who,
-      to_char(a.uploaded_at at time zone 'Africa/Cairo','YYYY-MM-DD HH24:MI') at
+      to_char(a.uploaded_at at time zone ${TZ},'YYYY-MM-DD HH24:MI') at
     from attachments a left join users u on u.id = a.uploaded_by
     where a.entity = ${entity} and a.entity_id = ${id} order by a.uploaded_at`;
 }

@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { redirect } from 'next/navigation';
-import { requireUser, hashPassword } from '@/lib/auth';
+import { requireUser, hashPassword, endOtherSessions } from '@/lib/auth';
 import { ROLES } from '@/lib/roles';
 import { sql } from '@/lib/db';
 import { audit } from '@/lib/books';
@@ -13,6 +13,7 @@ async function changePassword(f: FormData) {
   if (!(await bcrypt.compare(cur, row.password_hash))) redirect('/account?error=' + encodeURIComponent('Your current password is not right.'));
   if (next.length < 8) redirect('/account?error=' + encodeURIComponent('Use at least 8 characters.'));
   await sql`update users set password_hash = ${await hashPassword(next)} where id = ${u.id}`;
+  await endOtherSessions(u.id);
   await audit(sql, u, 'user', u.id, 'Changed own password');
   redirect('/account?saved=1');
 }

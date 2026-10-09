@@ -7,6 +7,7 @@ import { getSettings } from '@/lib/books';
 import { getRun } from '@/lib/payroll';
 import { rates } from '@/lib/payroll-calc';
 import { deleteRunAction, payRunAction, postRunAction, saveRunAction } from '../../actions';
+import { TZ, today } from '@/lib/dates';
 
 export default async function RunPage({ params, searchParams }: { params: Promise<{ period: string }>; searchParams: Promise<{ error?: string }> }) {
   await requireUser('finance');
@@ -18,14 +19,14 @@ export default async function RunPage({ params, searchParams }: { params: Promis
     getSettings(),
     sql<{ code: string; name: string }[]>`select code, name from accounts where is_bank and postable order by code`,
     sql<{ at: string; who: string | null; action: string; note: string }[]>`
-      select to_char(g.at at time zone 'Africa/Cairo','YYYY-MM-DD HH24:MI') at, u.name who, g.action, g.note
+      select to_char(g.at at time zone ${TZ},'YYYY-MM-DD HH24:MI') at, u.name who, g.action, g.note
       from audit_log g left join users u on u.id = g.user_id where g.entity = 'payroll' and g.entity_id = ${period} order by g.at`,
   ]);
   const R = rates(settings.payroll);
   const ed = r.run.status === 'draft' || r.run.status === 'rejected';
   const t = r.totals;
   const sum = (k: 'basic' | 'allowances' | 'overtime') => r.lines.reduce((s, l) => s + l[k], 0);
-  const today = new Date().toISOString().slice(0, 10);
+  const todayStr = today();
   const missing = settings.require_cc ? r.lines.filter(l => !l.project_id && !l.dept_id).map(l => l.name) : [];
   return (
     <>
@@ -67,7 +68,7 @@ export default async function RunPage({ params, searchParams }: { params: Promis
       {r.run.status === 'posted' && !r.run.paid_entry_id && (
         <form id="pay" action={payRunAction.bind(null, period)} className="card grid g3" style={{ alignItems: 'end' }}>
           <label className="f"><span>Paid from</span><select className="inp" name="bank">{banks.map(b => <option key={b.code} value={b.code}>{b.code} · {b.name}</option>)}</select></label>
-          <label className="f"><span>Date</span><input className="inp" type="date" name="date" defaultValue={today} /></label>
+          <label className="f"><span>Date</span><input className="inp" type="date" name="date" defaultValue={todayStr} /></label>
           <button className="btn pri">Post salary payment of {fmt(t.net)}</button>
         </form>)}
 

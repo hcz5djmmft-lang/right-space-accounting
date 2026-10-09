@@ -5,6 +5,7 @@ import { fmt } from '@/lib/money';
 import { amountInWords, lineAmount } from '@/lib/ledger';
 import { getSteps } from '@/lib/documents';
 import { getPR, getPRApprovals, getPRLines } from '@/lib/pr-queries';
+import { today } from '@/lib/dates';
 
 // Printable payment request (إذن صرف), same layout as the old app's printout. Use the browser's Print / Save as PDF.
 export default async function PrintPR({ params }: { params: Promise<{ id: string }> }) {
@@ -61,7 +62,7 @@ export default async function PrintPR({ params }: { params: Promise<{ id: string
         <div className="box"><h3>Status</h3>{r.status === 'posted' ? `Approved and posted (${r.entry_no})` : r.status === 'pending' ? `Waiting for ${steps[approvals.length]?.name}` : r.status}</div>
       </div>
       <div className="sigs">{steps.map((s, i) => <div className="sig" key={s.position}><b>{s.name}</b><div>{approvals[i]?.who ?? ' '}</div><div className="sd">{approvals[i]?.at.slice(0, 10) ?? 'Signature / date'}</div></div>)}</div>
-      <div className="foot">Printed from Right Space Accounting · {new Date().toISOString().slice(0, 10)}</div>
+      <div className="foot">Printed from Right Space Accounting · {today()}</div>
     </div>
   );
 }

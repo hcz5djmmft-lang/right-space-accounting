@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { hasRole } from '@/lib/roles';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
+import { today } from '@/lib/dates';
 
 const TABS = [['open', 'Not yet received'], ['draft', 'Drafts'], ['all', 'All']] as const;
 
@@ -15,9 +16,9 @@ export default async function SalesInvoices({ searchParams }: { searchParams: Pr
     from invoices i join parties p on p.id = i.party_id left join projects pr on pr.id = i.project_id
     where i.kind = 'sales' order by i.date desc, i.no desc limit 500`;
   const shown = rows.filter(r => tab === 'open' ? r.status === 'posted' && r.total - r.received > 0.004 : tab === 'draft' ? r.status === 'draft' : true);
-  const today = new Date().toISOString().slice(0, 10);
+  const todayStr = today();
   const stateOf = (r: typeof rows[number]) =>
-    r.status === 'posted' ? (r.total - r.received <= 0.004 ? 'Received' : r.received ? 'Part received' : r.due && r.due < today ? 'Overdue' : 'Open')
+    r.status === 'posted' ? (r.total - r.received <= 0.004 ? 'Received' : r.received ? 'Part received' : r.due && r.due < todayStr ? 'Overdue' : 'Open')
     : r.status === 'void' ? 'Void' : 'Draft';
   const cls = (r: typeof rows[number]) => r.status === 'void' ? 'rejected' : r.status === 'posted' ? (r.total - r.received <= 0.004 ? 'posted' : 'pending') : '';
   const open = shown.reduce((s, r) => s + (r.status === 'posted' ? r.total - r.received : 0), 0);

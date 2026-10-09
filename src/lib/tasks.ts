@@ -2,6 +2,7 @@ import 'server-only';
 import { sql } from './db';
 import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
+import { TZ } from './dates';
 
 // Tasks for the team. Anyone signed in can add or edit a task; deleting is for its creator, its assignee or Management.
 
@@ -19,7 +20,7 @@ export type Task = {
 const select = (where = sql``) => sql<Task[]>`
   select t.id, t.title, t.details, t.status, t.priority, to_char(t.due,'YYYY-MM-DD') due, t.assignee_id, a.name assignee,
     t.link_type, t.link_id, t.link_label, t.created_by, c.name creator,
-    to_char(t.created_at at time zone 'Africa/Cairo','YYYY-MM-DD HH24:MI') created_at, to_char(t.done_at at time zone 'Africa/Cairo','YYYY-MM-DD HH24:MI') done_at,
+    to_char(t.created_at at time zone ${TZ},'YYYY-MM-DD HH24:MI') created_at, to_char(t.done_at at time zone ${TZ},'YYYY-MM-DD HH24:MI') done_at,
     (select count(*)::int from task_comments x where x.task_id = t.id) comments
   from tasks t left join users a on a.id = t.assignee_id left join users c on c.id = t.created_by
   ${where}
@@ -67,7 +68,7 @@ export async function deleteTask(user: User, id: string) {
 
 export type Comment = { id: number; who: string | null; at: string; text: string };
 export const listComments = (taskId: string) => sql<Comment[]>`
-  select c.id, u.name who, to_char(c.at at time zone 'Africa/Cairo','YYYY-MM-DD HH24:MI') at, c.text
+  select c.id, u.name who, to_char(c.at at time zone ${TZ},'YYYY-MM-DD HH24:MI') at, c.text
   from task_comments c left join users u on u.id = c.user_id where c.task_id = ${taskId} order by c.at`;
 export async function addComment(user: User, taskId: string, text: string) {
   text = text.trim();

@@ -9,6 +9,7 @@ import { getInvoice, getInvoiceLines, getInvoiceReceipts } from '@/lib/sales-que
 import { listAttachments } from '@/lib/attachments';
 import { Attachments } from '@/components/Attachments';
 import { deleteInvoice, postInvoice, voidInvoice } from '../actions';
+import { TZ, today } from '@/lib/dates';
 
 export default async function InvoicePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   const user = await requireUser();
@@ -19,13 +20,13 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const [lines, receipts, log, files] = await Promise.all([
     getInvoiceLines(id), getInvoiceReceipts(id),
     sql<{ at: string; who: string | null; action: string; note: string }[]>`
-      select to_char(g.at at time zone 'Africa/Cairo','YYYY-MM-DD HH24:MI') at, u.name who, g.action, g.note
+      select to_char(g.at at time zone ${TZ},'YYYY-MM-DD HH24:MI') at, u.name who, g.action, g.note
       from audit_log g left join users u on u.id = g.user_id where g.entity = 'invoice' and g.entity_id = ${id} order by g.at`,
     listAttachments('invoice', id),
   ]);
   const finance = hasRole(user, 'finance');
   const open = r.total - r.received;
-  const today = new Date().toISOString().slice(0, 10);
+  const todayStr = today();
   const state = r.status === 'posted' ? (open <= 0.004 ? 'received' : r.received ? 'part received' : 'open') : r.status;
   return (
     <>
@@ -64,7 +65,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
       {r.status === 'posted' && finance && receipts.length === 0 && (
         <details className="card"><summary>Void this invoice</summary>
           <form action={voidInvoice.bind(null, id)} className="grid g3" style={{ marginTop: 10, alignItems: 'end' }}>
-            <label className="f"><span>Reversal date</span><input className="inp" type="date" name="date" defaultValue={today} /></label>
+            <label className="f"><span>Reversal date</span><input className="inp" type="date" name="date" defaultValue={todayStr} /></label>
             <label className="f"><span>Reason</span><input className="inp" name="reason" dir="auto" /></label>
             <button className="btn bad">Void and reverse</button>
           </form></details>)}

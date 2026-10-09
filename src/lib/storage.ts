@@ -18,16 +18,18 @@ function supabase(url: string, keyEnv: string, bucket: string): Storage {
   const base = `${url.replace(/\/$/, '')}/storage/v1/object`;
   const auth = { Authorization: `Bearer ${keyEnv}`, apikey: keyEnv };
   const ok = async (r: Response, what: string) => { if (!r.ok) throw new Error(`Storage ${what} failed: ${r.status} ${await r.text()}`); return r; };
+  // keys are entity/id/uuid.ext (attachments.ts); anything else would land somewhere else in the bucket
+  const safe = (k: string) => { if (!/^[\w-]+\/[\w.-]+\/[\w-]+\.\w+$/.test(k)) throw new Error('Bad storage key'); return k; };
   return {
     async put(key, body, mime) {
-      await ok(await fetch(`${base}/${bucket}/${key}`, { method: 'POST', headers: { ...auth, 'Content-Type': mime, 'x-upsert': 'false' }, body: new Uint8Array(body) }), 'upload');
+      await ok(await fetch(`${base}/${bucket}/${safe(key)}`, { method: 'POST', headers: { ...auth, 'Content-Type': mime, 'x-upsert': 'false' }, body: new Uint8Array(body) }), 'upload');
     },
     async get(key) {
-      const r = await ok(await fetch(`${base}/authenticated/${bucket}/${key}`, { headers: auth }), 'download');
+      const r = await ok(await fetch(`${base}/authenticated/${bucket}/${safe(key)}`, { headers: auth }), 'download');
       return Buffer.from(await r.arrayBuffer());
     },
     async remove(key) {
-      await ok(await fetch(`${base}/${bucket}`, { method: 'DELETE', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: [key] }) }), 'delete');
+      await ok(await fetch(`${base}/${bucket}`, { method: 'DELETE', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: [safe(key)] }) }), 'delete');
     },
   };
 }
@@ -49,6 +51,9 @@ let cached: Storage | undefined;
 export function storage(): Storage {
   if (cached) return cached;
   const { SUPABASE_URL, SUPABASE_SERVICE_KEY, STORAGE_BUCKET, UPLOAD_DIR } = process.env;
+  // on Vercel the disk is read-only, so a missing bucket setting is a configuration error, not a fallback
+  if (process.env.VERCEL && !(SUPABASE_URL && SUPABASE_SERVICE_KEY))
+    throw new Error('Storage is not configured: set SUPABASE_URL and SUPABASE_SERVICE_KEY (and STORAGE_BUCKET) in Vercel and redeploy.');
   cached = SUPABASE_URL && SUPABASE_SERVICE_KEY
     ? supabase(SUPABASE_URL, SUPABASE_SERVICE_KEY, STORAGE_BUCKET || 'attachments')
     : disk(UPLOAD_DIR || path.join(process.cwd(), 'uploads'));
