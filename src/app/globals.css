@@ -124,3 +124,16 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; colo
 .tsplit { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 12px; align-items: start; }
 .clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 @media (max-width: 860px) { .tgrid, .tsplit { grid-template-columns: 1fr; } .tgrid aside { position: static !important; } }
+
+/* reports */
+.bar { flex: 1; height: 6px; background: var(--line, #e6e0d2); border-radius: 3px; overflow: hidden; }
+.bar > div { height: 100%; }
+@media print {
+  body { background: #fff; color: #111; }
+  .shell { display: block; }
+  .side, .noprint, .msg { display: none !important; }
+  main { padding: 0; }
+  .tw { overflow: visible; }
+  .tiles { grid-template-columns: repeat(3, 1fr); }
+  a { color: inherit; text-decoration: none; }
+}

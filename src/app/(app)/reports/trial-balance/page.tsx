@@ -3,6 +3,7 @@ import { trialBalance } from '@/lib/books';
 import { listDepartments, listProjects } from '@/lib/queries';
 import { fmt } from '@/lib/money';
 import { ReportFilter, parseCC } from '@/components/ReportFilter';
+import { ReportTools } from '@/components/ReportTools';
 
 export default async function TrialBalance({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; cc?: string }> }) {
   await requireUser();
@@ -13,7 +14,7 @@ export default async function TrialBalance({ searchParams }: { searchParams: Pro
   const ok = Math.abs(dr - cr) < 0.005;
   return (
     <>
-      <div className="head"><div><h1>Trial balance</h1><p>{ok ? 'Debits and credits agree.' : 'Debits and credits do not agree for this cost center (normal when filtering by project: the bank side has no cost center).'}</p></div></div>
+      <div className="head"><div><h1>Trial balance</h1><p>{ok ? 'Debits and credits agree.' : 'Debits and credits do not agree for this cost center (normal when filtering by project: the bank side has no cost center).'}</p></div><ReportTools report="tb" query={q} /></div>
       <ReportFilter {...q} projects={projects} departments={departments} />
       <div className="tw"><table>
         <thead><tr><th>GL code</th><th>Name</th><th className="num">Debit</th><th className="num">Credit</th></tr></thead>

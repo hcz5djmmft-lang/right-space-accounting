@@ -2,6 +2,7 @@ import { requireUser } from '@/lib/auth';
 import { trialBalance } from '@/lib/books';
 import { fmt } from '@/lib/money';
 import { natural, type AccountType } from '@/lib/ledger';
+import { ReportTools } from '@/components/ReportTools';
 
 export default async function BalanceSheet({ searchParams }: { searchParams: Promise<{ to?: string }> }) {
   await requireUser();
@@ -16,8 +17,8 @@ export default async function BalanceSheet({ searchParams }: { searchParams: Pro
       {of(t).map(r => <tr key={r.code} className="lvl1"><td dir="auto"><span className="mono">{r.code}</span> · {r.name}</td><td className="num">{fmt(natural(r.type, r.dr, r.cr))}</td></tr>)}</>);
   return (
     <>
-      <div className="head"><div><h1>Balance sheet</h1><p>As of {to} · {Math.abs(assets - le) < 0.005 ? 'balances' : 'does NOT balance'}</p></div></div>
-      <form className="row card" style={{ alignItems: 'end' }}><label className="f"><span>As of</span><input className="inp" type="date" name="to" defaultValue={to} /></label><button className="btn">Show</button></form>
+      <div className="head"><div><h1>Balance sheet</h1><p>As of {to} · {Math.abs(assets - le) < 0.005 ? 'balances' : 'does NOT balance'}</p></div><ReportTools report="bs" query={{ to }} /></div>
+      <form className="row card noprint" style={{ alignItems: 'end' }}><label className="f"><span>As of</span><input className="inp" type="date" name="to" defaultValue={to} /></label><button className="btn">Show</button></form>
       <div className="tw"><table><tbody>
         {section('Assets', 'asset')}<tr className="hdr"><td>Total assets</td><td className="num">{fmt(assets)}</td></tr>
         {section('Liabilities', 'liability')}{section('Equity', 'equity')}

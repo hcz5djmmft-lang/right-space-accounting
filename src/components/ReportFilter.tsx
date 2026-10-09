@@ -2,7 +2,7 @@ export function ReportFilter({ from = '', to = '', cc = '', projects, department
   from?: string; to?: string; cc?: string; projects: { id: string; code: string }[]; departments: { id: string; name: string }[]; extra?: React.ReactNode;
 }) {
   return (
-    <form className="row card" style={{ alignItems: 'end' }}>
+    <form className="row card noprint" style={{ alignItems: 'end' }}>
       {extra}
       <label className="f"><span>From</span><input className="inp" type="date" name="from" defaultValue={from} /></label>
       <label className="f"><span>To</span><input className="inp" type="date" name="to" defaultValue={to} /></label>
