@@ -14,6 +14,14 @@ if (!url) {
   console.error(process.env.VERCEL ? 'migrate: DATABASE_URL is not set. Add it under Settings → Environment Variables in Vercel and redeploy.' : 'Set DATABASE_URL');
   process.exit(1);
 }
+let host = '';
+try { host = new URL(url).hostname; } catch {
+  console.error('migrate: DATABASE_URL is not a whole connection line. It must start with postgresql:// and end with /postgres. Copy the whole line from Supabase → Connect and paste it into the variable in Vercel.');
+  process.exit(1);
+}
+if (/^db\.[a-z0-9]+\.supabase\.co$/.test(host)) {
+  console.warn(`migrate: DATABASE_URL points at ${host}. Without the IPv4 add-on that host cannot be reached from Vercel; the Session pooler or Transaction pooler line (host ending in pooler.supabase.com) always can.`);
+}
 // A preview build (a branch, a pull request) never changes tables unless the Preview environment says so with
 // MIGRATE_PREVIEW=1, so a variable mistakenly shared with Production cannot alter the live books from a branch.
 if (onBuild && process.env.VERCEL_ENV && process.env.VERCEL_ENV !== 'production' && process.env.MIGRATE_PREVIEW !== '1') {

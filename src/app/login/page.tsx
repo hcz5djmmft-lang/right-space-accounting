@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { login, currentUser } from '@/lib/auth';
 import { sql } from '@/lib/db';
+export const maxDuration = 30; // give up after half a minute, not five
 
 async function signIn(form: FormData) {
   'use server';
