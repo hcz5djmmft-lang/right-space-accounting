@@ -117,3 +117,10 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; colo
 .task .t { font-weight: 600; text-decoration: none; color: var(--text); }
 .task .m { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
 @media (max-width: 860px) { .board { grid-template-columns: 1fr; } }
+
+/* ---- tenders ---- */
+.tgrid { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 14px; align-items: start; }
+.tgrid.wide { grid-template-columns: 1fr; } .tgrid.wide aside { position: static !important; }
+.tsplit { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 12px; align-items: start; }
+.clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 860px) { .tgrid, .tsplit { grid-template-columns: 1fr; } .tgrid aside { position: static !important; } }

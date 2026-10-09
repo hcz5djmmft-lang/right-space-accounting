@@ -20,6 +20,38 @@ const blank = v => (v === '' || v === undefined ? null : v);
 const num = v => (v === '' || v === null || v === undefined ? null : Number(v));
 const vals = o => Object.entries(o || {}).map(([id, v]) => ({ id, ...v }));
 
+/** Imports the old tenders/{id} documents plus their trades subcollection ("tenders/<id>/trades"). */
+export async function importTenders(tx, d) {
+  const partyIds = new Set(vals(d.parties).map(p => p.id));
+  const party = id => (id && partyIds.has(id) ? id : null);
+  for (const t of vals(d.tenders)) {
+    await tx`insert into tenders (id, no, name, client_id, client_name, location, due_date, status, type, service, unit, rates, markup, vat, notes, project_id, created_at)
+      values (${t.id}, ${t.no}, ${t.name}, ${party(t.client)}, ${t.clientName || ''}, ${t.location || ''}, ${blank(t.dueDate)}, ${t.status || 'Draft'},
+        ${blank(t.type)}, ${blank(t.service)}, ${blank(t.unit)}, ${tx.json(Object.fromEntries(Object.entries(t.rates || {}).map(([k, v]) => [k, num(v)])))},
+        ${num(t.markup)}, ${num(t.vat) ?? 14}, ${t.notes || ''}, ${blank(t.project)}, ${t.createdAt || new Date().toISOString()})`;
+    const trades = vals(d[`tenders/${t.id}/trades`]).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+    for (const [k, tr] of trades.entries()) {
+      const tid = `${t.id}:${tr.id}`;
+      const bidders = tr.bidders || [], items = tr.items || [];
+      const selected = bidders.some(b => b.id === tr.selected) ? `${tid}:${tr.selected}` : null;
+      await tx`insert into tender_trades (id, tender_id, position, trade_no, name, division, markup, selected_bidder)
+        values (${tid}, ${t.id}, ${tr.order ?? k + 1}, ${tr.tradeNo == null || tr.tradeNo === '' ? null : String(tr.tradeNo)}, ${tr.name}, ${tr.division || ''}, ${num(tr.markup)}, ${selected})`;
+      for (const [i, it] of items.entries())
+        await tx`insert into tender_items (id, trade_id, position, no, code, description, unit, qty, act_qty)
+          values (${`${tid}:${it.id}`}, ${tid}, ${i + 1}, ${it.no == null ? '' : String(it.no)}, ${it.code == null || it.code === '' ? null : String(it.code)}, ${it.desc || ''}, ${it.unit || ''}, ${num(it.qty)}, ${num(it.actQty)})`;
+      for (const [i, b] of bidders.entries()) {
+        const bid = `${tid}:${b.id}`;
+        await tx`insert into tender_bidders (id, trade_id, position, name, party_id, currency, wastage, discount, tax)
+          values (${bid}, ${tid}, ${i + 1}, ${b.name || ''}, ${party(b.party)}, ${b.cur || 'EGP'}, ${num(b.wastage)}, ${num(b.disc)}, ${num(b.tax)})`;
+        for (const [iid, p] of Object.entries(tr.prices?.[b.id] || {})) {
+          if (num(p.offer) === null || !items.some(it => it.id === iid)) continue;
+          await tx`insert into tender_prices (bidder_id, item_id, offer, logistics, misc) values (${bid}, ${`${tid}:${iid}`}, ${num(p.offer)}, ${num(p.logi)}, ${num(p.misc)})`;
+        }
+      }
+    }
+  }
+}
+
 export async function importOld(sql, d, { replace = false } = {}) {
   const counts = {};
   await sql.begin(async tx => {
@@ -30,7 +62,7 @@ export async function importOld(sql, d, { replace = false } = {}) {
         alter table journal_lines disable trigger journal_lines_guard;
         alter table accounts disable trigger accounts_guard;
         truncate payment_allocations, payments, invoice_approvals, invoice_lines, invoices,
-          journal_lines, journal_entries, audit_log, accounts, employees, projects, parties, departments, counters cascade;
+          journal_lines, journal_entries, audit_log, accounts, employees, projects, parties, departments, counters, tenders cascade;
         alter table journal_entries enable trigger journal_entries_guard;
         alter table journal_lines enable trigger journal_lines_guard;
         alter table accounts enable trigger accounts_guard;`);
@@ -139,6 +171,9 @@ export async function importOld(sql, d, { replace = false } = {}) {
     }
     counts.payments = vals(d.payments).length;
 
+    await importTenders(tx, d);
+    counts.tenders = vals(d.tenders).length;
+
     // numbering continues after the highest imported number
     const maxNo = (rows, re) => rows.reduce((m, r) => { const x = re.exec(r.no || ''); return x ? Math.max(m, +x[1]) : m; }, 0);
     const counters = {
@@ -147,6 +182,7 @@ export async function importOld(sql, d, { replace = false } = {}) {
       'INV-': maxNo(vals(d.invoices).filter(v => v.kind === 'sales'), /^INV-(\d+)$/),
       'PAY-': maxNo(vals(d.payments).filter(p => p.kind === 'payment'), /^PAY-(\d+)$/),
       'RCT-': maxNo(vals(d.payments).filter(p => p.kind === 'receipt'), /^RCT-(\d+)$/),
+      'TND-': maxNo(vals(d.tenders), /^TND-(\d+)$/),
     };
     for (const [name, value] of Object.entries(counters))
       await tx`insert into counters (name, value) values (${name}, ${value}) on conflict (name) do update set value = excluded.value`;

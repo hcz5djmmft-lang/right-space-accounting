@@ -25,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ...(hasRole(user, 'finance') ? [{ href: '/banks', label: 'Banks & cash' }] : []),
     'Projects',
     { href: '/cost-centers', label: 'Cost centers' },
+    ...(hasRole(user, 'tenders') ? [{ href: '/tenders', label: 'Tenders' }] : []),
     'Trade',
     { href: '/payment-requests', label: 'Payment requests' },
     { href: '/sales-invoices', label: 'Sales invoices' },
