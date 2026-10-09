@@ -44,6 +44,7 @@ payment requests (إذن صرف) with Finance → Engineering → Management app
 settings (approvers per step, people and roles, company rules), receipt photos and PDFs on payment requests
 and expense entries (phone camera; stored on disk locally, in a private Supabase Storage bucket in production),
 sales invoices (INV-00001…, VAT 14%, printable, void by reversal) and customer receipts (RCT-00001…, allocated
-to invoices, WHT withheld by the customer goes to WHT receivable).
+to invoices, WHT withheld by the customer goes to WHT receivable), Banks & cash (balances, activity with running
+balance, statement reconciliation by ticking cleared lines; Finance only).
 
-Next: banks and reconciliation, payroll, tasks, tenders, aging and budget vs actual, Excel/PDF export.
+Next: payroll, tasks, tenders, aging and budget vs actual, Excel/PDF export.
