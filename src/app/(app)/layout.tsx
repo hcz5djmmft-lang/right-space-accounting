@@ -1,5 +1,6 @@
 import { requireUser, logout } from '@/lib/auth';
 import { waitingForUser } from '@/lib/documents';
+import { openForUser } from '@/lib/tasks';
 import { hasRole } from '@/lib/roles';
 import { redirect } from 'next/navigation';
 import { Nav, type NavItem } from '@/components/Nav';
@@ -12,10 +13,12 @@ async function signOut() {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const n = (await waitingForUser(user)).length;
+  const [waiting, myTasks] = await Promise.all([waitingForUser(user), openForUser(user.id)]);
+  const n = waiting.length;
   const items: NavItem[] = [
     { href: '/', label: 'Overview' },
     { href: '/approvals', label: 'Approvals', badge: n },
+    { href: '/tasks', label: 'Tasks', badge: myTasks },
     'Books',
     { href: '/entries', label: 'Entries' },
     { href: '/accounts', label: 'Chart of accounts' },
