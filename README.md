@@ -1,0 +1,36 @@
+# Right Space Accounting (web app)
+
+The new accounting and operations system for Right Space Development: books, cost centers, payment requests
+with approvals, payroll, tasks and tenders. English UI, EGP only. It replaces the single-page claude.ai artifact;
+the rules carried over from it are in the requirements doc and in `src/lib/ledger.ts` / `src/lib/books.ts`.
+
+## Stack
+
+- Next.js (React) app, one codebase for phone and desktop.
+- PostgreSQL database (hosted on Supabase). Ledger rules are enforced in the database too:
+  posted entries cannot be changed or deleted, every posted entry must balance, nothing posts on or before the lock date,
+  system accounts cannot be deleted. See `db/migrations/001_core.sql`.
+- Each person signs in with their own email and password; roles: management, finance, engineering, projects, tenders.
+
+## Run locally
+
+```sh
+npm install
+cp .env.example .env.local          # set DATABASE_URL
+npm run migrate                     # creates the tables
+npm run import:old -- <export.js|json>   # loads a copy of the old app's data (sample-data.js works)
+npm run create-user -- you@example.com "Your Name" <password> management
+npm run dev                         # http://localhost:3000
+```
+
+Tests: `npm test` (needs a throwaway database at TEST_DATABASE_URL, default `rsa_test`; it is wiped on every run).
+
+## Build status
+
+Done: logins and roles, chart of accounts, cost centers with automatic project GL codes, customers and vendors,
+Expense / Collection / Transfer entries with approval, return and reversal, full history per entry,
+trial balance, income statement, balance sheet, general ledger, import of the old app's data.
+
+Next: payment requests (إذن صرف) with Finance → Engineering → Management approval and email,
+vendor payments and receipts, receipt photo attachments, sales invoices, banks and reconciliation, payroll,
+tasks, tenders, aging and budget vs actual, Excel/PDF export, users screen, settings screen.
