@@ -1,5 +1,6 @@
 import { requireUser, logout } from '@/lib/auth';
 import { waitingForUser } from '@/lib/documents';
+import { hasRole } from '@/lib/roles';
 import { redirect } from 'next/navigation';
 import { Nav, type NavItem } from '@/components/Nav';
 
@@ -25,6 +26,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: '/parties', label: 'Customers & vendors' },
     'Insight',
     { href: '/reports', label: 'Reports' },
+    ...(hasRole(user, 'management') ? ['Admin', { href: '/settings', label: 'Settings' }] as NavItem[] : []),
+    { href: '/account', label: 'My account' },
   ];
   return (
     <div className="shell">
