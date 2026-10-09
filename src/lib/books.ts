@@ -34,7 +34,8 @@ async function accountTypes(tx: Tx, codes: string[]) {
 }
 
 /** Checks the rules every entry must meet before it is saved. */
-export async function validateLines(tx: Tx, lines: Line[], settings: Settings) {
+/** `officeOnProject` lets an Office code carry a project cost center: payroll charges staff salaries (11001) to the project they work on. */
+export async function validateLines(tx: Tx, lines: Line[], settings: Settings, opts: { officeOnProject?: boolean } = {}) {
   assertBalanced(lines);
   const accs = await accountTypes(tx, lines.map(l => l.account));
   const [office] = await tx<{ id: string }[]>`select id from projects where is_office limit 1`;
@@ -45,7 +46,7 @@ export async function validateLines(tx: Tx, lines: Line[], settings: Settings) {
     if (!a.postable) throw new RuleError(`GL code ${l.account} is a heading and cannot take entries.`);
     // a project's GL codes are used only for that project; departments use the Office codes
     if (a.type === 'expense' && a.project_id) {
-      if (l.project_id && a.project_id !== l.project_id) throw new RuleError(`GL code ${l.account} belongs to another project.`);
+      if (l.project_id && a.project_id !== l.project_id && !(opts.officeOnProject && a.project_id === officeId)) throw new RuleError(`GL code ${l.account} belongs to another project.`);
       if (l.dept_id && a.project_id !== officeId) throw new RuleError(`GL code ${l.account} is a project code; departments use the Office codes.`);
     }
   }
