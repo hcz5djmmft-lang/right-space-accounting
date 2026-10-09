@@ -5,11 +5,12 @@ import { fmt } from '@/lib/money';
 import { natural } from '@/lib/ledger';
 import { ReportFilter, parseCC } from '@/components/ReportFilter';
 import { ReportTools } from '@/components/ReportTools';
+import { today } from '@/lib/dates';
 
 export default async function IncomeStatement({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; cc?: string }> }) {
   await requireUser();
   const q = await searchParams;
-  const year = new Date().getFullYear();
+  const year = today().slice(0, 4);
   const from = q.from || `${year}-01-01`, to = q.to || `${year}-12-31`;
   const [rows, projects, departments] = await Promise.all([trialBalance({ from, to, ...parseCC(q.cc) }), listProjects(), listDepartments()]);
   const rev = rows.filter(r => r.type === 'revenue'), exp = rows.filter(r => r.type === 'expense');

@@ -5,6 +5,7 @@ import { fmt } from '@/lib/money';
 import { amountInWords, lineAmount } from '@/lib/ledger';
 import { getSettings } from '@/lib/books';
 import { getInvoice, getInvoiceLines } from '@/lib/sales-queries';
+import { today } from '@/lib/dates';
 
 // Printable sales invoice for the client. Use the browser's Print / Save as PDF.
 export default async function PrintInvoice({ params }: { params: Promise<{ id: string }> }) {
@@ -56,7 +57,7 @@ export default async function PrintInvoice({ params }: { params: Promise<{ id: s
         <div className="box"><h3>Payment</h3><div>Please transfer to {bank[0]?.name ?? 'our bank account'} quoting {r.no}.</div>{r.received ? <div>Received so far: {fmt(r.received)} · open {fmt(r.total - r.received)}</div> : null}</div>
         <div className="box"><h3>Contact</h3><div>{c?.email || ''}</div><div>{c?.phone || ''}</div></div>
       </div>
-      <div className="foot">Printed from Right Space Accounting · {new Date().toISOString().slice(0, 10)}</div>
+      <div className="foot">Printed from Right Space Accounting · {today()}</div>
     </div>
   );
 }

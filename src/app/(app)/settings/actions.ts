@@ -2,6 +2,7 @@
 import crypto from 'node:crypto';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { requireUser, hashPassword } from '@/lib/auth';
 import { ROLES, type Role } from '@/lib/roles';
 import { sql } from '@/lib/db';
@@ -10,6 +11,11 @@ import { appUrl, sendMail } from '@/lib/mail';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const back = (msg: string, bad = false) => redirect(`/settings?${bad ? 'error' : 'saved'}=${encodeURIComponent(msg)}`);
+/** A message carrying a temporary password is shown once from a short-lived cookie, never in the address bar or the server log. */
+async function flash(msg: string) {
+  (await cookies()).set('rsa_flash', msg, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/settings', maxAge: 60 });
+  redirect('/settings');
+}
 const rolesOf = (f: FormData) => f.getAll('roles').map(String).filter((r): r is Role => r in ROLES);
 
 export async function saveCompany(f: FormData) {
@@ -54,7 +60,7 @@ export async function addUser(f: FormData) {
     text: `Hello ${name},\n\n${admin.name} gave you access to Right Space Accounting.\n\nSign in: ${appUrl('/login')}\nEmail: ${email}\nTemporary password: ${password}\n\nPlease change it after signing in (top of the menu, "My account").`,
   });
   revalidatePath('/settings');
-  redirect(`/settings?saved=${encodeURIComponent(`Login created for ${email}. Temporary password: ${password} (also emailed when email is set up).`)}`);
+  await flash(`Login created for ${email}. Temporary password: ${password} (also emailed when email is set up). Shown once; pass it on now.`);
 }
 
 export async function updateUser(id: string, f: FormData) {
@@ -77,5 +83,5 @@ export async function resetPassword(id: string) {
   await sql`delete from sessions where user_id = ${id}`;
   await audit(sql, admin, 'user', id, 'Reset password');
   await sendMail({ to: [u.email], subject: 'Your Right Space Accounting password was reset', text: `Temporary password: ${password}\nSign in: ${appUrl('/login')}` });
-  redirect(`/settings?saved=${encodeURIComponent(`New temporary password for ${u.email}: ${password}`)}`);
+  await flash(`New temporary password for ${u.email}: ${password}. Shown once; pass it on now.`);
 }

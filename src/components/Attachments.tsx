@@ -3,6 +3,22 @@ import { useRef, useState, useTransition } from 'react';
 import { removeAction, uploadAction } from '@/app/(app)/attachments/actions';
 import type { Attachment, Entity } from '@/lib/attachments';
 
+const MAX_SIDE = 2000, SHRINK_ABOVE = 1.5 * 1024 * 1024;
+/** Phone photos are 3–8 MB; a receipt is readable at 2000px. Big images are resized in the browser so uploads stay small and quick. PDFs and small files go up as they are. */
+async function shrink(f: File): Promise<File> {
+  if (!f.type.startsWith('image/') || f.size <= SHRINK_ABOVE || typeof createImageBitmap !== 'function') return f;
+  try {
+    const bmp = await createImageBitmap(f);
+    const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * scale); canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+    if (!blob || blob.size >= f.size) return f;
+    return new File([blob], f.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch { return f; } // HEIC or an odd file: the server still checks the size and the type
+}
+
 /** Receipts and photos on a document. On a phone the two buttons open the camera or the photo library. */
 export function Attachments({ entity, id, path, items, userId, canRemove, locked }: {
   entity: Entity; id: string; path: string; items: Attachment[]; userId: string; canRemove: boolean; locked: boolean;
@@ -12,10 +28,19 @@ export function Attachments({ entity, id, path, items, userId, canRemove, locked
   const [pending, start] = useTransition();
   const send = (input: HTMLInputElement | null) => {
     if (!input?.files?.length) return;
-    const fd = new FormData();
-    for (const f of Array.from(input.files)) fd.append('files', f);
+    const files = Array.from(input.files);
     input.value = '';
-    start(async () => { const r = await uploadAction(entity, id, path, fd); setError(r.error ?? ''); });
+    start(async () => {
+      setError('');
+      // one request per file: the host accepts about 4.5 MB per request, so several files never share one
+      for (const f of files) {
+        const fd = new FormData(); fd.append('files', await shrink(f));
+        try {
+          const r = await uploadAction(entity, id, path, fd);
+          if (r.error) { setError(r.error); break; }
+        } catch { setError(`${f.name} could not be uploaded: it is too large (max 4 MB).`); break; }
+      }
+    });
   };
   const remove = (a: Attachment) => {
     if (!confirm(`Remove ${a.file_name}?`)) return;

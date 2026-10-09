@@ -3,6 +3,7 @@ import { canPostDirect, getSettings } from '@/lib/books';
 import { listAccounts, listDepartments, listParties, listProjects } from '@/lib/queries';
 import { EntryForm } from '@/components/EntryForm';
 import { saveEntryAction } from '../actions';
+import { today } from '@/lib/dates';
 
 export default async function NewEntry({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
   const user = await requireUser();
@@ -14,7 +15,7 @@ export default async function NewEntry({ searchParams }: { searchParams: Promise
     <>
       <div className="head"><div><h1>New entry</h1><p>Pick the project or department on each line; the debit and credit lines are built for you.</p></div></div>
       <EntryForm
-        initial={{ date: new Date().toISOString().slice(0, 10), ref: '', memo: '', type: kind, bank, toBank: '', party: '', vatRate: '0', amount: '',
+        initial={{ date: today(), ref: '', memo: '', type: kind, bank, toBank: '', party: '', vatRate: '0', amount: '',
           items: [{ assign: '', acc: kind === 'collection' ? 'R110' : '', desc: '', amount: '' }] }}
         accounts={accounts} projects={projects} departments={departments} parties={parties}
         arCode={settings.account_map.ar ?? 'A130'} canPost={canPostDirect(user, settings)} save={saveEntryAction} />

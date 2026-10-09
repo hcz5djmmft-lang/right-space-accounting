@@ -5,12 +5,13 @@ import { listEmployees, listRuns } from '@/lib/payroll';
 import { monthEnd } from '@/lib/payroll-calc';
 import { getSettings } from '@/lib/books';
 import { createRunAction } from './actions';
+import { today } from '@/lib/dates';
 
 export default async function Payroll({ searchParams }: { searchParams: Promise<{ tab?: string; error?: string }> }) {
   await requireUser('finance');
   const { tab = 'employees', error } = await searchParams;
   const [employees, runs, settings] = await Promise.all([listEmployees(), listRuns(), getSettings()]);
-  const period = new Date().toISOString().slice(0, 7);
+  const period = today().slice(0, 7);
   return (
     <>
       <div className="head"><div><h1>Payroll</h1><p>Employees, monthly salary runs, social insurance and salary tax (Egyptian rules).</p></div>

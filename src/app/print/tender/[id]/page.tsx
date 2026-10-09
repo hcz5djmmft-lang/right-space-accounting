@@ -4,6 +4,7 @@ import { fmt, r2 } from '@/lib/money';
 import { amountInWords } from '@/lib/ledger';
 import { loadTender } from '@/lib/tenders';
 import { clientRows, tenderTotals } from '@/lib/tender-calc';
+import { today } from '@/lib/dates';
 
 // Printable tender offer for the client: summary by trade, then the priced BOQ per trade.
 export default async function PrintTender({ params }: { params: Promise<{ id: string }> }) {
@@ -14,7 +15,7 @@ export default async function PrintTender({ params }: { params: Promise<{ id: st
   const T = tenderTotals(t);
   const rows = clientRows(t);
   const groups = t.trades.map(tr => { const rs = rows.filter(r => r.tr.id === tr.id); return { tr, rows: rs, sum: r2(rs.reduce((s, r) => s + (r.amt ?? 0), 0)) }; });
-  const today = new Date().toISOString().slice(0, 10);
+  const todayStr = today();
   return (
     <div className="pr-print">
       <style>{`
@@ -31,7 +32,7 @@ export default async function PrintTender({ params }: { params: Promise<{ id: st
       <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
       <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
       <div className="top"><div className="logo">RIGHT <b>SPACE</b></div><h1>Tender offer<small>{t.no}</small></h1></div>
-      <div className="meta"><div><b>Project:</b> <span dir="auto">{t.name}</span></div><div><b>Date:</b> {today}</div><div><b>Client:</b> <span dir="auto">{t.client ?? ''}</span></div><div><b>Location:</b> <span dir="auto">{t.location}</span></div></div>
+      <div className="meta"><div><b>Project:</b> <span dir="auto">{t.name}</span></div><div><b>Date:</b> {todayStr}</div><div><b>Client:</b> <span dir="auto">{t.client ?? ''}</span></div><div><b>Location:</b> <span dir="auto">{t.location}</span></div></div>
       <h2>Summary</h2>
       <table><thead><tr><th>Trade</th><th className="n">Amount (EGP)</th></tr></thead>
         <tbody>{groups.map(g => <tr key={g.tr.id}><td dir="auto">{g.tr.name}</td><td className="n">{fmt(g.sum)}</td></tr>)}
@@ -42,7 +43,7 @@ export default async function PrintTender({ params }: { params: Promise<{ id: st
           <table><thead><tr><th>Item</th><th>Description</th><th>Unit</th><th className="n">Qty</th><th className="n">Unit price</th><th className="n">Amount</th></tr></thead>
             <tbody>{g.rows.map(r => <tr key={r.it.id}><td>{r.it.no}</td><td dir="auto">{r.it.description}</td><td dir="auto">{r.it.unit}</td><td className="n">{r.it.qty !== null ? fmt(r.it.qty) : ''}</td><td className="n">{r.cr === null ? '—' : fmt(r.cr)}</td><td className="n">{r.amt === null ? '—' : fmt(r.amt)}</td></tr>)}
               <tr className="tot"><td colSpan={5}>Total {g.tr.name}</td><td className="n">{fmt(g.sum)}</td></tr></tbody></table></div>))}
-      <p style={{ color: '#777', fontSize: 10, marginTop: 16 }}>Right Space Development · prepared {today}</p>
+      <p style={{ color: '#777', fontSize: 10, marginTop: 16 }}>Right Space Development · prepared {todayStr}</p>
     </div>
   );
 }

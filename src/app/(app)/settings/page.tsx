@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { requireUser } from '@/lib/auth';
 import { ROLES, type Role } from '@/lib/roles';
 import { sql } from '@/lib/db';
@@ -8,6 +9,7 @@ import { addUser, resetPassword, saveCompany, saveSteps, updateUser } from './ac
 export default async function Settings({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string }> }) {
   const me = await requireUser('management');
   const { saved, error } = await searchParams;
+  const flash = (await cookies()).get('rsa_flash')?.value; // a temporary password, set by actions.ts for one minute
   const [s, steps, users] = await Promise.all([
     getSettings(), getSteps(),
     sql<{ id: string; email: string; name: string; roles: Role[]; active: boolean }[]>`select id, email, name, roles, active from users order by active desc, name`,
@@ -16,6 +18,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
   return (
     <>
       <div className="head"><div><h1>Settings</h1><p>Only Management sees this page. Every change here is recorded with who made it.</p></div></div>
+      {flash && <div className="msg good">{flash}</div>}
       {saved && <div className="msg good">{saved}</div>}
       {error && <div className="msg bad">{error}</div>}
 

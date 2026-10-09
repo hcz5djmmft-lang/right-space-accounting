@@ -8,6 +8,7 @@ import { approveAction, deleteAction, returnAction, reverseAction } from '../act
 import { listAttachments } from '@/lib/attachments';
 import { Attachments } from '@/components/Attachments';
 import { hasRole } from '@/lib/roles';
+import { TZ, today } from '@/lib/dates';
 
 export default async function EntryPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   const user = await requireUser();
@@ -23,7 +24,7 @@ export default async function EntryPage({ params, searchParams }: { params: Prom
       left join projects p on p.id = l.project_id left join departments d on d.id = l.dept_id left join parties pt on pt.id = l.party_id
       where l.entry_id = ${id} order by l.line_no`,
     sql<{ at: string; who: string | null; action: string; note: string }[]>`
-      select to_char(g.at at time zone 'Africa/Cairo','YYYY-MM-DD HH24:MI') at, u.name who, g.action, g.note
+      select to_char(g.at at time zone ${TZ},'YYYY-MM-DD HH24:MI') at, u.name who, g.action, g.note
       from audit_log g left join users u on u.id = g.user_id where g.entity = 'journal' and g.entity_id = ${id} order by g.at`,
     sql<{ id: string; no: string }[]>`select id, no from journal_entries where id in (${e.reverses_id ?? ''}, ${e.reversed_by ?? ''})`,
     getSettings(),
@@ -33,7 +34,7 @@ export default async function EntryPage({ params, searchParams }: { params: Prom
   const approver = canPostDirect(user, settings);
   const typed = ['expense', 'collection', 'transfer'].includes(e.kind);
   const editable = typed && (e.status === 'draft' || e.status === 'rejected') && !e.source_type;
-  const today = new Date().toISOString().slice(0, 10);
+  const todayStr = today();
   const lastReturn = [...log].reverse().find(g => g.action === 'Returned for changes');
   return (
     <>
@@ -66,7 +67,7 @@ export default async function EntryPage({ params, searchParams }: { params: Prom
       {e.status === 'posted' && !e.reversed_by && e.kind !== 'reversal' && approver && (
         <details className="card"><summary>Reverse this entry</summary>
           <form action={reverseAction.bind(null, id)} className="grid g3" style={{ marginTop: 10, alignItems: 'end' }}>
-            <label className="f"><span>Reversal date</span><input className="inp" type="date" name="date" defaultValue={today} /></label>
+            <label className="f"><span>Reversal date</span><input className="inp" type="date" name="date" defaultValue={todayStr} /></label>
             <label className="f"><span>Reason</span><input className="inp" name="reason" /></label>
             <button className="btn bad">Post reversal</button>
           </form></details>)}

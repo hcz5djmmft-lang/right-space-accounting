@@ -3,12 +3,14 @@
 // Roles: management, finance, engineering, projects, tenders
 import bcrypt from 'bcryptjs';
 import postgres from 'postgres';
+import { dbOptions } from './db-options.mjs';
 
 const [email, name, password, roles = 'management'] = process.argv.slice(2);
 if (!email || !name || !password) { console.error('Usage: create-user.mjs <email> "<name>" <password> <roles>'); process.exit(1); }
-const sql = postgres(process.env.DATABASE_URL);
+if (!process.env.DATABASE_URL) { console.error('Set DATABASE_URL'); process.exit(1); }
+const sql = postgres(process.env.DATABASE_URL, dbOptions(process.env.DATABASE_URL));
 const hash = await bcrypt.hash(password, 10);
-await sql`insert into users (email, name, password_hash, roles) values (${email}, ${name}, ${hash}, ${roles.split(',')})
+await sql`insert into users (email, name, password_hash, roles) values (${email.toLowerCase()}, ${name}, ${hash}, ${roles.split(',')})
   on conflict (email) do update set name = excluded.name, password_hash = excluded.password_hash, roles = excluded.roles, active = true`;
 console.log('Saved user', email, 'roles', roles);
 await sql.end();

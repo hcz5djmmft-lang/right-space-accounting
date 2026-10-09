@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
+import { today } from '@/lib/dates';
 
 export default async function Overview({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   const user = await requireUser();
@@ -14,7 +15,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
     sql<{ rev: number; exp: number }[]>`
       select coalesce(sum(case when a.type='revenue' then l.cr - l.dr end),0) rev, coalesce(sum(case when a.type='expense' then l.dr - l.cr end),0) exp
       from journal_lines l join accounts a on a.code = l.account join journal_entries e on e.id = l.entry_id and e.status = 'posted'
-      where e.date >= date_trunc('year', current_date)`,
+      where e.date >= ${today().slice(0, 4) + '-01-01'}::date`,
     sql<{ n: number }[]>`select count(*)::int n from journal_entries where status = 'pending'`,
     sql<{ id: string; code: string; name: string; budget: number | null; spent: number; collected: number }[]>`
       select p.id, p.code, p.name, p.budget,

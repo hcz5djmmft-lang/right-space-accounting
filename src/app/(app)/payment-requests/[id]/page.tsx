@@ -10,6 +10,7 @@ import { getPR, getPRApprovals, getPRLines } from '@/lib/pr-queries';
 import { listAttachments } from '@/lib/attachments';
 import { Attachments } from '@/components/Attachments';
 import { approvePR, deletePR, returnPR } from '../actions';
+import { TZ } from '@/lib/dates';
 
 export default async function PRPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
   const user = await requireUser();
@@ -20,7 +21,7 @@ export default async function PRPage({ params, searchParams }: { params: Promise
   const [lines, approvals, steps, log, [paid], files] = await Promise.all([
     getPRLines(id), getPRApprovals(id), getSteps(),
     sql<{ at: string; who: string | null; action: string; note: string }[]>`
-      select to_char(g.at at time zone 'Africa/Cairo','YYYY-MM-DD HH24:MI') at, u.name who, g.action, g.note
+      select to_char(g.at at time zone ${TZ},'YYYY-MM-DD HH24:MI') at, u.name who, g.action, g.note
       from audit_log g left join users u on u.id = g.user_id where g.entity = 'invoice' and g.entity_id = ${id} order by g.at`,
     sql<{ v: number }[]>`select coalesce(sum(a.amount),0) v from payment_allocations a join payments p on p.id = a.payment_id and p.status = 'posted' where a.invoice_id = ${id}`,
     listAttachments('invoice', id),

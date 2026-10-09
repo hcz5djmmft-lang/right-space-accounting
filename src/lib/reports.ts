@@ -4,8 +4,9 @@ import { r2 } from './money';
 import { natural, type AccountType } from './ledger';
 import { trialBalance } from './books';
 import type { Settings } from './books';
+import { today } from './dates';
 
-export const today = () => new Date().toISOString().slice(0, 10);
+export { today } from './dates';
 
 /** First day of the fiscal year that contains `on` (settings.fy_start_month, 1 = January). */
 export function fiscalYearStart(s: Pick<Settings, 'fy_start_month'>, on = today()) {
@@ -145,11 +146,16 @@ export const ledgerLines = (account: string, from = '', to = '') => sql<LedgerLi
 
 // ---- CSV for Excel: the same numbers as the screens, one function per report ----
 export type CsvQuery = Record<string, string | undefined>;
-const cell = (v: unknown) => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+const cell = (v: unknown) => {
+  let s = v === null || v === undefined ? '' : String(v);
+  // text that Excel would run as a formula (=SUM…, +…, @…) gets a leading apostrophe; negative numbers stay numbers
+  if (/^[=+@\t\r]/.test(s) || (s.startsWith('-') && !/^-\d/.test(s))) s = "'" + s;
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+};
 export const toCsv = (rows: unknown[][]) => '﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n');
 
 export async function reportCsv(kind: string, q: CsvQuery, settings: Settings): Promise<{ name: string; rows: unknown[][] } | null> {
-  const year = new Date().getFullYear();
+  const year = today().slice(0, 4);
   const cc = q.cc ?? '', project = cc.startsWith('p:') ? cc.slice(2) : undefined, dept = cc.startsWith('d:') ? cc.slice(2) : undefined;
   if (kind === 'tb') {
     const rows = await trialBalance({ from: q.from || undefined, to: q.to || undefined, project, dept });
