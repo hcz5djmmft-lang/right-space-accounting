@@ -6,21 +6,32 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
 import { dbOptions } from './db-options.mjs';
+import { databaseUrlProblem, describeDatabaseUrl, hasPasswordPlaceholder, resolveDatabaseUrl } from './db-url.mjs';
 
-const url = process.env.DATABASE_URL;
+const url = resolveDatabaseUrl();
 const onBuild = process.argv.includes('--if-configured');
 if (!url) {
   if (onBuild && process.env.VERCEL_ENV !== 'production') { console.log('migrate: DATABASE_URL not set, skipped'); process.exit(0); }
   console.error(process.env.VERCEL ? 'migrate: DATABASE_URL is not set. Add it under Settings → Environment Variables in Vercel and redeploy.' : 'Set DATABASE_URL');
   process.exit(1);
 }
-let host = '';
-try { host = new URL(url).hostname; } catch {
-  console.error('migrate: DATABASE_URL is not a whole connection line. It must start with postgresql:// and end with /postgres. Copy the whole line from Supabase → Connect and paste it into the variable in Vercel.');
+const problem = databaseUrlProblem(url);
+if (problem) {
+  console.error(`migrate: DATABASE_URL ${problem} (${describeDatabaseUrl(url)}). It must be the whole line from Supabase → Connect → Session pooler, ` +
+    'starting with postgresql:// and ending with /postgres, pasted exactly as shown. The password goes in its own variable, DATABASE_PASSWORD.');
   process.exit(1);
 }
+if (hasPasswordPlaceholder(url)) {
+  console.error('migrate: DATABASE_URL still has [YOUR-PASSWORD] in it. Add a second variable, DATABASE_PASSWORD, holding only the database password ' +
+    '(Supabase → Project Settings → Database → Reset database password gives a new one), then redeploy.');
+  process.exit(1);
+}
+const host = new URL(url).hostname;
 if (/^db\.[a-z0-9]+\.supabase\.co$/.test(host)) {
   console.warn(`migrate: DATABASE_URL points at ${host}. Without the IPv4 add-on that host cannot be reached from Vercel; the Session pooler or Transaction pooler line (host ending in pooler.supabase.com) always can.`);
+}
+if (/:6543\b/.test(url)) {
+  console.warn('migrate: DATABASE_URL uses the transaction pooler (port 6543); pages can stall. Use the Session pooler line (port 5432) from Supabase → Connect.');
 }
 // A preview build (a branch, a pull request) never changes tables unless the Preview environment says so with
 // MIGRATE_PREVIEW=1, so a variable mistakenly shared with Production cannot alter the live books from a branch.

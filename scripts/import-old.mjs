@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import { pathToFileURL } from 'node:url';
 import postgres from 'postgres';
 import { dbOptions } from './db-options.mjs';
+import { resolveDatabaseUrl } from './db-url.mjs';
 
 
 export function readExport(f) {
@@ -200,18 +201,19 @@ export async function importOld(sql, d, { replace = false } = {}) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [file, ...flags] = process.argv.slice(2);
-  if (!file || !process.env.DATABASE_URL) {
+  const url = resolveDatabaseUrl();
+  if (!file || !url) {
     console.error('Usage: DATABASE_URL=... node scripts/import-old.mjs <export file> [--replace --yes]');
     process.exit(1);
   }
   const replace = flags.includes('--replace');
-  const sql = postgres(process.env.DATABASE_URL, dbOptions(process.env.DATABASE_URL));
+  const sql = postgres(url, dbOptions(url));
   try {
     if (replace) {
       // wiping posted books cannot be undone: say which database and how much it holds, and ask for --yes
       const [n] = await sql`select (select count(*) from journal_entries)::int entries, (select count(*) from payroll_runs)::int payroll_runs,
         (select count(*) from attachments)::int attachments, (select count(*) from tasks)::int tasks`;
-      console.log(`--replace wipes the books on ${new URL(process.env.DATABASE_URL).host}: ${n.entries} entries, ${n.payroll_runs} payroll runs, ${n.attachments} attachments, ${n.tasks} tasks. Logins and settings stay.`);
+      console.log(`--replace wipes the books on ${new URL(url).host}: ${n.entries} entries, ${n.payroll_runs} payroll runs, ${n.attachments} attachments, ${n.tasks} tasks. Logins and settings stay.`);
       if (!flags.includes('--yes')) throw new Error('Add --yes to go ahead.');
     }
     const counts = await importOld(sql, readExport(file), { replace });

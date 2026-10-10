@@ -42,8 +42,9 @@ Settings → Approvers sets who signs each payment-request step; until other peo
 Production runs on Vercel (the app) and Supabase (Postgres with daily backups, and a private Storage bucket for the
 receipt photos), both in Frankfurt. The step-by-step guide for the owner is in the project's go-live document.
 
-- Environment variables on Vercel, for Production only: `DATABASE_URL` (the Supabase **Session pooler**, port 5432; the transaction pooler on 6543 loses replies to pipelined queries),
-  `APP_URL`, `APP_TZ=Africa/Cairo`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `STORAGE_BUCKET=attachments`, `SETUP_CODE`;
+- Environment variables on Vercel, for Production only: `DATABASE_URL` (the Supabase **Session pooler** line, port 5432, pasted exactly as
+  Connect shows it, `[YOUR-PASSWORD]` included; the transaction pooler on 6543 loses replies to pipelined queries), `DATABASE_PASSWORD`
+  (the database password on its own, any characters; it replaces `[YOUR-PASSWORD]`, or whatever password the line holds), `APP_URL`, `APP_TZ=Africa/Cairo`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `STORAGE_BUCKET=attachments`, `SETUP_CODE`;
   later `SMTP_URL` and `EMAIL_FROM` for the approval emails. A test copy gets its own values under Preview, plus
   `MIGRATE_PREVIEW=1`.
 - `npm run build` applies `db/migrations/*.sql` before building, so every deployment updates its own database
