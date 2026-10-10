@@ -7,7 +7,14 @@ describe('Egyptian payroll maths', () => {
   it('basic 10,000 + allowances 2,000: insurance 11% / 18.75%, tax on annualised pay less 20,000 exemption', () => {
     const l = payLine({ basic: 10000, allowances: 2000 }, 0, 0, DEFAULT_RATES);
     // taxable = (12,000 − 1,320) × 12 − 20,000 = 108,160 → 0 + 1,500 + 2,250 + 7,632 = 11,382 a year
-    expect(l).toEqual({ basic: 10000, allowances: 2000, overtime: 0, deductions: 0, gross: 12000, insurable: 12000, soc_emp: 1320, soc_co: 2250, tax: 948.5, net: 9731.5 });
+    expect(l).toEqual({ basic: 10000, allowances: 2000, overtime: 0, deductions: 0, gross: 12000, insurable: 12000, soc_emp: 1320, soc_co: 2250, tax: 948.5, net: 9731.5, no_deductions: false });
+  });
+  it('"no insurance or tax" pays the full salary: nothing for insurance on either side, no tax, advances still recovered', () => {
+    const l = payLine({ basic: 10000, allowances: 2000, no_deductions: true }, 500, 300, DEFAULT_RATES);
+    expect(l).toMatchObject({ gross: 12500, insurable: 0, soc_emp: 0, soc_co: 0, tax: 0, deductions: 300, net: 12200, no_deductions: true });
+    const lines = payrollLines('2026-10', [{ ...l, project_id: null, dept_id: 'd1' }], map);
+    assertBalanced(lines);
+    expect(lines.map(x => [x.account, x.dr, x.cr])).toEqual([['11001', 12500, 0], ['A160', 0, 300], ['L180', 0, 12200]]);
   });
   it('clamps the insurable wage between 2,700 and 16,700, and overtime and deductions flow through', () => {
     expect(payLine({ basic: 2000, allowances: 0 }, 0, 0, DEFAULT_RATES)).toMatchObject({ insurable: 2700, soc_emp: 297, tax: 0, net: 1703 });

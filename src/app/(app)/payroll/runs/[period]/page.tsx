@@ -48,7 +48,7 @@ export default async function RunPage({ params, searchParams }: { params: Promis
             <tr key={l.employee_id}><td dir="auto">{l.name}<div className="muted" style={{ fontSize: 11 }}>{l.code}</div></td><td className="hide-sm">{l.cc ?? <span style={{ color: 'var(--bad)' }}>Not assigned</span>}</td>
               <td className="num hide-sm">{fmt(l.basic)}</td><td className="num hide-sm">{fmt(l.allowances)}</td>
               <td className="num">{ed ? <input className="inp mono" style={{ minWidth: 90 }} name={'ot_' + l.employee_id} inputMode="decimal" defaultValue={l.overtime || ''} /> : fmt(l.overtime)}</td>
-              <td className="num">{fmt(l.gross)}</td><td className="num">{fmt(l.soc_emp)}</td><td className="num">{fmt(l.tax)}</td>
+              <td className="num">{fmt(l.gross)}</td><td className="num">{l.no_deductions ? <span className="muted">none</span> : fmt(l.soc_emp)}</td><td className="num">{l.no_deductions ? <span className="muted">none</span> : fmt(l.tax)}</td>
               <td className="num">{ed ? <input className="inp mono" style={{ minWidth: 90 }} name={'ded_' + l.employee_id} inputMode="decimal" defaultValue={l.deductions || ''} /> : fmt(l.deductions)}</td>
               <td className="num"><b>{fmt(l.net)}</b></td><td className="num hide-sm muted">{fmt(l.soc_co)}</td></tr>))}
           </tbody>
@@ -62,7 +62,7 @@ export default async function RunPage({ params, searchParams }: { params: Promis
       </form>
       {ed && <form action={postRunAction.bind(null, period)} className="row" style={{ justifyContent: 'flex-end', marginBottom: 14 }}><button className="btn pri" disabled={missing.length > 0}>Post payroll</button></form>}
 
-      <div className="card muted" style={{ fontSize: 13 }}>Social insurance uses {R.empRate}% employee and {R.coRate}% company on the insurance wage (floor {fmt(R.insMin)}, cap {fmt(R.insMax)}). Salary tax uses the brackets and the {fmt(R.exemption)} annual exemption, calculated progressively on annualised pay. "Other deductions" are credited to staff advances.</div>
+      <div className="card muted" style={{ fontSize: 13 }}>Social insurance uses {R.empRate}% employee and {R.coRate}% company on the insurance wage (floor {fmt(R.insMin)}, cap {fmt(R.insMax)}). Salary tax uses the brackets and the {fmt(R.exemption)} annual exemption, calculated progressively on annualised pay. "Other deductions" are credited to staff advances. Staff marked "no social insurance or salary tax" on their record are paid the full salary.</div>
       {r.run.entry_id && <div className="card">Ledger entry <Link href={`/entries/${r.run.entry_id}`}>{r.run.entry_no}</Link>{r.run.paid_entry_id && <> · Salary payment <Link href={`/entries/${r.run.paid_entry_id}`}>{r.run.paid_no}</Link></>}</div>}
 
       {r.run.status === 'posted' && !r.run.paid_entry_id && (

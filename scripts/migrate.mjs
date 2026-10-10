@@ -10,6 +10,12 @@ import { databaseUrlProblem, describeDatabaseUrl, hasPasswordPlaceholder, resolv
 
 const url = resolveDatabaseUrl();
 const onBuild = process.argv.includes('--if-configured');
+// A preview build (a branch, a pull request) never touches the database unless the Preview environment says so with
+// MIGRATE_PREVIEW=1, so a variable mistakenly shared with Production cannot alter the live books from a branch, and a
+// variable that exists for Production only (DATABASE_PASSWORD) cannot fail a preview build either.
+if (onBuild && process.env.VERCEL_ENV && process.env.VERCEL_ENV !== 'production' && process.env.MIGRATE_PREVIEW !== '1') {
+  console.log(`migrate: ${process.env.VERCEL_ENV} build without MIGRATE_PREVIEW=1, tables left as they are`); process.exit(0);
+}
 if (!url) {
   if (onBuild && process.env.VERCEL_ENV !== 'production') { console.log('migrate: DATABASE_URL not set, skipped'); process.exit(0); }
   console.error(process.env.VERCEL ? 'migrate: DATABASE_URL is not set. Add it under Settings → Environment Variables in Vercel and redeploy.' : 'Set DATABASE_URL');
@@ -32,11 +38,6 @@ if (/^db\.[a-z0-9]+\.supabase\.co$/.test(host)) {
 }
 if (/:6543\b/.test(url)) {
   console.warn('migrate: DATABASE_URL uses the transaction pooler (port 6543); pages can stall. Use the Session pooler line (port 5432) from Supabase → Connect.');
-}
-// A preview build (a branch, a pull request) never changes tables unless the Preview environment says so with
-// MIGRATE_PREVIEW=1, so a variable mistakenly shared with Production cannot alter the live books from a branch.
-if (onBuild && process.env.VERCEL_ENV && process.env.VERCEL_ENV !== 'production' && process.env.MIGRATE_PREVIEW !== '1') {
-  console.log(`migrate: ${process.env.VERCEL_ENV} build without MIGRATE_PREVIEW=1, tables left as they are`); process.exit(0);
 }
 if (process.env.VERCEL_ENV) console.log(`migrate: ${process.env.VERCEL_ENV} build`);
 const sql = postgres(url, { ...dbOptions(url), max: 1 });

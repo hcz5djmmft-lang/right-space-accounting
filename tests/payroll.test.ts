@@ -78,4 +78,17 @@ describe('payroll', () => {
     expect(tb.find(x => x.code === 'L180')).toMatchObject({ dr: t.net, cr: t.net });
     expect(tb.reduce((s, x) => s + x.dr - x.cr, 0)).toBeCloseTo(0, 2);
   });
+  it('an employee marked "no insurance or tax" is paid the full salary, and the switch survives a recalculation', async () => {
+    const nour = await pay.saveEmployee(fin as never, emp('Nour Exempt', { dept_id: dept, basic: 8000, allowances: 0, no_deductions: true }));
+    expect((await pay.getEmployee(nour))?.no_deductions).toBe(true);
+    await pay.createRun(fin as never, '2026-11', '');
+    let r = (await pay.getRun('2026-11'))!;
+    expect(r.lines.find(l => l.employee_id === nour)).toMatchObject({ gross: 8000, insurable: 0, soc_emp: 0, soc_co: 0, tax: 0, net: 8000, no_deductions: true });
+    await pay.saveRun(fin as never, '2026-11', [{ employee_id: nour, overtime: 200, deductions: 100 }]);
+    r = (await pay.getRun('2026-11'))!;
+    expect(r.lines.find(l => l.employee_id === nour)).toMatchObject({ gross: 8200, soc_emp: 0, soc_co: 0, tax: 0, deductions: 100, net: 8100, no_deductions: true });
+    expect(r.lines.find(l => l.name === 'Sara Site')).toMatchObject({ soc_emp: 1320, no_deductions: false });
+    expect(r.totals.soc_co).toBe(2250 + 937.5);
+    await pay.deleteRun(fin as never, '2026-11');
+  });
 });

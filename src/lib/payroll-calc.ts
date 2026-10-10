@@ -38,19 +38,21 @@ export function annualTax(taxable: number, br: [number, number][]): number {
   return tax;
 }
 
-export type EmpPay = { basic: number; allowances: number; insurable?: number | null };
-export type PayLine = { basic: number; allowances: number; overtime: number; deductions: number; gross: number; insurable: number; soc_emp: number; soc_co: number; tax: number; net: number };
+export type EmpPay = { basic: number; allowances: number; insurable?: number | null; no_deductions?: boolean | null };
+export type PayLine = { basic: number; allowances: number; overtime: number; deductions: number; gross: number; insurable: number; soc_emp: number; soc_co: number; tax: number; net: number; no_deductions: boolean };
 
-/** One employee's month. `insurable` 0 or empty means basic + allowances. Deductions are advances recovered. */
+/** One employee's month. `insurable` 0 or empty means basic + allowances. Deductions are advances recovered.
+ *  `no_deductions` pays the full salary: no insurance on either side and no salary tax (staff who are not registered). */
 export function payLine(e: EmpPay, overtime: number, deductions: number, R: PayRates): PayLine {
   const basic = r2(+e.basic || 0), allowances = r2(+e.allowances || 0);
   overtime = r2(+overtime || 0); deductions = r2(+deductions || 0);
   const gross = r2(basic + allowances + overtime);
-  const insurable = r2(Math.min(Math.max(+(e.insurable ?? 0) || basic + allowances, R.insMin || 0), R.insMax || Infinity));
+  const no_deductions = !!e.no_deductions;
+  const insurable = no_deductions ? 0 : r2(Math.min(Math.max(+(e.insurable ?? 0) || basic + allowances, R.insMin || 0), R.insMax || Infinity));
   const soc_emp = r2(insurable * R.empRate / 100), soc_co = r2(insurable * R.coRate / 100);
-  const taxable = Math.max(0, (gross - soc_emp) * 12 - (R.exemption || 0));
+  const taxable = no_deductions ? 0 : Math.max(0, (gross - soc_emp) * 12 - (R.exemption || 0));
   const tax = r2(annualTax(taxable, brackets(R.brackets)) / 12);
-  return { basic, allowances, overtime, deductions, gross, insurable, soc_emp, soc_co, tax, net: r2(gross - soc_emp - tax - deductions) };
+  return { basic, allowances, overtime, deductions, gross, insurable, soc_emp, soc_co, tax, net: r2(gross - soc_emp - tax - deductions), no_deductions };
 }
 
 export type RunTotals = { gross: number; soc_emp: number; soc_co: number; tax: number; deductions: number; net: number };
