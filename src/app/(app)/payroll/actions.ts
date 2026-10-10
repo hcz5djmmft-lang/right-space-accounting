@@ -10,7 +10,7 @@ import { RuleError } from '@/lib/ledger';
 const Emp = z.object({
   id: z.string().optional(), code: z.string().default(''), name: z.string().min(1, 'Enter the employee name'), job_title: z.string().default(''),
   dept_id: z.string().nullish(), project_id: z.string().nullish(), hire_date: z.string().nullish(),
-  basic: z.number().min(0), allowances: z.number().min(0), insurable: z.number().min(0), bank_account: z.string().default(''), active: z.boolean(),
+  basic: z.number().min(0), allowances: z.number().min(0), insurable: z.number().min(0), no_deductions: z.boolean().default(false), bank_account: z.string().default(''), active: z.boolean(),
 });
 
 function msg(e: unknown) {

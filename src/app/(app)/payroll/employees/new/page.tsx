@@ -12,7 +12,7 @@ export default async function NewEmployee() {
     <>
       <div className="head"><div><h1>New employee</h1><p>Salary figures are monthly, in EGP.</p></div></div>
       <EmployeeForm projects={projects} departments={departments} rates={rates(settings.payroll)} inRuns={false} save={saveEmployeeAction}
-        initial={{ code: '', name: '', job_title: '', dept_id: '', project_id: '', hire_date: '', basic: '', allowances: '', insurable: '', bank_account: '', active: true }} />
+        initial={{ code: '', name: '', job_title: '', dept_id: '', project_id: '', hire_date: '', basic: '', allowances: '', insurable: '', no_deductions: false, bank_account: '', active: true }} />
     </>
   );
 }

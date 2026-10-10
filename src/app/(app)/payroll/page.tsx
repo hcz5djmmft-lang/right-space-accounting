@@ -24,7 +24,7 @@ export default async function Payroll({ searchParams }: { searchParams: Promise<
           <tbody>{employees.map(e => (
             <tr key={e.id}><td className="mono"><Link href={`/payroll/employees/${e.id}`}>{e.code}</Link></td><td dir="auto">{e.name}</td><td className="hide-sm" dir="auto">{e.job_title}</td>
               <td className="hide-sm">{e.dept_name ?? ''}</td><td>{e.project_code ?? (settings.require_cc && !e.dept_id ? <span style={{ color: 'var(--bad)' }}>not set</span> : e.dept_name)}</td>
-              <td className="num">{fmt(e.basic)}</td><td className="num hide-sm">{fmt(e.allowances)}</td><td className="num hide-sm">{e.insurable ? fmt(e.insurable) : <span className="muted">gross</span>}</td>
+              <td className="num">{fmt(e.basic)}</td><td className="num hide-sm">{fmt(e.allowances)}</td><td className="num hide-sm">{e.no_deductions ? <span className="muted">none</span> : e.insurable ? fmt(e.insurable) : <span className="muted">gross</span>}</td>
               <td><span className={'pill ' + (e.active ? 'posted' : 'rejected')}>{e.active ? 'active' : 'inactive'}</span></td></tr>))}
           </tbody></table></div>)) : (
         <>

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { payLine, type PayRates } from '@/lib/payroll-calc';
 import type { Dept, Proj } from '@/lib/queries';
 
-export type EmployeeInitial = { id?: string; code: string; name: string; job_title: string; dept_id: string; project_id: string; hire_date: string; basic: string; allowances: string; insurable: string; active: boolean; bank_account: string };
+export type EmployeeInitial = { id?: string; code: string; name: string; job_title: string; dept_id: string; project_id: string; hire_date: string; basic: string; allowances: string; insurable: string; no_deductions: boolean; active: boolean; bank_account: string };
 
 const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const num = (s: string) => Number(String(s).replace(/[,\s]/g, '')) || 0;
@@ -18,7 +18,7 @@ export function EmployeeForm({ initial, projects, departments, rates, inRuns, sa
   const [busy, start] = useTransition();
   const router = useRouter();
   const set = (p: Partial<EmployeeInitial>) => setF(x => ({ ...x, ...p }));
-  const est = payLine({ basic: num(f.basic), allowances: num(f.allowances), insurable: num(f.insurable) }, 0, 0, rates);
+  const est = payLine({ basic: num(f.basic), allowances: num(f.allowances), insurable: num(f.insurable), no_deductions: f.no_deductions }, 0, 0, rates);
   const submit = () => start(async () => {
     setErr('');
     const res = await save({ ...f, code: f.code.trim(), name: f.name.trim(), job_title: f.job_title.trim(), bank_account: f.bank_account.trim(),
@@ -41,9 +41,10 @@ export function EmployeeForm({ initial, projects, departments, rates, inRuns, sa
         {inp('hire_date', 'Hire date', { type: 'date' })}
         {inp('basic', 'Basic salary (monthly)', { className: 'inp mono', inputMode: 'decimal' })}
         {inp('allowances', 'Allowances (monthly)', { className: 'inp mono', inputMode: 'decimal' })}
-        {inp('insurable', 'Social insurance wage', { className: 'inp mono', inputMode: 'decimal', placeholder: 'Blank = basic + allowances' })}
+        {inp('insurable', 'Social insurance wage', { className: 'inp mono', inputMode: 'decimal', placeholder: f.no_deductions ? 'Not insured' : 'Blank = basic + allowances', disabled: f.no_deductions })}
         {inp('bank_account', 'Bank account / IBAN', { className: 'inp mono' })}
         <label className="row" style={{ alignSelf: 'end', fontSize: 14 }}><input type="checkbox" checked={f.active} onChange={e => set({ active: e.target.checked })} /> Active (included in new payroll runs)</label>
+        <label className="row" style={{ alignSelf: 'end', fontSize: 14 }}><input type="checkbox" checked={f.no_deductions} onChange={e => set({ no_deductions: e.target.checked })} /> No social insurance or salary tax (paid the full salary)</label>
       </div>
       <div className="card" style={{ fontSize: 14 }}>Monthly estimate: gross <b className="mono">{fmt(est.gross)}</b> · social insurance (employee) <b className="mono">{fmt(est.soc_emp)}</b> · salary tax <b className="mono">{fmt(est.tax)}</b> · net <b className="mono">{fmt(est.net)}</b> · company insurance cost <b className="mono">{fmt(est.soc_co)}</b></div>
       <div className="row" style={{ justifyContent: 'space-between' }}>

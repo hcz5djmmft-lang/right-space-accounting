@@ -12,18 +12,18 @@ const needFinance = (u: User, what: string) => { if (!hasRole(u, 'finance')) thr
 export type Employee = {
   id: string; code: string | null; name: string; job_title: string | null; dept_id: string | null; dept_name: string | null;
   project_id: string | null; project_code: string | null; hire_date: string | null; basic: number; allowances: number; insurable: number;
-  bank_account: string | null; active: boolean; in_runs: boolean;
+  no_deductions: boolean; bank_account: string | null; active: boolean; in_runs: boolean;
 };
 const empSelect = (tx: Tx) => tx<Employee[]>`
   select e.id, e.code, e.name, e.job_title, e.dept_id, d.name dept_name, e.project_id, p.code project_code, to_char(e.hire_date,'YYYY-MM-DD') hire_date,
-    e.basic, e.allowances, e.insurable, e.bank_account, e.active, exists (select 1 from payroll_lines l where l.employee_id = e.id) in_runs
+    e.basic, e.allowances, e.insurable, e.no_deductions, e.bank_account, e.active, exists (select 1 from payroll_lines l where l.employee_id = e.id) in_runs
   from employees e left join departments d on d.id = e.dept_id left join projects p on p.id = e.project_id order by e.code, e.name`;
 export const listEmployees = () => empSelect(sql);
 export async function getEmployee(id: string) { return (await empSelect(sql)).find(e => e.id === id); }
 
 export type EmployeeInput = {
   id?: string; code: string; name: string; job_title: string; dept_id?: string | null; project_id?: string | null; hire_date?: string | null;
-  basic: number; allowances: number; insurable: number; bank_account: string; active: boolean;
+  basic: number; allowances: number; insurable: number; no_deductions?: boolean; bank_account: string; active: boolean;
 };
 export async function saveEmployee(user: User, i: EmployeeInput) {
   needFinance(user, 'edit employees');
@@ -31,7 +31,7 @@ export async function saveEmployee(user: User, i: EmployeeInput) {
   return sql.begin(async tx => {
     const code = i.code.trim() || await nextNo(tx, 'E', 3);
     const vals = { code, name: i.name.trim(), job_title: i.job_title || null, dept_id: i.dept_id || null, project_id: i.project_id || null, hire_date: i.hire_date || null,
-      basic: i.basic, allowances: i.allowances, insurable: i.insurable, bank_account: i.bank_account || null, active: i.active };
+      basic: i.basic, allowances: i.allowances, insurable: i.insurable, no_deductions: !!i.no_deductions, bank_account: i.bank_account || null, active: i.active };
     let id = i.id;
     if (id) {
       const n = await tx`update employees set ${tx(vals)} where id = ${id}`;
@@ -65,7 +65,7 @@ export const listRuns = () => sql<Run[]>`
 export type RunLine = PayLine & { employee_id: string; name: string; code: string | null; project_id: string | null; dept_id: string | null; cc: string | null };
 const runLines = (tx: Tx, period: string) => tx<RunLine[]>`
   select l.employee_id, l.name, e.code, l.project_id, l.dept_id, coalesce(p.code, d.name) cc,
-    l.basic, l.allowances, l.overtime, l.deductions, l.gross, l.insurable, l.soc_emp, l.soc_co, l.tax, l.net
+    l.basic, l.allowances, l.overtime, l.deductions, l.gross, l.insurable, l.soc_emp, l.soc_co, l.tax, l.net, l.no_deductions
   from payroll_lines l join employees e on e.id = l.employee_id left join projects p on p.id = l.project_id left join departments d on d.id = l.dept_id
   where l.run_period = ${period} order by l.line_no`;
 
@@ -93,7 +93,7 @@ export async function createRun(user: User, period: string, date: string) {
     const R = rates(s.payroll);
     const [dup] = await tx`select 1 from payroll_runs where period = ${period}`;
     if (dup) throw new RuleError(`A payroll run for ${period} already exists.`);
-    const emps = await tx<Employee[]>`select id, name, project_id, dept_id, basic, allowances, insurable from employees where active order by code, name`;
+    const emps = await tx<Employee[]>`select id, name, project_id, dept_id, basic, allowances, insurable, no_deductions from employees where active order by code, name`;
     if (!emps.length) throw new RuleError('Add active employees first.');
     await tx`insert into payroll_runs (period, date, created_by) values (${period}, ${date || monthEnd(period)}, ${user.id})`;
     for (const [k, e] of emps.entries()) {
@@ -111,10 +111,10 @@ export async function saveRun(user: User, period: string, edits: { employee_id: 
     await lockRun(tx, period);
     const R = rates((await getSettings(tx)).payroll);
     const lines = await runLines(tx, period);
-    const emps = new Map((await tx<Employee[]>`select id, name, project_id, dept_id, basic, allowances, insurable from employees`).map(e => [e.id, e]));
+    const emps = new Map((await tx<Employee[]>`select id, name, project_id, dept_id, basic, allowances, insurable, no_deductions from employees`).map(e => [e.id, e]));
     for (const l of lines) {
       const ed = edits.find(e => e.employee_id === l.employee_id);
-      const base = refresh && emps.get(l.employee_id) ? emps.get(l.employee_id)! : { name: l.name, project_id: l.project_id, dept_id: l.dept_id, basic: l.basic, allowances: l.allowances, insurable: l.insurable };
+      const base = refresh && emps.get(l.employee_id) ? emps.get(l.employee_id)! : { name: l.name, project_id: l.project_id, dept_id: l.dept_id, basic: l.basic, allowances: l.allowances, insurable: l.insurable, no_deductions: l.no_deductions };
       const n = payLine(base, ed ? ed.overtime : l.overtime, ed ? ed.deductions : l.deductions, R);
       await tx`update payroll_lines set ${tx({ name: base.name, project_id: base.project_id, dept_id: base.dept_id, ...n })} where run_period = ${period} and employee_id = ${l.employee_id}`;
     }
