@@ -1,7 +1,9 @@
 import postgres from 'postgres';
+import { resolveDatabaseUrl } from '../../scripts/db-url.mjs';
 
 const g = globalThis as unknown as { __sql?: postgres.Sql };
-const url = process.env.DATABASE_URL ?? 'postgres://postgres@localhost:5432/rsa';
+// DATABASE_URL, with DATABASE_PASSWORD filled in where the line says [YOUR-PASSWORD] (scripts/db-url.mjs)
+const url = resolveDatabaseUrl() || 'postgres://postgres@localhost:5432/rsa';
 const serverless = !!process.env.VERCEL;
 if (!process.env.DATABASE_URL && serverless) console.error('DATABASE_URL is not set: add it under Settings → Environment Variables in Vercel and redeploy.');
 // Supabase requires TLS and its transaction pooler (port 6543) has no prepared statements; a local Postgres has neither.
