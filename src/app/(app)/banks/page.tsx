@@ -16,7 +16,7 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
   await requireUser('finance');
   const { account, from = '', to = '', error, ok } = await searchParams;
   const accounts = await bankAccounts();
-  const cur = accounts.find(a => a.code === account) ?? accounts[0];
+  const cur = accounts.find(a => a.code === account) ?? accounts.find(a => a.kind === 'bank') ?? accounts[0]; // the bank account first
   const [lines, sum] = cur ? await Promise.all([bankActivity(cur.code, from, to), bankSummary(cur.code, from, to)]) : [[], null];
   const rec = cur ? reconcile(cur) : null;
   let run = 0;
