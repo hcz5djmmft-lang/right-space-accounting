@@ -9,7 +9,7 @@ export default async function NewPR() {
   const lists = await formLists();
   return (
     <>
-      <div className="head"><div><h1>New payment request</h1><p>إذن صرف · goes to Finance, then Engineering, then Management.</p></div></div>
+      <div className="head"><div><h1>New payment request</h1><p>إذن صرف · goes to the head of its department (a project: the head of Engineering), then to Management.</p></div></div>
       <PRForm {...lists} save={savePRAction} initial={{
         date: today(), due: '', party: '', assign: '', costType: 'Opex', ref: '', requester: '',
         vatRate: '0', whtRate: '0', siRate: '0', retRate: '0', dpAmount: '0', lines: [{ assign: '', acc: '', desc: '', qty: '1', price: '' }] }} />

@@ -6,12 +6,12 @@ export type NavItem = { href: string; label: string; badge?: number } | string;
 
 export function Nav({ items, user, logout }: { items: NavItem[]; user: string; logout: () => Promise<void> }) {
   const path = usePathname();
-  const on = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
+  const on = (href: string) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
   const links = items.filter((i): i is Exclude<NavItem, string> => typeof i !== 'string');
   return (
     <>
       <aside className="side">
-        <div className="brand">RIGHT <b>SPACE</b><div className="muted" style={{ fontWeight: 400, fontSize: 12 }}>Accounting</div></div>
+        <div className="brand"><img src="/logo-white.svg" alt="Right Space Development" style={{ width: '100%', maxWidth: 190, display: 'block' }} /><div className="muted" style={{ fontWeight: 400, fontSize: 12, marginTop: 6 }}>Accounting</div></div>
         {items.map((i, k) => typeof i === 'string'
           ? <div key={k} className="grp">{i}</div>
           : <Link key={i.href} href={i.href} className={on(i.href) ? 'on' : ''}>{i.label}{i.badge ? <span className="badge">{i.badge}</span> : null}</Link>)}

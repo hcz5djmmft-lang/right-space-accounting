@@ -38,7 +38,7 @@ export default async function PrintInvoice({ params }: { params: Promise<{ id: s
       <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
       <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
       {r.status === 'void' && <div className="void">VOID</div>}
-      <div className="top"><div className="logo">RIGHT <b>SPACE</b></div><h1>Invoice<small>فاتورة</small></h1></div>
+      <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 34 }} /><h1>Invoice<small>فاتورة</small></h1></div>
       <div className="meta">
         <div><b>Invoice no.</b>{r.no}</div><div><b>Date</b>{r.date}</div>
         <div><b>Bill to</b><span dir="auto">{c?.full_name || r.customer}</span></div><div><b>Due</b>{r.due ?? '—'}</div>

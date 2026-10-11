@@ -35,7 +35,8 @@ Locally the command line works too:
 npm run create-user -- Adel_hassan@live.com "Adel Maksoud" <password> management,finance,engineering
 ```
 
-Settings → Approvers sets who signs each payment-request step; until other people are named, Adel signs all three.
+Settings → Departments names the head of each department (the first signer of its payment requests) and what its members may do;
+Settings → People puts each login in a department. The final approval is given by the people ticked under Settings → Approvals.
 
 ## Deployment
 
@@ -58,11 +59,11 @@ receipt photos), both in Frankfurt. The step-by-step guide for the owner is in t
 
 ## Build status
 
-Done: logins and roles, chart of accounts, cost centers with automatic project GL codes, customers and vendors,
+Done: logins and roles, chart of accounts (one line per GL code with its total over all cost centers, a cost-center filter and the split per project), cost centers with automatic project GL codes, customers and vendors,
 Expense / Collection / Transfer entries with approval, return and reversal, full history per entry,
 trial balance, income statement, balance sheet, general ledger, import of the old app's data,
-payment requests (إذن صرف) with Finance → Engineering → Management approval and email, vendor payments,
-settings (approvers per step, people and roles, company rules), receipt photos and PDFs on payment requests
+payment requests (إذن صرف) approved by the head of their department (a project's by the head of Engineering), then Management, with email, vendor payments,
+settings (departments as groups with a head and what members can do, people, final approvers, company rules), receipt photos and PDFs on payment requests
 and expense entries (phone camera; stored on disk locally, in a private Supabase Storage bucket in production),
 sales invoices (INV-00001…, VAT 14%, printable, void by reversal) and customer receipts (RCT-00001…, allocated
 to invoices, WHT withheld by the customer goes to WHT receivable), Banks & cash (balances, activity with running

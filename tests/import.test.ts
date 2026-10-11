@@ -34,13 +34,13 @@ describe('cut-over import', () => {
     expect(s.n).toBe(posted.length);
   });
 
-  it('keeps the approvers ticked in Settings across a --replace', async () => {
-    await sql`update approval_steps set user_ids = ${[adel]} where position = 1`;
+  it('keeps the approval chain and the approvers ticked in Settings across a --replace', async () => {
+    await sql`update approval_steps set user_ids = ${[adel]} where position = 2`;
     const d = seed();
     d.settings.company.lockDate = '';
     await importOld(sql, d, { replace: true });
-    const steps = await sql<{ position: number; user_ids: string[] }[]>`select position, user_ids from approval_steps order by position`;
-    expect(steps[0].user_ids).toEqual([adel]);
-    expect(steps.length).toBe(3);
+    const steps = await sql<{ position: number; name: string; user_ids: string[] }[]>`select position, name, user_ids from approval_steps order by position`;
+    expect(steps.map(s => s.name)).toEqual(['Department head', 'Management']); // the old app's three-step chain is not copied
+    expect(steps[1].user_ids).toEqual([adel]);
   });
 });

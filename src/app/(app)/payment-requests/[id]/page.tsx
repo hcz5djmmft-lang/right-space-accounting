@@ -5,7 +5,7 @@ import { hasRole } from '@/lib/roles';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { amountInWords, lineAmount } from '@/lib/ledger';
-import { canSign, getSteps } from '@/lib/documents';
+import { canSign, getSteps, stepLabel } from '@/lib/documents';
 import { getPR, getPRApprovals, getPRLines } from '@/lib/pr-queries';
 import { listAttachments } from '@/lib/attachments';
 import { Attachments } from '@/components/Attachments';
@@ -27,7 +27,13 @@ export default async function PRPage({ params, searchParams }: { params: Promise
     listAttachments('invoice', id),
   ]);
   const cur = r.status === 'pending' ? steps[approvals.length] : undefined;
-  const mayAct = canSign(user, cur);
+  const mayAct = canSign(user, cur, r);
+  // the signatures given, then the steps still to come (a request approved under an older chain keeps its own signatures)
+  const chain = [
+    ...approvals.map(a => ({ key: 'a' + a.step, name: a.step_name, note: `✓ ${a.who ?? ''} · ${a.at}`, cur: false })),
+    ...steps.slice(approvals.length).map(st => ({ key: 's' + st.position, name: stepLabel(st, r), cur: cur?.position === st.position,
+      note: cur?.position === st.position ? `Waiting for ${st.position === 1 && r.approver_name ? r.approver_name : 'approval'}` : '—' })),
+  ];
   const mayEdit = ['draft', 'rejected'].includes(r.status) && (r.created_by === user.id || hasRole(user, 'finance'));
   const lastReturn = [...log].reverse().find(g => g.action === 'Returned for changes');
   const ded = [[`Less WHT (${r.wht_rate}%)`, r.wht], [`Less social insurance (${r.si_rate}%)`, r.si], [`Less retention (${r.ret_rate}%)`, r.retention], ['Less down payment', r.dp_amount]] as const;
@@ -48,18 +54,14 @@ export default async function PRPage({ params, searchParams }: { params: Promise
       {error && <div className="msg bad">{error}</div>}
       {r.status === 'rejected' && lastReturn && <div className="msg bad">Returned by {lastReturn.who}: {lastReturn.note || 'no reason given'}</div>}
 
-      <div className="steps">{steps.map((s, i) => {
-        const a = approvals[i];
-        return <div key={s.position} className={cur?.position === s.position ? 'cur' : ''}><b>{s.name}</b>
-          <div className="muted" style={{ fontSize: 13 }}>{a ? `✓ ${a.who ?? ''} · ${a.at}` : cur?.position === s.position ? 'Waiting for approval' : '—'}</div></div>;
-      })}</div>
+      <div className="steps">{chain.map(c => <div key={c.key} className={c.cur ? 'cur' : ''}><b>{c.name}</b><div className="muted" style={{ fontSize: 13 }}>{c.note}</div></div>)}</div>
 
       {mayAct && (
         <div className="card row" style={{ justifyContent: 'space-between' }}>
           <form action={returnPR.bind(null, id)} className="row" style={{ flex: 1 }}>
             <input className="inp" name="reason" placeholder="Reason, if returning for changes" style={{ flex: 1, minWidth: 180 }} />
             <button className="btn bad">Return</button></form>
-          <form action={approvePR.bind(null, id)}><button className="btn pri">Approve as {cur!.name}</button></form>
+          <form action={approvePR.bind(null, id)}><button className="btn pri">Approve as {stepLabel(cur!, r)}</button></form>
         </div>)}
 
       <div className="tw" style={{ marginBottom: 14 }}><table>

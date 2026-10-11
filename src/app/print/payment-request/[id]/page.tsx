@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { amountInWords, lineAmount } from '@/lib/ledger';
-import { getSteps } from '@/lib/documents';
+import { getSteps, stepLabel } from '@/lib/documents';
 import { getPR, getPRApprovals, getPRLines } from '@/lib/pr-queries';
 import { today } from '@/lib/dates';
 
@@ -18,6 +18,9 @@ export default async function PrintPR({ params }: { params: Promise<{ id: string
     sql<{ full_name: string | null; bank_name: string | null; account_no: string | null; iban: string | null; swift: string | null }[]>`
       select full_name, bank_name, account_no, iban, swift from parties where id = ${r.party_id}`,
   ]);
+  // the signatures given, then the steps still to come
+  const sigs = [...approvals.map(a => ({ key: 'a' + a.step, name: a.step_name, who: a.who ?? ' ', at: a.at.slice(0, 10) })),
+    ...steps.slice(approvals.length).map(st => ({ key: 's' + st.position, name: stepLabel(st, r), who: ' ', at: 'Signature / date' }))];
   const ded = [[`Less withholding tax (${r.wht_rate}%)`, r.wht], [`Less social insurance (${r.si_rate}%)`, r.si], [`Less retention (${r.ret_rate}%)`, r.retention], ['Less down payment', r.dp_amount]] as const;
   return (
     <div className="pr-print">
@@ -33,12 +36,12 @@ export default async function PrintPR({ params }: { params: Promise<{ id: string
         .pr-print th{background:#f4efe5;font-size:11px;position:static}.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
         .tot td{font-weight:700;background:#f4efe5}.words{font-style:italic;margin:-6px 0 12px}
         .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}.box{border:1px solid #cfc6b4;padding:8px}.box h3{margin:0 0 6px;font-size:12px}
-        .sigs{display:grid;grid-template-columns:repeat(${steps.length},1fr);gap:14px;margin-top:22px}.sig{border-top:1px solid #111;padding-top:5px;text-align:center}
+        .sigs{display:grid;grid-template-columns:repeat(${sigs.length},1fr);gap:14px;margin-top:22px}.sig{border-top:1px solid #111;padding-top:5px;text-align:center}
         .sd{color:#666;font-size:11px}.foot{margin-top:16px;color:#777;font-size:10px}
       `}</style>
       <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
       <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
-      <div className="top"><div className="logo">RIGHT <b>SPACE</b></div><h1>Payment Request<small>إذن صــرف</small></h1></div>
+      <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 34 }} /><h1>Payment Request<small>إذن صــرف</small></h1></div>
       <div className="meta">
         <div><b>Request no.</b>{r.no}</div><div><b>Date</b>{r.date}</div>
         <div><b>For</b><span dir="auto">{r.vendor}{v?.full_name && v.full_name !== r.vendor ? ' · ' + v.full_name : ''}</span></div><div><b>Vendor code</b>{r.vendor_code}</div>
@@ -59,9 +62,9 @@ export default async function PrintPR({ params }: { params: Promise<{ id: string
           {v?.bank_name && <div>Bank: {v.bank_name}</div>}{v?.account_no && <div>Account no.: {v.account_no}</div>}
           {v?.iban && <div>IBAN: {v.iban}</div>}{v?.swift && <div>SWIFT: {v.swift}</div>}
           {!v?.bank_name && !v?.iban && <div>Cash / no bank details on file</div>}</div>
-        <div className="box"><h3>Status</h3>{r.status === 'posted' ? `Approved and posted (${r.entry_no})` : r.status === 'pending' ? `Waiting for ${steps[approvals.length]?.name}` : r.status}</div>
+        <div className="box"><h3>Status</h3>{r.status === 'posted' ? `Approved and posted (${r.entry_no})` : r.status === 'pending' ? `Waiting for ${steps[approvals.length] ? stepLabel(steps[approvals.length], r) : 'approval'}` : r.status}</div>
       </div>
-      <div className="sigs">{steps.map((s, i) => <div className="sig" key={s.position}><b>{s.name}</b><div>{approvals[i]?.who ?? ' '}</div><div className="sd">{approvals[i]?.at.slice(0, 10) ?? 'Signature / date'}</div></div>)}</div>
+      <div className="sigs">{sigs.map(g => <div className="sig" key={g.key}><b>{g.name}</b><div>{g.who}</div><div className="sd">{g.at}</div></div>)}</div>
       <div className="foot">Printed from Right Space Accounting · {today()}</div>
     </div>
   );

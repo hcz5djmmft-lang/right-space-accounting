@@ -8,13 +8,14 @@ export type PRRow = {
   vat_rate: number; wht_rate: number; si_rate: number; ret_rate: number; dp_amount: number;
   subtotal: number; vat: number; wht: number; si: number; retention: number; total: number; net: number;
   created_by: string | null; created_by_name: string | null; entry_id: string | null; entry_no: string | null;
+  approver_id: string | null; approver_label: string | null; approver_name: string | null;
 };
 export async function getPR(id: string) {
   const [r] = await sql<PRRow[]>`
     select i.*, to_char(i.date,'YYYY-MM-DD') date, to_char(i.due_date,'YYYY-MM-DD') due, p.name vendor, p.code vendor_code,
-      coalesce(pr.code, d.name || ' (dept.)') cc, u.name created_by_name, e.no entry_no
+      coalesce(pr.code, d.name || ' (dept.)') cc, u.name created_by_name, e.no entry_no, ap.name approver_name
     from invoices i join parties p on p.id = i.party_id left join projects pr on pr.id = i.project_id left join departments d on d.id = i.dept_id
-    left join users u on u.id = i.created_by left join journal_entries e on e.id = i.entry_id
+    left join users u on u.id = i.created_by left join users ap on ap.id = i.approver_id left join journal_entries e on e.id = i.entry_id
     where i.id = ${id} and i.kind = 'purchase'`;
   return r;
 }

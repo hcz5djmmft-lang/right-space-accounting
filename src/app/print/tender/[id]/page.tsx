@@ -31,7 +31,7 @@ export default async function PrintTender({ params }: { params: Promise<{ id: st
       `}</style>
       <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
       <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
-      <div className="top"><div className="logo">RIGHT <b>SPACE</b></div><h1>Tender offer<small>{t.no}</small></h1></div>
+      <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 34 }} /><h1>Tender offer<small>{t.no}</small></h1></div>
       <div className="meta"><div><b>Project:</b> <span dir="auto">{t.name}</span></div><div><b>Date:</b> {todayStr}</div><div><b>Client:</b> <span dir="auto">{t.client ?? ''}</span></div><div><b>Location:</b> <span dir="auto">{t.location}</span></div></div>
       <h2>Summary</h2>
       <table><thead><tr><th>Trade</th><th className="n">Amount (EGP)</th></tr></thead>

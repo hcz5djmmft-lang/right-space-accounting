@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { sql } from './db';
 import { afterFailure, isLocked } from './lockout';
 
-import { type Role, type User, hasRole } from './roles';
+import { type Role, type User, hasRole, mergeRoles } from './roles';
 export { ROLES, hasRole, type Role, type User } from './roles';
 
 const COOKIE = 'rsa_session';
@@ -56,10 +56,13 @@ export async function logout() {
 export async function currentUser(): Promise<User | null> {
   const t = (await cookies()).get(COOKIE)?.value;
   if (!t) return null;
-  const [u] = await sql<User[]>`
-    select u.id, u.email, u.name, u.roles from sessions s join users u on u.id = s.user_id
+  const [u] = await sql<(User & { dept_roles: string[] | null })[]>`
+    select u.id, u.email, u.name, u.roles, u.dept_id, d.name dept_name, d.roles dept_roles
+    from sessions s join users u on u.id = s.user_id left join departments d on d.id = u.dept_id and d.active
     where s.token_hash = ${hash(t)} and s.expires_at > now() and u.active`;
-  return u ?? null;
+  if (!u) return null;
+  const { dept_roles, ...user } = u;
+  return { ...user, roles: mergeRoles(u.roles, dept_roles) };
 }
 
 /** For pages and actions: the signed-in user, who must hold one of `roles` (Management may do anything). */
