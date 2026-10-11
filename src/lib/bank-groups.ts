@@ -7,7 +7,7 @@ export type BankKind = 'bank' | 'card' | 'cash';
 export type AccountInfo = { type?: AccountType; bank?: BankKind | null; charges?: boolean; interest?: boolean; receivable?: boolean };
 export type Movement = { kind: string; dr: number; cr: number; others: string[] };
 
-export const OUT_GROUPS = ['Transfers to vendors', 'Bank charges', 'Credit card settlement', 'Transfers between accounts', 'Salaries', 'Other payments'] as const;
+export const OUT_GROUPS = ['Transfers to vendors', 'Bank charges', 'Credit card settlement', 'Transfers between accounts', 'Salaries', "Partners' withdrawals", 'Other payments'] as const;
 export const IN_GROUPS = ['Collections', "Partners' deposits", 'Interest', 'Transfers between accounts', 'Other receipts'] as const;
 export type Group = { side: 'out' | 'in'; group: (typeof OUT_GROUPS)[number] | (typeof IN_GROUPS)[number] };
 
@@ -20,6 +20,7 @@ export function groupOf(m: Movement, info: (code: string) => AccountInfo): Group
     if (m.kind === 'transfer' && o.some(x => x.bank === 'card')) return { side: 'out', group: 'Credit card settlement' };
     if (m.kind === 'transfer' || o.some(x => x.bank)) return { side: 'out', group: 'Transfers between accounts' };
     if (m.kind === 'payroll') return { side: 'out', group: 'Salaries' };
+    if (o.some(x => x.type === 'equity')) return { side: 'out', group: "Partners' withdrawals" };
     return { side: 'out', group: 'Other payments' };
   }
   // debited: money in
