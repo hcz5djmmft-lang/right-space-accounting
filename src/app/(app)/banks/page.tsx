@@ -16,7 +16,7 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
   await requireUser('finance');
   const { account, from = '', to = '', error, ok } = await searchParams;
   const accounts = await bankAccounts();
-  const cur = accounts.find(a => a.code === account) ?? accounts[0];
+  const cur = accounts.find(a => a.code === account) ?? accounts.find(a => a.kind === 'bank') ?? accounts[0]; // the bank account first
   const [lines, sum] = cur ? await Promise.all([bankActivity(cur.code, from, to), bankSummary(cur.code, from, to)]) : [[], null];
   const rec = cur ? reconcile(cur) : null;
   let run = 0;
@@ -48,7 +48,7 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
               {cur.swift && <tr><td>SWIFT</td><td className="mono">{cur.swift}</td></tr>}
               {cur.kind === 'card' && <><tr><td>Limit</td><td className="num">{fmt(cur.credit_limit ?? 0)}</td></tr><tr><td>Owed</td><td className="num">{fmt(cardFigures(cur).owed)}</td></tr>
                 <tr><td>Available</td><td className="num">{cardFigures(cur).available === null ? '—' : fmt(cardFigures(cur).available!)}</td></tr></>}
-              {cur.holder && <tr><td>Held by</td><td>{cur.holder}</td></tr>}
+              {cur.holder && <tr><td>{cur.kind === 'bank' ? 'Account name' : 'Held by'}</td><td>{cur.holder}</td></tr>}
               <tr><td>Payments numbered</td><td className="mono">{cur.ref_prefix ? cur.ref_prefix + '00001, ' + cur.ref_prefix + '00002 …' : '—'}</td></tr>
             </tbody></table>
             {cur.kind === 'card' && <p className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>Pay with the card from Record expense (paid from {cur.code}); settle it with a Transfer from the bank to {cur.code}.</p>}

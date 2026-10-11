@@ -65,8 +65,11 @@ trial balance, income statement, balance sheet, general ledger, import of the ol
 payment requests (إذن صرف) approved by the head of their department (a project's by the head of Engineering), then Management, with email, vendor payments,
 settings (departments as groups with a head and what members can do, people, final approvers, company rules), receipt photos and PDFs on payment requests
 and expense entries (phone camera; stored on disk locally, in a private Supabase Storage bucket in production),
-sales invoices (INV-00001…, VAT 14%, printable, void by reversal) and customer receipts (RCT-00001…, allocated
-to invoices, WHT withheld by the customer goes to WHT receivable), Banks & cash (the CIB current account, the CIB
+sales invoices (INV-00001…, typed Design / Fit-out / Furniture, each type on its own revenue code R111–R113, VAT 14%,
+printable with the CIB account details clients pay into, void by reversal), Money received (RCT-00001…, cash or bank
+transfer, for a project, against invoices or as an advance, WHT withheld by the client goes to WHT receivable, printed as
+a cash receipt or a bank transfer receipt, void by reversal), Collections (by project: client, contract, invoiced,
+collected, still to receive; totals per type for a period; every receipt and direct collection with how it came in), Banks & cash (the CIB current account, the CIB
 credit card with its limit, owed and available, and petty cash boxes with their holders; every payment out of one
 gets a reference number when it posts, CIB-34-00001 from the bank, CC-12-00001 from the card, PT-00001 from cash,
 and vendor payments carry it; bank charges and interest recorded from the bank's own page; a reconciliation summary per
