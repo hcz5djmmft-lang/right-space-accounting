@@ -31,7 +31,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   return (
     <>
       <div className="head"><div><h1>{p.code}</h1><p dir="auto">{p.name}{p.gl_suffix ? ` · GL suffix -${p.gl_suffix}` : ''}</p></div>
-        <div className="row"><Link className="btn" href={`/accounts?project=${id}`}>GL codes</Link></div></div>
+        <div className="row">{!p.is_office && <Link className="btn pri" href={`/cost-centers/${id}/boq`}>BOQ vs actual</Link>}<Link className="btn" href={`/accounts?project=${id}`}>GL codes</Link></div></div>
       {saved && <div className="msg good">Saved.</div>}
       <div className="tiles">
         <div className="tile"><div className="k">Contract</div><div className="v mono">{fmt(p.contract)}</div></div>
