@@ -58,8 +58,8 @@ export default async function NewPayment({ searchParams }: { searchParams: Promi
           </div>
           <h2 style={{ marginTop: 14 }}>Allocate to requests</h2>
           {due.length === 0 ? <p className="muted">No approved requests are open for this vendor; the whole amount will be a down payment.</p> : (
-            <div className="tw"><table><thead><tr><th>Request</th><th>Date</th><th className="num">Net</th><th className="num">Open</th><th className="num">Pay now</th></tr></thead>
-              <tbody>{due.map(o => <tr key={o.id}><td className="mono"><Link href={`/payment-requests/${o.id}`}>{o.no}</Link></td><td className="mono">{o.date}</td>
+            <div className="tw"><table><thead><tr><th>Request / invoice</th><th>Date</th><th className="num">Net</th><th className="num">Open</th><th className="num">Pay now</th></tr></thead>
+              <tbody>{due.map(o => <tr key={o.id}><td className="mono">{o.via_id ? <><Link href={`/purchasing/invoices/${o.id}`}>{o.no}</Link> <span className="muted">on <Link href={`/payment-requests/${o.via_id}`}>{o.via}</Link></span></> : <Link href={`/payment-requests/${o.id}`}>{o.no}</Link>}</td><td className="mono">{o.date}</td>
                 <td className="num">{fmt(o.net)}</td><td className="num">{fmt(o.open)}</td>
                 <td className="num"><input className="inp mono" style={{ maxWidth: 140 }} name={'alloc_' + o.id} inputMode="decimal" defaultValue={o.open} /></td></tr>)}</tbody></table></div>)}
           <div className="row" style={{ justifyContent: 'flex-end', marginTop: 12 }}><button className="btn pri">Post payment</button></div>

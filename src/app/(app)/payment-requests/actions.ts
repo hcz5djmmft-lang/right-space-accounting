@@ -13,7 +13,7 @@ const Input = z.object({
   party: z.string(), project: z.string().nullish(), dept: z.string().nullish(), costType: z.string().nullish(),
   ref: z.string().default(''), requester: z.string().nullish(),
   vatRate: z.number().min(0), whtRate: z.number().min(0), siRate: z.number().min(0), retRate: z.number().min(0), dpAmount: z.number().min(0),
-  lines: z.array(Line),
+  lines: z.array(Line), bills: z.array(z.string()).optional(),
 });
 
 export async function savePRAction(raw: unknown): Promise<{ error?: string; id?: string }> {

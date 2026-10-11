@@ -5,7 +5,7 @@ import { hasRole } from '@/lib/roles';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { amountInWords, lineAmount } from '@/lib/ledger';
-import { canSign, getSteps, stepLabel } from '@/lib/documents';
+import { canSign, getSteps, requestBills, stepLabel } from '@/lib/documents';
 import { getPR, getPRApprovals, getPRLines } from '@/lib/pr-queries';
 import { listAttachments } from '@/lib/attachments';
 import { Attachments } from '@/components/Attachments';
@@ -23,9 +23,10 @@ export default async function PRPage({ params, searchParams }: { params: Promise
     sql<{ at: string; who: string | null; action: string; note: string }[]>`
       select to_char(g.at at time zone ${TZ},'YYYY-MM-DD HH24:MI') at, u.name who, g.action, g.note
       from audit_log g left join users u on u.id = g.user_id where g.entity = 'invoice' and g.entity_id = ${id} order by g.at`,
-    sql<{ v: number }[]>`select coalesce(sum(a.amount),0) v from payment_allocations a join payments p on p.id = a.payment_id and p.status = 'posted' where a.invoice_id = ${id}`,
+    sql<{ v: number }[]>`select invoice_paid(${id}) v`,
     listAttachments('invoice', id),
   ]);
+  const bills = await requestBills(id);
   const cur = r.status === 'pending' ? steps[approvals.length] : undefined;
   const mayAct = canSign(user, cur, r);
   // the signatures given, then the steps still to come (a request approved under an older chain keeps its own signatures)
@@ -64,6 +65,14 @@ export default async function PRPage({ params, searchParams }: { params: Promise
           <form action={approvePR.bind(null, id)}><button className="btn pri">Approve as {stepLabel(cur!, r)}</button></form>
         </div>)}
 
+      {bills.length > 0 ? (
+        <div className="tw" style={{ marginBottom: 14 }}><table>
+          <thead><tr><th>Vendor invoice</th><th>Date</th><th className="hide-sm">Vendor&apos;s no.</th><th className="hide-sm">PO</th><th className="num">To pay</th><th className="num">Paid</th></tr></thead>
+          <tbody>{bills.map(b => (
+            <tr key={b.id}><td className="mono"><Link href={`/purchasing/invoices/${b.id}`}>{b.no}</Link></td><td className="mono">{b.date}</td><td className="hide-sm">{b.ref}</td>
+              <td className="mono hide-sm">{b.po_id ? <Link href={`/purchasing/${b.po_id}`}>{b.po_no}</Link> : ''}</td><td className="num">{fmt(b.amount)}</td><td className="num">{fmt(b.paid)}</td></tr>))}</tbody>
+          <tfoot><tr><td colSpan={4}>Net to pay</td><td className="num">{fmt(r.net)}</td><td></td></tr></tfoot>
+        </table></div>) : (
       <div className="tw" style={{ marginBottom: 14 }}><table>
         <thead><tr><th>GL code</th><th className="hide-sm">Description</th><th className="hide-sm">Assigned to</th><th className="num">Qty</th><th className="num">Price</th><th className="num">Amount</th></tr></thead>
         <tbody>{lines.map((l, i) => (
@@ -74,10 +83,10 @@ export default async function PRPage({ params, searchParams }: { params: Promise
           {ded.filter(d => d[1]).map(d => <tr key={d[0]}><td colSpan={5}>{d[0]}</td><td className="num">({fmt(d[1])})</td></tr>)}
         </tbody>
         <tfoot><tr><td colSpan={5}>Net to pay</td><td className="num">{fmt(r.net)}</td></tr></tfoot>
-      </table></div>
+      </table></div>)}
       <p className="muted" style={{ fontStyle: 'italic' }}>{amountInWords(r.net)}</p>
       <Attachments entity="invoice" id={id} path={`/payment-requests/${id}`} items={files} userId={user.id} canRemove={hasRole(user, 'finance')} locked={r.status === 'posted'} />
-      {r.status === 'posted' && <div className="card">Posted as <Link href={`/entries/${r.entry_id}`}>{r.entry_no}</Link> · paid {fmt(paid.v)} · open {fmt(open)}</div>}
+      {r.status === 'posted' && <div className="card">{r.entry_id ? <>Posted as <Link href={`/entries/${r.entry_id}`}>{r.entry_no}</Link></> : 'Approved: the vendor invoices are released for payment'} · paid {fmt(paid.v)} · open {fmt(open)}</div>}
       <div className="card"><h2>History</h2>
         <div className="log">{log.map((g, i) => <div key={i}>{g.at} · {g.who ?? 'Imported'} · {g.action}{g.note ? ' — ' + g.note : ''}</div>)}</div></div>
     </>

@@ -58,6 +58,8 @@ export type PRInput = {
   id?: string; date: string; due?: string | null; party: string; project?: string | null; dept?: string | null;
   costType?: string | null; ref: string; requester?: string | null;
   vatRate: number; whtRate: number; siRate: number; retRate: number; dpAmount: number; lines: DocLine[];
+  /** vendor invoices (received against POs) this request pays, instead of lines of its own */
+  bills?: string[];
 };
 
 const asDoc = (no: string, i: PRInput): DocInput => ({
@@ -71,7 +73,9 @@ export async function savePaymentRequest(user: User, input: PRInput, submit: boo
     const s = await getSettings(tx);
     if (!input.party) throw new RuleError('Choose the vendor.');
     const lines = input.lines.filter(l => l.acc && r2(l.qty * l.price) !== 0);
-    if (!lines.length) throw new RuleError('Add at least one line with a GL code and an amount.');
+    const billIds = [...new Set(input.bills ?? [])];
+    if (billIds.length && lines.length) throw new RuleError("A request either pays the vendor's invoices or has lines of its own, not both.");
+    if (!lines.length && !billIds.length) throw new RuleError('Add at least one line with a GL code and an amount.');
     const i = { ...input, lines };
     let id = i.id, no: string;
     if (id) {
@@ -83,12 +87,17 @@ export async function savePaymentRequest(user: User, input: PRInput, submit: boo
     } else {
       no = await nextNo(tx, s.pr_prefix, 6);
     }
+    // a request that pays vendor invoices: each one this vendor's, unpaid and not on another request; it pays what is open
+    const bills = billIds.length ? await requestableBills(tx, i.party, billIds, id) : [];
     const doc = asDoc(no, i);
-    const t = docTotals(doc);
-    const jl = docLines(doc, s.account_map); // checks deductions and builds the future entry
-    if (submit) { await validateLines(tx, jl, s); }
+    const t = bills.length ? billTotals(bills) : docTotals(doc);
+    if (!bills.length) {
+      const jl = docLines(doc, s.account_map); // checks deductions and builds the future entry
+      if (submit) { await validateLines(tx, jl, s); }
+    }
     const status = submit ? 'pending' : 'draft';
-    const approver = submit ? await approverFor(tx, { dept: i.dept, project: i.project, lines }) : { id: null, label: null };
+    const signLines = bills.length ? bills.map(b => ({ project: b.project_id, dept: b.dept_id })) : lines;
+    const approver = submit ? await approverFor(tx, { dept: i.dept, project: i.project, lines: signLines }) : { id: null, label: null };
     const vals = {
       date: i.date, due_date: i.due || null, party_id: i.party, project_id: i.project || null, dept_id: i.dept || null,
       cost_type: i.costType || null, ref: i.ref, requester: i.requester || null, approver_id: approver.id, approver_label: approver.label,
@@ -99,12 +108,14 @@ export async function savePaymentRequest(user: User, input: PRInput, submit: boo
       await tx`update invoices set ${tx(vals)} where id = ${id}`;
       await tx`delete from invoice_lines where invoice_id = ${id}`;
       await tx`delete from invoice_approvals where invoice_id = ${id}`;
+      await tx`delete from payment_request_bills where request_id = ${id}`;
     } else {
       [{ id }] = await tx<{ id: string }[]>`insert into invoices ${tx({ ...vals, kind: 'purchase', no, created_by: user.id })} returning id`;
     }
     for (const [k, l] of lines.entries())
       await tx`insert into invoice_lines (invoice_id, line_no, account, description, qty, price, project_id, dept_id)
         values (${id!}, ${k + 1}, ${l.acc}, ${l.desc ?? ''}, ${l.qty}, ${l.price}, ${l.project || null}, ${l.dept || null})`;
+    for (const b of bills) await tx`insert into payment_request_bills (request_id, bill_id, amount) values (${id!}, ${b.id}, ${b.open})`;
     await audit(tx, user, 'invoice', id!, submit ? 'Submitted for approval' : input.id ? 'Edited' : 'Created');
     if (!submit) return { id: id!, notify: null, approver_label: null };
     if (!s.require_approval && hasRole(user, 'finance')) { await postRequest(tx, user, id!, 'Posted (approval not required)'); return { id: id!, notify: null, approver_label: null }; }
@@ -142,6 +153,13 @@ async function postRequest(tx: Tx, user: User, id: string, note: string) {
   const s = await getSettings(tx);
   const { inv, lines } = await loadRequest(tx, id);
   checkLock(s, inv.date);
+  const [paysBills] = await tx`select 1 from payment_request_bills where request_id = ${id} limit 1`;
+  if (paysBills) {
+    // the vendor invoices are already in the books: approval only releases them for payment
+    await tx`update invoices set status = 'posted' where id = ${id}`;
+    await audit(tx, user, 'invoice', id, note, 'Vendor invoices released for payment');
+    return;
+  }
   const doc: DocInput = {
     kind: 'purchase', no: inv.no, party: inv.party_id, project: inv.project_id, dept: inv.dept_id,
     vatRate: inv.vat_rate, whtRate: inv.wht_rate, siRate: inv.si_rate, retRate: inv.ret_rate, dpAmount: inv.dp_amount,
@@ -209,15 +227,47 @@ export async function deleteRequest(user: User, id: string) {
   });
 }
 
-/** Open (unpaid) balance of each posted payment request for a vendor. */
+/**
+ * What can be paid to a vendor: each approved payment request with lines of its own, and each vendor invoice (received
+ * against a PO) that an approved payment request releases. `via` names that request.
+ */
 export async function openRequests(tx: Tx, party?: string) {
-  return tx<{ id: string; no: string; date: string; net: number; paid: number; open: number }[]>`
-    select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, i.net,
-      coalesce((select sum(a.amount) from payment_allocations a join payments p on p.id = a.payment_id and p.status = 'posted' where a.invoice_id = i.id),0) paid,
-      i.net - coalesce((select sum(a.amount) from payment_allocations a join payments p on p.id = a.payment_id and p.status = 'posted' where a.invoice_id = i.id),0) open
-    from invoices i where i.kind = 'purchase' and i.status = 'posted' and (${party ?? null}::text is null or i.party_id = ${party ?? null})
+  return tx<{ id: string; no: string; date: string; net: number; paid: number; open: number; via: string | null; via_id: string | null }[]>`
+    select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, i.net, invoice_paid(i.id) paid, i.net - invoice_paid(i.id) open, q.no via, q.id via_id
+    from invoices i
+    left join lateral (select r.id, r.no from payment_request_bills b join invoices r on r.id = b.request_id and r.status = 'posted' where b.bill_id = i.id limit 1) q on true
+    where i.kind = 'purchase' and i.status = 'posted' and (${party ?? null}::text is null or i.party_id = ${party ?? null})
+      and not exists (select 1 from payment_request_bills b where b.request_id = i.id)
+      and (i.po_id is null or q.id is not null)
     order by i.date, i.no`;
 }
+
+type RequestableBill = { id: string; no: string; open: number; project_id: string | null; dept_id: string | null };
+/** Checks the vendor invoices a payment request is to pay and returns what is open on each. */
+async function requestableBills(tx: Tx, party: string, ids: string[], requestId?: string) {
+  const rows = await tx<(RequestableBill & { party_id: string; status: string; po_id: string | null; other: string | null })[]>`
+    select i.id, i.no, i.party_id, i.status, i.po_id, i.project_id, i.dept_id, i.net - invoice_paid(i.id) open,
+      (select q.no from payment_request_bills b join invoices q on q.id = b.request_id and q.status in ('draft', 'pending', 'posted')
+        where b.bill_id = i.id and q.id <> ${requestId ?? ''} limit 1) other
+    from invoices i where i.id = any(${ids})`;
+  if (rows.length !== ids.length) throw new RuleError('A selected invoice no longer exists.');
+  for (const b of rows) {
+    if (b.party_id !== party || !b.po_id || b.status !== 'posted') throw new RuleError(`${b.no} is not an invoice of this vendor received in the books.`);
+    if (b.open <= 0.004) throw new RuleError(`${b.no} is already paid.`);
+    if (b.other) throw new RuleError(`${b.no} is already on payment request ${b.other}.`);
+  }
+  return rows.map(b => ({ id: b.id, no: b.no, open: r2(b.open), project_id: b.project_id, dept_id: b.dept_id }));
+}
+const billTotals = (bills: { open: number }[]) => {
+  const total = r2(bills.reduce((t, b) => t + b.open, 0));
+  return { subtotal: total, vat: 0, wht: 0, si: 0, retention: 0, total, net: total, dp: 0 };
+};
+
+/** The vendor invoices a payment request pays. */
+export const requestBills = (id: string) => sql<{ id: string; no: string; date: string; ref: string; po_no: string | null; po_id: string | null; amount: number; paid: number }[]>`
+  select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, i.ref, r.po_no, r.id po_id, b.amount, invoice_paid(i.id) paid
+  from payment_request_bills b join invoices i on i.id = b.bill_id left join purchase_requests r on r.id = i.po_id
+  where b.request_id = ${id} order by i.date, i.no`;
 
 export type PaymentInputForm = { date: string; party: string; bank: string; amount: number; memo: string; ref: string; alloc: { invoice: string; amount: number }[] };
 
@@ -269,8 +319,20 @@ export async function waitingForUser(user: User) {
       from journal_entries e left join journal_lines l on l.entry_id = e.id left join users u on u.id = e.created_by
       where e.status = 'pending' group by e.id, u.name order by e.date`,
   ]);
+  // purchase requests: with Procurement for pricing, then the department head, then Management
+  const [purchases, [proc]] = await Promise.all([
+    sql<{ id: string; no: string; date: string; memo: string; who: string | null; amount: number; status: string; approver_id: string | null; approver_label: string | null }[]>`
+      select r.id, r.no, to_char(r.date,'YYYY-MM-DD') date, coalesce(v.name, coalesce(p.code, d.name)) memo, u.name who, r.status, r.approver_id, r.approver_label,
+        coalesce((select sum(round(l.qty * l.price, 2)) from purchase_request_lines l where l.request_id = r.id), 0) amount
+      from purchase_requests r left join parties v on v.id = r.vendor_id left join projects p on p.id = r.project_id left join departments d on d.id = r.dept_id
+      left join users u on u.id = r.created_by where r.status in ('procurement', 'head', 'management') order by r.date`,
+    sql<{ ok: boolean }[]>`select true ok from departments where code = 'PUR' and (head_user_id = ${user.id} or id = ${user.dept_id ?? ''})`,
+  ]);
+  const procurement = hasRole(user, 'management') || !!proc;
+  const mine = purchases.filter(r => r.status === 'procurement' ? procurement : r.status === 'head' ? canSign(user, steps[0], r) : canSign(user, steps[steps.length - 1]));
   return [
     ...prs.filter(p => canSign(user, steps[p.signed], p)).map(p => ({ ...p, href: `/payment-requests/${p.id}`, type: `Payment request · ${stepLabel(steps[p.signed], p)}` })),
+    ...mine.map(r => ({ ...r, href: `/purchasing/${r.id}`, type: `Purchase request · ${r.status === 'procurement' ? 'Procurement pricing' : r.status === 'head' ? r.approver_label ?? 'Department head' : 'Management'}` })),
     ...(hasRole(user, 'finance') ? entries.map(e => ({ ...e, href: `/entries/${e.id}`, type: 'Entry' })) : []),
   ];
 }

@@ -32,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       { href: '/parties', label: 'Customers & vendors' },
       { href: '/payroll', label: 'Payroll' }] as NavItem[]
       : ['Requests', { href: '/payment-requests', label: 'Payment requests' }] as NavItem[]),
+    'Purchasing', { href: '/purchasing', label: 'Purchase requests' }, { href: '/purchasing/materials', label: 'Materials' },
     ...(projects || tenders ? ['Projects',
       ...(projects ? [{ href: '/cost-centers', label: 'Cost centers' }] : []),
       ...(tenders ? [{ href: '/tenders', label: 'Tenders' }] : [])] as NavItem[] : []),

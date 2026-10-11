@@ -14,9 +14,9 @@ export default async function PaymentRequests({ searchParams }: { searchParams: 
       approver_id: string | null; approver_label: string | null }[]>`
       select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, p.name vendor, coalesce(pr.code, d.name) cc, i.status, i.net, i.created_by, i.approver_id, i.approver_label,
         (select count(*)::int from invoice_approvals a where a.invoice_id = i.id) signed,
-        coalesce((select sum(a.amount) from payment_allocations a join payments py on py.id = a.payment_id and py.status = 'posted' where a.invoice_id = i.id),0) paid
+        invoice_paid(i.id) paid
       from invoices i join parties p on p.id = i.party_id left join projects pr on pr.id = i.project_id left join departments d on d.id = i.dept_id
-      where i.kind = 'purchase' order by i.date desc, i.no desc limit 500`,
+      where i.kind = 'purchase' and i.po_id is null order by i.date desc, i.no desc limit 500`,
     getSteps(),
   ]);
   const shown = rows.filter(r =>
