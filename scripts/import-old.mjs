@@ -79,12 +79,7 @@ export async function importOld(sql, d, { replace = false } = {}) {
       lock_date = null, pr_prefix = ${c.prPrefix || 'C-'}, fy_start_month = ${Number(c.fyStart || 1)},
       cats = ${tx.json(c.cats || {})}, account_map = ${tx.json(c.map || {})}, payroll = ${tx.json(c.pay || {})}
       where id = 1`;
-    // the step names come from the old app; the approvers ticked in the new Settings page stay as they are
-    if (Array.isArray(c.chain) && c.chain.length) {
-      for (const [i, s] of c.chain.entries())
-        await tx`insert into approval_steps (position, name) values (${i + 1}, ${s.name}) on conflict (position) do update set name = excluded.name`;
-      await tx`delete from approval_steps where position > ${c.chain.length}`;
-    }
+    // the approval chain is the app's own since migration 010 (department head, then Management); the old app's chain is not copied
 
     for (const x of vals(d.departments))
       await tx`insert into departments (id, code, name, active) values (${x.id}, ${x.code || x.id.toUpperCase()}, ${x.name}, ${x.active !== false})`;

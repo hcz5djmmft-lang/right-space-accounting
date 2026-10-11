@@ -16,7 +16,15 @@ async function flash(msg: string) {
   (await cookies()).set('rsa_flash', msg, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/settings', maxAge: 60 });
   redirect('/settings');
 }
-const rolesOf = (f: FormData) => f.getAll('roles').map(String).filter((r): r is Role => r in ROLES);
+const rolesOf = (f: FormData, k = 'roles') => f.getAll(k).map(String).filter((r): r is Role => r in ROLES);
+/** The chosen department's id, or null for none; an unknown id (a stale form) is refused. */
+async function deptOf(f: FormData) {
+  const id = s(f, 'dept');
+  if (!id) return null;
+  const [d] = await sql<{ id: string }[]>`select id from departments where id = ${id} and active`;
+  if (!d) back('That department no longer exists.', true);
+  return d.id;
+}
 
 export async function saveCompany(f: FormData) {
   const user = await requireUser('management');
@@ -37,6 +45,7 @@ export async function saveSteps(f: FormData) {
   await sql.begin(async tx => {
     const steps = await tx<{ position: number; name: string }[]>`select position, name from approval_steps order by position`;
     for (const st of steps) {
+      if (/head/i.test(st.name)) continue; // the department head step is signed by the heads set under Departments
       const ids = f.getAll('step_' + st.position).map(String);
       await tx`update approval_steps set user_ids = ${ids} where position = ${st.position}`;
     }
@@ -50,8 +59,9 @@ export async function addUser(f: FormData) {
   const admin = await requireUser('management');
   const email = s(f, 'email').toLowerCase(), name = s(f, 'name');
   if (!email || !name) back('Enter a name and an email.', true);
+  const dept = await deptOf(f);
   const password = crypto.randomBytes(6).toString('base64url');
-  const [u] = await sql<{ id: string }[]>`insert into users (email, name, password_hash, roles) values (${email}, ${name}, ${await hashPassword(password)}, ${rolesOf(f)})
+  const [u] = await sql<{ id: string }[]>`insert into users (email, name, password_hash, roles, dept_id) values (${email}, ${name}, ${await hashPassword(password)}, ${rolesOf(f)}, ${dept})
     on conflict (email) do nothing returning id`;
   if (!u) back(`${email} already has a login.`, true);
   await audit(sql, admin, 'user', u.id, 'Created login', rolesOf(f).join(', '));
@@ -65,10 +75,10 @@ export async function addUser(f: FormData) {
 
 export async function updateUser(id: string, f: FormData) {
   const admin = await requireUser('management');
-  const roles = rolesOf(f), active = f.get('active') === 'on';
+  const roles = rolesOf(f), active = f.get('active') === 'on', dept = await deptOf(f);
   if (id === admin.id && (!roles.includes('management') || !active)) back('You cannot remove your own Management access.', true);
   await sql.begin(async tx => {
-    await tx`update users set name = ${s(f, 'name')}, roles = ${roles}, active = ${active} where id = ${id}`;
+    await tx`update users set name = ${s(f, 'name')}, roles = ${roles}, active = ${active}, dept_id = ${dept} where id = ${id}`;
     if (!active) await tx`delete from sessions where user_id = ${id}`;
     await audit(tx, admin, 'user', id, 'Changed access', `${roles.join(', ') || 'no roles'}${active ? '' : ' · deactivated'}`);
   });
@@ -84,4 +94,32 @@ export async function resetPassword(id: string) {
   await audit(sql, admin, 'user', id, 'Reset password');
   await sendMail({ to: [u.email], subject: 'Your Right Space Accounting password was reset', text: `Temporary password: ${password}\nSign in: ${appUrl('/login')}` });
   await flash(`New temporary password for ${u.email}: ${password}. Shown once; pass it on now.`);
+}
+
+export async function saveDepartment(id: string, f: FormData) {
+  const admin = await requireUser('management');
+  const name = s(f, 'name'), head = s(f, 'head') || null, roles = rolesOf(f, 'droles'), active = f.get('active') === 'on';
+  if (!name) back('Enter the department name.', true);
+  if (head) {
+    const [u] = await sql<{ id: string }[]>`select id from users where id = ${head} and active`;
+    if (!u) back('That person is not an active login.', true);
+  }
+  await sql.begin(async tx => {
+    const r = await tx`update departments set name = ${name}, head_user_id = ${head}, roles = ${roles}, active = ${active} where id = ${id}`;
+    if (!r.count) back('That department no longer exists.', true);
+    await audit(tx, admin, 'department', id, 'Changed', `${name} · head ${head ?? 'none'} · members can ${roles.join(', ') || 'nothing extra'}${active ? '' : ' · inactive'}`);
+  });
+  revalidatePath('/', 'layout');
+  back(`${name} saved.`);
+}
+
+export async function addDepartment(f: FormData) {
+  const admin = await requireUser('management');
+  const code = s(f, 'code').toUpperCase(), name = s(f, 'name');
+  if (!code || !name) back('Enter a code and a name for the department.', true);
+  const [d] = await sql<{ id: string }[]>`insert into departments (code, name) values (${code}, ${name}) on conflict (code) do nothing returning id`;
+  if (!d) back(`A department with code ${code} already exists.`, true);
+  await audit(sql, admin, 'department', d.id, 'Created', `${code} · ${name}`);
+  revalidatePath('/', 'layout');
+  back(`${name} added. Choose its head and what its members can do, then Save.`);
 }

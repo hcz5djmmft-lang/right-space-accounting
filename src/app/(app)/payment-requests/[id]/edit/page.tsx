@@ -17,7 +17,7 @@ export default async function EditPR({ params }: { params: Promise<{ id: string 
   const s = (n: number) => String(n ?? 0);
   return (
     <>
-      <div className="head"><div><h1>Edit {r.no}</h1><p>Submitting again restarts the approvals from Finance.</p></div></div>
+      <div className="head"><div><h1>Edit {r.no}</h1><p>Submitting again restarts the approvals from the department head.</p></div></div>
       <PRForm {...lists} save={savePRAction} initial={{
         id, date: r.date, due: r.due ?? '', party: r.party_id, assign: asg(r.project_id, r.dept_id), costType: r.cost_type ?? '', ref: r.ref, requester: r.requester ?? '',
         vatRate: s(r.vat_rate), whtRate: s(r.wht_rate), siRate: s(r.si_rate), retRate: s(r.ret_rate), dpAmount: s(r.dp_amount),

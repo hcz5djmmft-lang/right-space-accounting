@@ -15,30 +15,31 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const [waiting, myTasks] = await Promise.all([waitingForUser(user), openForUser(user.id)]);
   const n = waiting.length;
+  // The menu follows the department: Finance holds the books; everyone else raises requests and sees their projects.
+  const finance = hasRole(user, 'finance'), projects = hasRole(user, 'finance', 'engineering', 'projects'), tenders = hasRole(user, 'tenders');
   const items: NavItem[] = [
     { href: '/', label: 'Overview' },
     { href: '/approvals', label: 'Approvals', badge: n },
     { href: '/tasks', label: 'Tasks', badge: myTasks },
-    'Books',
-    { href: '/entries', label: 'Entries' },
-    { href: '/accounts', label: 'Chart of accounts' },
-    ...(hasRole(user, 'finance') ? [{ href: '/banks', label: 'Banks & cash' }] : []),
-    'Projects',
-    { href: '/cost-centers', label: 'Cost centers' },
-    ...(hasRole(user, 'tenders') ? [{ href: '/tenders', label: 'Tenders' }] : []),
-    'Trade',
-    { href: '/payment-requests', label: 'Payment requests' },
-    { href: '/sales-invoices', label: 'Sales invoices' },
-    { href: '/parties', label: 'Customers & vendors' },
-    ...(hasRole(user, 'finance') ? ['People', { href: '/payroll', label: 'Payroll' }] as NavItem[] : []),
-    'Insight',
-    { href: '/reports', label: 'Reports' },
+    ...(finance ? ['Finance',
+      { href: '/entries', label: 'Entries' },
+      { href: '/accounts', label: 'Chart of accounts' },
+      { href: '/banks', label: 'Banks & cash' },
+      { href: '/payment-requests', label: 'Payment requests' },
+      { href: '/sales-invoices', label: 'Sales invoices' },
+      { href: '/parties', label: 'Customers & vendors' },
+      { href: '/payroll', label: 'Payroll' }] as NavItem[]
+      : ['Requests', { href: '/payment-requests', label: 'Payment requests' }] as NavItem[]),
+    ...(projects || tenders ? ['Projects',
+      ...(projects ? [{ href: '/cost-centers', label: 'Cost centers' }] : []),
+      ...(tenders ? [{ href: '/tenders', label: 'Tenders' }] : [])] as NavItem[] : []),
+    ...(finance ? ['Insight', { href: '/reports', label: 'Reports' }] as NavItem[] : []),
     ...(hasRole(user, 'management') ? ['Admin', { href: '/settings', label: 'Settings' }] as NavItem[] : []),
     { href: '/account', label: 'My account' },
   ];
   return (
     <div className="shell">
-      <Nav items={items} user={user.name} logout={signOut} />
+      <Nav items={items} user={user.dept_name ? `${user.name} · ${user.dept_name}` : user.name} logout={signOut} />
       <main>{children}</main>
     </div>
   );

@@ -9,23 +9,49 @@ import { appUrl, sendMail } from './mail';
 export type Step = { position: number; name: string; user_ids: string[] };
 export const getSteps = (tx: Tx = sql) => tx<Step[]>`select position, name, user_ids from approval_steps order by position`;
 
+/** Step 1 is signed by the head of the request's department; the people ticked in Settings sign the others. */
+export const isHeadStep = (s: Step) => /head/i.test(s.name);
 /** Step names map to roles when no named approvers are set for the step. */
 const stepRole = (s: Step): Role | null => {
   const n = s.name.toLowerCase();
   return n.includes('finance') ? 'finance' : n.includes('engineer') ? 'engineering' : n.includes('manage') ? 'management' : null;
 };
-export function canSign(u: User, s: Step | undefined) {
+/** What a request carries about its first signer: the head fixed when it was submitted (none: Management stands in). */
+export type Signable = { approver_id?: string | null };
+export function canSign(u: User, s: Step | undefined, doc?: Signable) {
   if (!s) return false;
-  if (u.roles.includes('management')) return true;
+  if (isHeadStep(s)) return (!!doc?.approver_id && doc.approver_id === u.id) || u.roles.includes('management');
   if (s.user_ids.length) return s.user_ids.includes(u.id);
   const r = stepRole(s);
   return !!r && hasRole(u, r);
 }
-async function signerEmails(tx: Tx, s: Step) {
+/** The name a step shows for a given request: "Engineering head" rather than "Department head". */
+export const stepLabel = (s: Step, doc?: { approver_label?: string | null }) => (isHeadStep(s) && doc?.approver_label) || s.name;
+
+async function signerEmails(tx: Tx, s: Step, doc?: Signable) {
   const users = await tx<User[]>`select id, email, name, roles from users where active`;
-  // email the step's named approvers, else everyone holding the step's role (Management can sign any step but is only emailed for its own)
+  if (isHeadStep(s)) {
+    const head = users.find(u => u.id === doc?.approver_id);
+    return head ? [head.email] : users.filter(u => u.roles.includes('management')).map(u => u.email);
+  }
+  // email the step's named approvers, else everyone holding the step's role
   const r = stepRole(s);
   return users.filter(u => (s.user_ids.length ? s.user_ids.includes(u.id) : !!r && u.roles.includes(r))).map(u => u.email);
+}
+
+/**
+ * Who signs a request first: the head of its department; a project's request goes to the head of Engineering.
+ * The header's cost center decides, else the first line that names one. No head set (or the head deactivated): Management.
+ */
+export async function approverFor(tx: Tx, doc: { dept?: string | null; project?: string | null; lines?: { dept?: string | null; project?: string | null }[] }) {
+  const dept = doc.dept || (!doc.project && doc.lines?.find(l => l.dept)?.dept) || null;
+  const project = doc.project || doc.lines?.find(l => l.project)?.project || null;
+  const [d] = dept
+    ? await tx<{ name: string; head: string | null }[]>`select d.name, (select u.id from users u where u.id = d.head_user_id and u.active) head from departments d where d.id = ${dept}`
+    : project
+      ? await tx<{ name: string; head: string | null }[]>`select d.name, (select u.id from users u where u.id = d.head_user_id and u.active) head from departments d where d.code = 'ENG' and d.active`
+      : [];
+  return d ? { id: d.head, label: `${d.name} head` } : { id: null, label: 'Department head' };
 }
 
 export type PRInput = {
@@ -62,9 +88,10 @@ export async function savePaymentRequest(user: User, input: PRInput, submit: boo
     const jl = docLines(doc, s.account_map); // checks deductions and builds the future entry
     if (submit) { await validateLines(tx, jl, s); }
     const status = submit ? 'pending' : 'draft';
+    const approver = submit ? await approverFor(tx, { dept: i.dept, project: i.project, lines }) : { id: null, label: null };
     const vals = {
       date: i.date, due_date: i.due || null, party_id: i.party, project_id: i.project || null, dept_id: i.dept || null,
-      cost_type: i.costType || null, ref: i.ref, requester: i.requester || null,
+      cost_type: i.costType || null, ref: i.ref, requester: i.requester || null, approver_id: approver.id, approver_label: approver.label,
       vat_rate: i.vatRate, wht_rate: i.whtRate, si_rate: i.siRate, ret_rate: i.retRate, dp_amount: i.dpAmount,
       subtotal: t.subtotal, vat: t.vat, wht: t.wht, si: t.si, retention: t.retention, total: t.total, net: t.net, status,
     };
@@ -79,28 +106,30 @@ export async function savePaymentRequest(user: User, input: PRInput, submit: boo
       await tx`insert into invoice_lines (invoice_id, line_no, account, description, qty, price, project_id, dept_id)
         values (${id!}, ${k + 1}, ${l.acc}, ${l.desc ?? ''}, ${l.qty}, ${l.price}, ${l.project || null}, ${l.dept || null})`;
     await audit(tx, user, 'invoice', id!, submit ? 'Submitted for approval' : input.id ? 'Edited' : 'Created');
-    if (!submit) return { id: id!, notify: null };
-    if (!s.require_approval && hasRole(user, 'finance')) { await postRequest(tx, user, id!, 'Posted (approval not required)'); return { id: id!, notify: null }; }
+    if (!submit) return { id: id!, notify: null, approver_label: null };
+    if (!s.require_approval && hasRole(user, 'finance')) { await postRequest(tx, user, id!, 'Posted (approval not required)'); return { id: id!, notify: null, approver_label: null }; }
     const [first] = await getSteps(tx);
-    return { id: id!, notify: first ? { step: first, emails: await signerEmails(tx, first), no, net: t.net } : null };
+    return { id: id!, approver_label: approver.label, notify: first ? { step: first, emails: await signerEmails(tx, first, { approver_id: approver.id }), no, net: t.net } : null };
   });
-  if (res.notify) await notifyStep(res.notify.emails, res.notify.step, res.notify.no, res.notify.net, res.id, user.name);
+  if (res.notify) await notifyStep(res.notify.emails, stepLabel(res.notify.step, { approver_label: res.approver_label }), res.notify.no, res.notify.net, res.id, user.name);
   return res.id;
 }
 
-async function notifyStep(emails: string[], step: Step, no: string, net: number, id: string, by: string) {
+async function notifyStep(emails: string[], step: string, no: string, net: number, id: string, by: string) {
   await sendMail({
     to: emails,
-    subject: `${no} is waiting for your ${step.name} approval`,
-    text: `Payment request ${no} for EGP ${net.toLocaleString('en-US', { minimumFractionDigits: 2 })} is waiting for ${step.name} approval.\n` +
+    subject: `${no} is waiting for your ${step} approval`,
+    text: `Payment request ${no} for EGP ${net.toLocaleString('en-US', { minimumFractionDigits: 2 })} is waiting for ${step} approval.\n` +
       `Last action by ${by}.\n\nOpen it: ${appUrl('/payment-requests/' + id)}\n\nRight Space Accounting`,
   });
 }
 
 async function loadRequest(tx: Tx, id: string) {
   const [inv] = await tx<{ id: string; no: string; status: string; date: string; party_id: string; project_id: string | null; dept_id: string | null;
-    vat_rate: number; wht_rate: number; si_rate: number; ret_rate: number; dp_amount: number; net: number; created_by: string | null }[]>`
-    select id, no, status, to_char(date,'YYYY-MM-DD') date, party_id, project_id, dept_id, vat_rate, wht_rate, si_rate, ret_rate, dp_amount, net, created_by
+    vat_rate: number; wht_rate: number; si_rate: number; ret_rate: number; dp_amount: number; net: number; created_by: string | null;
+    approver_id: string | null; approver_label: string | null }[]>`
+    select id, no, status, to_char(date,'YYYY-MM-DD') date, party_id, project_id, dept_id, vat_rate, wht_rate, si_rate, ret_rate, dp_amount, net, created_by,
+      approver_id, approver_label
     from invoices where id = ${id} and kind = 'purchase' for update`;
   if (!inv) throw new RuleError('Payment request not found.');
   const lines = await tx<{ account: string; description: string; qty: number; price: number; project_id: string | null; dept_id: string | null }[]>`
@@ -138,19 +167,20 @@ export async function approveRequest(user: User, id: string) {
     const steps = await getSteps(tx);
     const [{ n }] = await tx<{ n: number }[]>`select count(*)::int n from invoice_approvals where invoice_id = ${id}`;
     const step = steps[n];
-    if (!canSign(user, step)) throw new RuleError(`This request is waiting for ${step?.name ?? 'approval'}, and you are not an approver for that step.`);
+    if (!canSign(user, step, inv)) throw new RuleError(`This request is waiting for ${step ? stepLabel(step, inv) : 'approval'}, and you are not an approver for that step.`);
     checkLock(s, inv.date);
-    await tx`insert into invoice_approvals (invoice_id, step, step_name, user_id) values (${id}, ${step.position}, ${step.name}, ${user.id})`;
+    const label = stepLabel(step, inv);
+    await tx`insert into invoice_approvals (invoice_id, step, step_name, user_id) values (${id}, ${step.position}, ${label}, ${user.id})`;
     const next = steps[n + 1];
     if (next) {
-      await audit(tx, user, 'invoice', id, step.name + ' approved');
-      return { next, emails: await signerEmails(tx, next), inv };
+      await audit(tx, user, 'invoice', id, label + ' approved');
+      return { next, emails: await signerEmails(tx, next, inv), inv };
     }
-    await postRequest(tx, user, id, step.name + ' approved · posted');
+    await postRequest(tx, user, id, label + ' approved · posted');
     const [req] = await tx<{ email: string }[]>`select email from users where id = ${inv.created_by}`;
     return { next: null, emails: req ? [req.email] : [], inv };
   });
-  if (res.next) await notifyStep(res.emails, res.next, res.inv.no, res.inv.net, id, user.name);
+  if (res.next) await notifyStep(res.emails, stepLabel(res.next, res.inv), res.inv.no, res.inv.net, id, user.name);
   else await sendMail({ to: res.emails, subject: `${res.inv.no} is fully approved`, text: `Payment request ${res.inv.no} is fully approved and posted. It can now be paid.\n\n${appUrl('/payment-requests/' + id)}` });
 }
 
@@ -160,7 +190,7 @@ export async function returnRequest(user: User, id: string, reason: string) {
     if (inv.status !== 'pending') throw new RuleError('This request is not waiting for approval.');
     const steps = await getSteps(tx);
     const [{ n }] = await tx<{ n: number }[]>`select count(*)::int n from invoice_approvals where invoice_id = ${id}`;
-    if (!canSign(user, steps[n])) throw new RuleError('Only the approver of the current step can return it.');
+    if (!canSign(user, steps[n], inv)) throw new RuleError('Only the approver of the current step can return it.');
     await tx`update invoices set status = 'rejected' where id = ${id}`;
     await audit(tx, user, 'invoice', id, 'Returned for changes', reason);
     const [req] = await tx<{ email: string }[]>`select email from users where id = ${inv.created_by}`;
@@ -228,9 +258,9 @@ export async function postVendorPayment(user: User, p: PaymentInputForm) {
 export async function waitingForUser(user: User) {
   const [steps, prs, entries] = await Promise.all([
     getSteps(),
-    sql<{ id: string; no: string; date: string; memo: string; who: string | null; amount: number; signed: number }[]>`
+    sql<{ id: string; no: string; date: string; memo: string; who: string | null; amount: number; signed: number; approver_id: string | null; approver_label: string | null }[]>`
       select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, p.name memo, coalesce(i.requester, u.name) who, i.net amount,
-        (select count(*)::int from invoice_approvals a where a.invoice_id = i.id) signed
+        (select count(*)::int from invoice_approvals a where a.invoice_id = i.id) signed, i.approver_id, i.approver_label
       from invoices i join parties p on p.id = i.party_id left join users u on u.id = i.created_by
       where i.kind = 'purchase' and i.status = 'pending' order by i.date`,
     sql<{ id: string; no: string; date: string; memo: string; who: string | null; amount: number }[]>`
@@ -239,7 +269,7 @@ export async function waitingForUser(user: User) {
       where e.status = 'pending' group by e.id, u.name order by e.date`,
   ]);
   return [
-    ...prs.filter(p => canSign(user, steps[p.signed])).map(p => ({ ...p, href: `/payment-requests/${p.id}`, type: `Payment request · ${steps[p.signed].name}` })),
+    ...prs.filter(p => canSign(user, steps[p.signed], p)).map(p => ({ ...p, href: `/payment-requests/${p.id}`, type: `Payment request · ${stepLabel(steps[p.signed], p)}` })),
     ...(hasRole(user, 'finance') ? entries.map(e => ({ ...e, href: `/entries/${e.id}`, type: 'Entry' })) : []),
   ];
 }
