@@ -6,6 +6,7 @@ import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { amountInWords, lineAmount } from '@/lib/ledger';
 import { getInvoice, getInvoiceLines, getInvoiceReceipts } from '@/lib/sales-queries';
+import { METHOD_LABEL } from '@/lib/collections';
 import { listAttachments } from '@/lib/attachments';
 import { Attachments } from '@/components/Attachments';
 import { deleteInvoice, postInvoice, voidInvoice } from '../actions';
@@ -32,13 +33,13 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
     <>
       <div className="head">
         <div><h1>{r.no} <span className={'pill ' + (r.status === 'void' ? 'rejected' : r.status === 'posted' ? (open <= 0.004 ? 'posted' : 'pending') : '')}>{state}</span></h1>
-          <p dir="auto">{r.date}{r.due ? ` · due ${r.due}` : ''} · {r.customer}{r.project_code ? ` · ${r.project_code}` : ''}{r.ref ? ` · Ref ${r.ref}` : ''}</p></div>
+          <p dir="auto">{r.date}{r.due ? ` · due ${r.due}` : ''} · {r.customer}{r.project_code ? ` · ${r.project_code}` : ''}{r.category_name ? ` · ${r.category_name}` : ''}{r.ref ? ` · Ref ${r.ref}` : ''}</p></div>
         <div className="row">
           <a className="btn" href={`/print/sales-invoice/${id}`} target="_blank">Print</a>
           {r.status === 'draft' && finance && <Link className="btn" href={`/sales-invoices/${id}/edit`}>Edit</Link>}
           {r.status === 'draft' && finance && <form action={deleteInvoice.bind(null, id)}><button className="btn bad">Delete</button></form>}
           {r.status === 'draft' && finance && <form action={postInvoice.bind(null, id)}><button className="btn pri">Post invoice</button></form>}
-          {r.status === 'posted' && open > 0.004 && finance && <Link className="btn pri" href={`/receipts/new?customer=${r.party_id}`}>Record receipt</Link>}
+          {r.status === 'posted' && open > 0.004 && finance && <Link className="btn pri" href={`/receipts/new?invoice=${id}`}>Money received</Link>}
         </div>
       </div>
       {error && <div className="msg bad">{error}</div>}
@@ -57,8 +58,8 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
 
       {r.status === 'posted' && (
         <div className="card">Posted as <Link href={`/entries/${r.entry_id}`}>{r.entry_no}</Link> · received {fmt(r.received)} · still open {fmt(open)}
-          {receipts.length > 0 && <table style={{ marginTop: 10 }}><thead><tr><th>Receipt</th><th>Date</th><th className="num">Allocated</th></tr></thead>
-            <tbody>{receipts.map(p => <tr key={p.id}><td className="mono">{p.no}{p.entry_id ? <> · <Link href={`/entries/${p.entry_id}`}>{p.entry_no}</Link></> : null}</td><td className="mono">{p.date}</td><td className="num">{fmt(p.amount)}</td></tr>)}</tbody></table>}
+          {receipts.length > 0 && <table style={{ marginTop: 10 }}><thead><tr><th>Receipt</th><th>Date</th><th>How</th><th className="num">Allocated</th></tr></thead>
+            <tbody>{receipts.map(p => <tr key={p.id}><td className="mono"><Link href={`/receipts/${p.id}`}>{p.no}</Link>{p.entry_id ? <> · <Link href={`/entries/${p.entry_id}`}>{p.entry_no}</Link></> : null}</td><td className="mono">{p.date}</td><td>{METHOD_LABEL[p.method as keyof typeof METHOD_LABEL] ?? p.method}</td><td className="num">{fmt(p.amount)}</td></tr>)}</tbody></table>}
         </div>)}
       {r.status === 'void' && <div className="msg bad">This invoice was voided; its entry <Link href={`/entries/${r.entry_id}`}>{r.entry_no}</Link> has been reversed.</div>}
 

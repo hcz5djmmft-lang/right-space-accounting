@@ -5,6 +5,7 @@ import { fmt } from '@/lib/money';
 import { amountInWords, lineAmount } from '@/lib/ledger';
 import { getSettings } from '@/lib/books';
 import { getInvoice, getInvoiceLines } from '@/lib/sales-queries';
+import { invoiceBankDetails } from '@/lib/collections';
 import { today } from '@/lib/dates';
 
 // Printable sales invoice for the client. Use the browser's Print / Save as PDF.
@@ -16,7 +17,7 @@ export default async function PrintInvoice({ params }: { params: Promise<{ id: s
   const [lines, settings, [c], bank] = await Promise.all([
     getInvoiceLines(id), getSettings(),
     sql<{ full_name: string | null; tax_id: string | null; email: string | null; phone: string | null }[]>`select full_name, tax_id, email, phone from parties where id = ${r.party_id}`,
-    sql<{ name: string }[]>`select name from accounts where is_bank and postable and code <> 'A110' order by code limit 1`,
+    invoiceBankDetails(),
   ]);
   return (
     <div className="pr-print">
@@ -44,6 +45,7 @@ export default async function PrintInvoice({ params }: { params: Promise<{ id: s
         <div><b>Bill to</b><span dir="auto">{c?.full_name || r.customer}</span></div><div><b>Due</b>{r.due ?? '—'}</div>
         <div><b>Customer tax ID</b>{c?.tax_id || '—'}</div><div><b>Project</b>{r.project_code ? (r.project_name && r.project_name !== r.project_code ? `${r.project_code} · ${r.project_name}` : r.project_code) : '—'}</div>
         <div><b>Reference</b>{r.ref || '—'}</div><div><b>From</b>{settings.company_name}</div>
+        <div><b>Type</b>{r.category_name ?? '—'}</div><div />
       </div>
       <table><thead><tr><th>#</th><th>Description</th><th className="n">Qty</th><th className="n">Unit price</th><th className="n">Amount (EGP)</th></tr></thead>
         <tbody>
@@ -54,7 +56,13 @@ export default async function PrintInvoice({ params }: { params: Promise<{ id: s
         </tbody></table>
       <div className="words">{amountInWords(r.total)}</div>
       <div className="cols">
-        <div className="box"><h3>Payment</h3><div>Please transfer to {bank[0]?.name ?? 'our bank account'} quoting {r.no}.</div>{r.received ? <div>Received so far: {fmt(r.received)} · open {fmt(r.total - r.received)}</div> : null}</div>
+        <div className="box"><h3>Payment by bank transfer</h3>
+          {bank ? <>
+            <div>{bank.bank_name}{bank.branch ? `, ${bank.branch} branch` : ''}</div>
+            {bank.holder && <div>Account name: {bank.holder}</div>}{bank.account_no && <div>Account no.: {bank.account_no}</div>}
+            {bank.iban && <div>IBAN: {bank.iban}</div>}{bank.swift && <div>SWIFT: {bank.swift}</div>}
+            <div>Please quote {r.no} on the transfer.</div></> : <div>Please transfer to our bank account quoting {r.no}.</div>}
+          {r.received ? <div style={{ marginTop: 4 }}>Received so far: {fmt(r.received)} · open {fmt(r.total - r.received)}</div> : null}</div>
         <div className="box"><h3>Contact</h3><div>{c?.email || ''}</div><div>{c?.phone || ''}</div></div>
       </div>
       <div className="foot">Printed from Right Space Accounting · {today()}</div>

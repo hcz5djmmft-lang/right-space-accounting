@@ -6,11 +6,11 @@ import { requireUser } from '@/lib/auth';
 import * as sales from '@/lib/sales';
 import { RuleError } from '@/lib/ledger';
 
-const Line = z.object({ acc: z.string(), desc: z.string().optional(), qty: z.number(), price: z.number() });
+const Line = z.object({ acc: z.string().default(''), desc: z.string().optional(), qty: z.number(), price: z.number() });
 const Input = z.object({
   id: z.string().optional(), post: z.boolean(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Pick a date'), due: z.string().nullish(),
-  party: z.string(), project: z.string().nullish(), ref: z.string().default(''), vatRate: z.number().min(0),
+  party: z.string(), project: z.string().nullish(), category: z.string().nullish(), ref: z.string().default(''), vatRate: z.number().min(0),
   lines: z.array(Line),
 });
 

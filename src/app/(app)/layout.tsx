@@ -26,6 +26,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       { href: '/accounts', label: 'Chart of accounts' },
       { href: '/banks', label: 'Banks & cash' },
       { href: '/payment-requests', label: 'Payment requests' },
+      { href: '/collections', label: 'Collections' },
       { href: '/sales-invoices', label: 'Sales invoices' },
       { href: '/parties', label: 'Customers & vendors' },
       { href: '/payroll', label: 'Payroll' }] as NavItem[]

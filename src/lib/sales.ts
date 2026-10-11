@@ -4,11 +4,12 @@ import { audit, checkLock, getSettings, nextNo, postEntry, reverseEntry, validat
 import { docLines, docTotals, paymentLines, RuleError, type DocInput, type DocLine } from './ledger';
 import { hasRole, type User } from './roles';
 import { r2 } from './money';
+import { collectionTypes } from './collections';
 
 // Sales invoices to customers and the receipts that settle them. Finance records both; there is no
 // approval chain on the sales side (the old app had none either): a draft is posted when Finance says so.
 
-export type InvoiceInput = { id?: string; date: string; due?: string | null; party: string; project?: string | null; ref: string; vatRate: number; lines: DocLine[] };
+export type InvoiceInput = { id?: string; date: string; due?: string | null; party: string; project?: string | null; category?: string | null; ref: string; vatRate: number; lines: DocLine[] };
 
 const asDoc = (no: string, i: InvoiceInput): DocInput => ({
   kind: 'sales', no, party: i.party, project: i.project, dept: null, vatRate: i.vatRate, whtRate: 0, siRate: 0, retRate: 0, dpAmount: 0, lines: i.lines,
@@ -22,8 +23,11 @@ export async function saveSalesInvoice(user: User, input: InvoiceInput, post: bo
   return sql.begin(async tx => {
     const s = await getSettings(tx);
     if (!input.party) throw new RuleError('Choose the customer.');
-    const lines = input.lines.filter(l => l.acc && r2(l.qty * l.price) !== 0);
-    if (!lines.length) throw new RuleError('Add at least one line with a revenue GL code and an amount.');
+    // the type (design, fit-out, furniture) decides the revenue code of every line; without one, each line names its own code
+    const type = input.category ? (await collectionTypes(tx)).find(t => t.id === input.category) : null;
+    if (input.category && !type) throw new RuleError('Choose the type of the invoice: design, fit-out or furniture.');
+    const lines = input.lines.map(l => (type ? { ...l, acc: type.account } : l)).filter(l => l.acc && r2(l.qty * l.price) !== 0);
+    if (!lines.length) throw new RuleError(type ? 'Add at least one line with an amount.' : 'Add at least one line with a revenue GL code and an amount.');
     const types = await tx<{ code: string; type: string }[]>`select code, type from accounts where code in ${tx(lines.map(l => l.acc))}`;
     const bad = lines.find(l => types.find(a => a.code === l.acc)?.type !== 'revenue');
     if (bad) throw new RuleError(`${bad.acc} is not a revenue GL code. Invoice lines go to revenue.`);
@@ -41,7 +45,7 @@ export async function saveSalesInvoice(user: User, input: InvoiceInput, post: bo
     const t = docTotals(doc);
     docLines(doc, s.account_map); // builds the future entry, so bad input fails before anything is written
     const vals = {
-      date: i.date, due_date: i.due || null, party_id: i.party, project_id: i.project || null, ref: i.ref,
+      date: i.date, due_date: i.due || null, party_id: i.party, project_id: i.project || null, category: type?.id ?? null, ref: i.ref,
       vat_rate: i.vatRate, subtotal: t.subtotal, vat: t.vat, total: t.total, net: t.net, status: 'draft',
     };
     if (id) {
@@ -118,8 +122,8 @@ export async function voidSalesInvoice(user: User, id: string, reason: string, d
 
 /** Posted sales invoices with what has been received against them. */
 export async function openInvoices(tx: Tx, party?: string) {
-  return tx<{ id: string; no: string; date: string; total: number; received: number; open: number }[]>`
-    select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, i.total,
+  return tx<{ id: string; no: string; date: string; project_id: string | null; category: string | null; total: number; received: number; open: number }[]>`
+    select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, i.project_id, i.category, i.total,
       coalesce((select sum(a.amount) from payment_allocations a join payments p on p.id = a.payment_id and p.status = 'posted' where a.invoice_id = i.id),0) received,
       i.total - coalesce((select sum(a.amount) from payment_allocations a join payments p on p.id = a.payment_id and p.status = 'posted' where a.invoice_id = i.id),0) open
     from invoices i where i.kind = 'sales' and i.status = 'posted' and (${party ?? null}::text is null or i.party_id = ${party ?? null})
@@ -127,7 +131,7 @@ export async function openInvoices(tx: Tx, party?: string) {
 }
 
 /** What the customer settled: the bank amount plus any WHT the customer withheld, allocated to invoices. */
-export type ReceiptInput = { date: string; party: string; bank: string; received: number; wht: number; memo: string; ref: string; alloc: { invoice: string; amount: number }[] };
+export type ReceiptInput = { date: string; party: string; project?: string | null; bank: string; received: number; wht: number; memo: string; ref: string; alloc: { invoice: string; amount: number }[] };
 
 /** Records and posts a customer receipt (Finance). Dr bank, Dr WHT receivable, Cr receivables. Unallocated money stays on the customer's account. */
 export async function postCustomerReceipt(user: User, p: ReceiptInput) {
@@ -148,12 +152,14 @@ export async function postCustomerReceipt(user: User, p: ReceiptInput) {
     }
     const allocated = r2(alloc.reduce((t, a) => t + a.amount, 0));
     if (allocated > amount + 0.004) throw new RuleError(`Allocated ${allocated.toFixed(2)} but the receipt settles only ${amount.toFixed(2)} (bank amount plus WHT).`);
+    // the receipt belongs to the project it was raised for, else to the project of the first invoice it settles
+    const project = p.project || (alloc.length ? (open.get(alloc[0].invoice)?.project_id ?? null) : null);
     const no = await nextNo(tx, 'RCT-');
     const jl = paymentLines({ kind: 'receipt', no, party: p.party, bank: p.bank, amount, wht, allocated }, s.account_map);
     await validateLines(tx, jl, s);
     const [party] = await tx<{ name: string }[]>`select name from parties where id = ${p.party}`;
-    const [{ id }] = await tx<{ id: string }[]>`insert into payments (kind, no, date, party_id, bank, amount, wht, memo, ref, status, created_by)
-      values ('receipt', ${no}, ${p.date}, ${p.party}, ${p.bank}, ${amount}, ${wht}, ${p.memo}, ${p.ref}, 'draft', ${user.id}) returning id`;
+    const [{ id }] = await tx<{ id: string }[]>`insert into payments (kind, no, date, party_id, project_id, bank, amount, wht, memo, ref, status, created_by)
+      values ('receipt', ${no}, ${p.date}, ${p.party}, ${project}, ${p.bank}, ${amount}, ${wht}, ${p.memo}, ${p.ref}, 'draft', ${user.id}) returning id`;
     for (const a of alloc) await tx`insert into payment_allocations (payment_id, invoice_id, amount) values (${id}, ${a.invoice}, ${r2(a.amount)})`;
     const jno = await nextNo(tx, 'JE-');
     const [{ id: eid }] = await tx<{ id: string }[]>`insert into journal_entries (no, date, memo, ref, kind, status, source_type, source_id, created_by)
@@ -164,4 +170,21 @@ export async function postCustomerReceipt(user: User, p: ReceiptInput) {
     await audit(tx, user, 'payment', id, 'Posted', `Journal entry ${jno}`);
     return id;
   });
+}
+
+/** Cancels a posted receipt by reversing its entry; the invoices it settled are open again. */
+export async function voidCustomerReceipt(user: User, id: string, reason: string, date: string) {
+  needFinance(user, 'void receipts');
+  const p = await sql.begin(async tx => {
+    const [p] = await tx<{ no: string; status: string; entry_id: string }[]>`select no, status, entry_id from payments where id = ${id} and kind = 'receipt' for update`;
+    if (!p) throw new RuleError('Receipt not found.');
+    if (p.status !== 'posted') throw new RuleError('Only posted receipts can be voided.');
+    return p;
+  });
+  const rid = await reverseEntry(user, p.entry_id, `Void ${p.no}${reason ? ': ' + reason : ''}`, date);
+  await sql.begin(async tx => {
+    await tx`update payments set status = 'void' where id = ${id}`;
+    await audit(tx, user, 'payment', id, 'Voided', reason);
+  });
+  return rid;
 }
