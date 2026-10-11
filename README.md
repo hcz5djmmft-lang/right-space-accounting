@@ -66,8 +66,13 @@ payment requests (إذن صرف) approved by the head of their department (a pro
 settings (departments as groups with a head and what members can do, people, final approvers, company rules), receipt photos and PDFs on payment requests
 and expense entries (phone camera; stored on disk locally, in a private Supabase Storage bucket in production),
 sales invoices (INV-00001…, VAT 14%, printable, void by reversal) and customer receipts (RCT-00001…, allocated
-to invoices, WHT withheld by the customer goes to WHT receivable), Banks & cash (balances, activity with running
-balance, statement reconciliation by ticking cleared lines; Finance only), Payroll (employees, monthly runs with
+to invoices, WHT withheld by the customer goes to WHT receivable), Banks & cash (the CIB current account, the CIB
+credit card with its limit, owed and available, and petty cash boxes with their holders; every payment out of one
+gets a reference number when it posts, CIB-34-00001 from the bank, CC-12-00001 from the card, PT-00001 from cash,
+and vendor payments carry it; bank charges and interest recorded from the bank's own page; a reconciliation summary per
+period grouped as the statement is read, credited: transfers to vendors, bank charges, credit card settlement, transfers
+between accounts, salaries; debited: collections, partners' deposits, interest, transfers; statement reconciliation by
+ticking cleared lines; payment requests are paid by bank transfer only; Finance only), Payroll (employees, monthly runs with
 overtime and deductions, Egyptian social insurance 11% / 18.75% between 2,700 and 16,700, salary tax on annualised
 pay with the 20,000 exemption and progressive brackets, a per-employee "no social insurance or salary tax" switch for staff
 paid the full salary, posting per project or department, salary payment; Finance only),

@@ -102,10 +102,26 @@ export async function saveEntry(user: User, input: { id?: string; date: string; 
   });
 }
 
-/** Marks a draft/pending entry posted. The database re-checks balance and lock date. */
+/**
+ * CIB-34-00001, CC-12-00001, PT-00001: the number of a payment out of a bank, card or cash account (the first such
+ * account the entry credits), taken when the entry posts. Reversals and entries that only bring money in get none.
+ */
+export async function stampPaymentRef(tx: Tx, entryId: string) {
+  const [b] = await tx<{ ref_prefix: string }[]>`
+    select b.ref_prefix from journal_lines l join bank_accounts b on b.account = l.account
+    join journal_entries e on e.id = l.entry_id and e.kind <> 'reversal' and e.payment_ref is null
+    where l.entry_id = ${entryId} and l.cr > 0 order by l.line_no limit 1`;
+  if (!b) return null;
+  const ref = await nextNo(tx, b.ref_prefix, 5);
+  await tx`update journal_entries set payment_ref = ${ref} where id = ${entryId}`;
+  return ref;
+}
+
+/** Marks a draft/pending entry posted (and numbers the payment, while the entry can still be written to). The database re-checks balance and lock date. */
 export async function postEntry(tx: Tx, user: User, id: string, note = 'Posted') {
+  const ref = await stampPaymentRef(tx, id);
   await tx`update journal_entries set status = 'posted', posted_by = ${user.id}, posted_at = now() where id = ${id}`;
-  await audit(tx, user, 'journal', id, note);
+  await audit(tx, user, 'journal', id, note, ref ? `Payment ref ${ref}` : '');
 }
 
 export async function approveEntry(user: User, id: string) {

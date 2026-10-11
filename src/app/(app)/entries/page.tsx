@@ -16,7 +16,7 @@ export default async function Entries({ searchParams }: { searchParams: Promise<
     select e.id, e.no, to_char(e.date,'YYYY-MM-DD') date, e.memo, e.kind, e.status, e.reversed_by, coalesce(sum(l.dr),0) total
     from journal_entries e left join journal_lines l on l.entry_id = e.id
     where (${status} = 'all' or e.status = ${status})
-      and (${q} = '' or e.no ilike ${'%' + q + '%'} or e.memo ilike ${'%' + q + '%'} or e.ref ilike ${'%' + q + '%'})
+      and (${q} = '' or e.no ilike ${'%' + q + '%'} or e.memo ilike ${'%' + q + '%'} or e.ref ilike ${'%' + q + '%'} or e.payment_ref ilike ${'%' + q + '%'})
     group by e.id order by e.date desc, e.no desc limit 500`;
   return (
     <>

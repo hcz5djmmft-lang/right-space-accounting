@@ -26,6 +26,7 @@ beforeAll(async () => {
   await sql`update departments set head_user_id = ${fin.id} where id = 'fin'`;
   await sql`update departments set head_user_id = null where id = 'adm'`;
   await sql`update approval_steps set user_ids = '{}'`;
+  await sql`insert into bank_accounts (account, kind, ref_prefix) values ('A120', 'bank', 'CIB-34-')`; // what migration 011 adds; the import wipes it
 });
 afterAll(async () => { await sql.end(); });
 
@@ -91,7 +92,9 @@ describe('payment request approval', () => {
     await sql`update approval_steps set user_ids = '{}'`;
   });
   it('a vendor payment clears it; extra goes to down payments', async () => {
-    await docs.postVendorPayment(fin as never, { date: '2026-10-13', party: 'vc0003', bank: 'A120', amount: 120000, memo: '', ref: '', alloc: [{ invoice: id, amount: 106000 }] });
+    const pid = await docs.postVendorPayment(fin as never, { date: '2026-10-13', party: 'vc0003', bank: 'A120', amount: 120000, memo: '', ref: '', alloc: [{ invoice: id, amount: 106000 }] });
+    const [pay] = await sql`select p.reference, e.payment_ref from payments p join journal_entries e on e.id = p.entry_id where p.id = ${pid}`;
+    expect(pay).toEqual({ reference: 'CIB-34-00001', payment_ref: 'CIB-34-00001' }); // the bank transfer's number, from the CIB account's prefix
     const open = await docs.openRequests(sql, 'vc0003');
     expect(open.find(o => o.id === id)?.open).toBe(0);
     const [dp] = await sql`select sum(l.dr - l.cr)::float bal from journal_lines l join journal_entries e on e.id = l.entry_id and e.status='posted' where l.account = '90000'`;

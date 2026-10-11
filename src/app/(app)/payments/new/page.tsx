@@ -29,17 +29,18 @@ export default async function NewPayment({ searchParams }: { searchParams: Promi
   const { vendor = '', error, done } = await searchParams;
   const [vendors, banks, open] = await Promise.all([
     sql<{ id: string; name: string }[]>`select id, name from parties where type = 'vendor' order by name`,
-    sql<{ code: string; name: string }[]>`select code, name from accounts where is_bank and postable order by code`,
+    sql<{ code: string; name: string }[]>`select a.code, a.name from accounts a left join bank_accounts b on b.account = a.code
+      where a.is_bank and a.postable and coalesce(b.kind, 'bank') = 'bank' order by a.code`,
     vendor ? openRequests(sql, vendor) : Promise.resolve([]),
   ]);
   const due = open.filter(o => o.open > 0.004);
-  const [paid] = done ? await sql<{ no: string }[]>`select no from payments where id = ${done}` : [];
+  const [paid] = done ? await sql<{ no: string; reference: string | null }[]>`select no, reference from payments where id = ${done}` : [];
   return (
     <>
-      <div className="head"><div><h1>Pay a vendor</h1><p>Allocate the payment to approved requests. Anything not allocated is recorded as a down payment (90000).</p></div>
+      <div className="head"><div><h1>Pay a vendor</h1><p>A bank transfer against approved requests; anything not allocated is recorded as a down payment (90000). Petty cash and the card are used from Record expense.</p></div>
         <Link className="btn" href="/payment-requests?tab=open">Approved, not paid</Link></div>
       {error && <div className="msg bad">{error}</div>}
-      {paid && <div className="msg good">Payment {paid.no} posted.</div>}
+      {paid && <div className="msg good">Payment {paid.no} posted{paid.reference ? ` · reference ${paid.reference}` : ''}.</div>}
       <form className="row card" style={{ alignItems: 'end' }}>
         <label className="f" style={{ minWidth: 260 }}><span>Vendor</span><select className="inp" name="vendor" defaultValue={vendor}>
           <option value="">Select…</option>{vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
@@ -52,7 +53,7 @@ export default async function NewPayment({ searchParams }: { searchParams: Promi
             <label className="f"><span>Date</span><input className="inp" type="date" name="date" defaultValue={today()} /></label>
             <label className="f"><span>Paid from</span><select className="inp" name="bank">{banks.map(b => <option key={b.code} value={b.code}>{b.code} · {b.name}</option>)}</select></label>
             <label className="f"><span>Amount (EGP)</span><input className="inp mono" name="amount" inputMode="decimal" defaultValue={due.length ? String(due.reduce((s, d) => s + d.open, 0)) : ''} required /></label>
-            <label className="f"><span>Reference</span><input className="inp" name="ref" placeholder="Transfer / cheque no." /></label>
+            <label className="f"><span>Bank&apos;s transfer no. (optional)</span><input className="inp" name="ref" placeholder="The system numbers the payment itself" /></label>
             <label className="f" style={{ gridColumn: '1 / -1' }}><span>Description</span><input className="inp" name="memo" dir="auto" /></label>
           </div>
           <h2 style={{ marginTop: 14 }}>Allocate to requests</h2>
