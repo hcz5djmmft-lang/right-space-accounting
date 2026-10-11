@@ -84,3 +84,11 @@ export async function materialAction(f: FormData) {
   revalidatePath('/purchasing/materials');
   redirect('/purchasing/materials?' + new URLSearchParams(err ? { error: err } : { ok: 'Material list saved.' }));
 }
+
+export async function voidInvoiceAction(id: string, f: FormData) {
+  const user = await requireUser('finance');
+  let err = '';
+  try { await pur.voidVendorInvoice(user, id, String(f.get('reason') ?? '').trim(), String(f.get('date') ?? '')); } catch (e) { err = msg(e); }
+  revalidatePath('/', 'layout');
+  redirect(`/purchasing/invoices/${id}?` + new URLSearchParams(err ? { error: err } : { ok: 'Invoice voided; its entry is reversed.' }));
+}

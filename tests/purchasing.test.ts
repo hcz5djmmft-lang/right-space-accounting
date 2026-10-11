@@ -112,6 +112,20 @@ describe('purchasing', () => {
     expect(bal).toBe(0);
   });
 
+  it('voids an unpaid vendor invoice: its entry is reversed and the PO can receive again', async () => {
+    const id = await pur.savePurchaseRequest(ziad as never, { date: '2026-10-16', dept: 'fin', lines: [{ material: paper, qty: 1 }] }, true);
+    const [l] = await pur.getPurchaseLines(id);
+    await pur.pricePurchaseRequest(adel as never, id, { vendor, vatRate: 0, prices: { [l.id]: 300 }, send: true });
+    await pur.approvePurchaseRequest(adel as never, id); await pur.approvePurchaseRequest(adel as never, id);
+    const vi = await pur.receiveInvoice(fin as never, id, { date: '2026-10-16', ref: 'T', vatRate: 0, whtRate: 0, lines: [{ lineId: l.id, qty: 1, price: 300 }] });
+    expect((await pur.getPurchaseRequest(id)).closed).toBe(true);
+    await pur.voidVendorInvoice(fin as never, vi, 'test', '2026-10-16');
+    expect((await sql`select status from invoices where id = ${vi}`)[0].status).toBe('void');
+    expect(await pur.getPurchaseRequest(id)).toMatchObject({ closed: false, received: 0 });
+    expect(await pur.unpaidBills(vendor)).toEqual([]);
+    await expect(pur.voidVendorInvoice(fin as never, vi, '', '2026-10-16')).rejects.toThrow(/Only posted/);
+  });
+
   it('keeps the material list: a new material is numbered after the last, on an expense code', async () => {
     const id = await pur.saveMaterial(marwan as never, { name: 'Tile spacers', unit: 'bag', account_base: '24004-1' });
     expect((await pur.listMaterials()).find(m => m.id === id)).toMatchObject({ code: 'MAT-019', account_base: '24004' });

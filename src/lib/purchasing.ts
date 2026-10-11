@@ -3,7 +3,7 @@ import { sql, type Tx } from './db';
 import { r2 } from './money';
 import { type DocInput, RuleError, docLines, docTotals, lineAmount } from './ledger';
 import { type User, hasRole } from './roles';
-import { audit, checkLock, getSettings, nextNo, postEntry, validateLines, writeLines } from './books';
+import { audit, checkLock, getSettings, nextNo, postEntry, reverseEntry, validateLines, writeLines } from './books';
 import { approverFor, canSign, getSteps } from './documents';
 import { today } from './dates';
 
@@ -322,6 +322,28 @@ export async function receiveInvoice(user: User, poId: string, input: ReceiveInp
     if (after.every(l => Number(l.received_qty) >= Number(l.qty) - 0.0005)) await tx`update purchase_requests set closed = true where id = ${poId}`;
     return id;
   });
+}
+
+/** Voids a vendor invoice that nothing has paid or requested yet (Finance): its entry is reversed and the PO can receive again. */
+export async function voidVendorInvoice(user: User, id: string, reason: string, date: string) {
+  if (!hasRole(user, 'finance')) throw new RuleError('Only Finance can void invoices.');
+  const inv = await sql.begin(async tx => {
+    const [inv] = await tx<{ no: string; status: string; entry_id: string; po_id: string | null }[]>`select no, status, entry_id, po_id from invoices where id = ${id} and kind = 'purchase' and po_id is not null for update`;
+    if (!inv) throw new RuleError('Vendor invoice not found.');
+    if (inv.status !== 'posted') throw new RuleError('Only posted invoices can be voided.');
+    if (Number((await tx<{ v: number }[]>`select invoice_paid(${id}) v`)[0].v) > 0) throw new RuleError('A payment is allocated to this invoice. Reverse the payment first.');
+    const [rq] = await tx<{ no: string }[]>`select q.no from payment_request_bills b join invoices q on q.id = b.request_id and q.status in ('draft', 'pending', 'posted') where b.bill_id = ${id} limit 1`;
+    if (rq) throw new RuleError(`This invoice is on payment request ${rq.no}. Delete or return that request first.`);
+    return inv;
+  });
+  const rid = await reverseEntry(user, inv.entry_id, `Void ${inv.no}${reason ? ': ' + reason : ''}`, date);
+  await sql.begin(async tx => {
+    await tx`update invoices set status = 'void' where id = ${id}`;
+    if (inv.po_id) await tx`update purchase_requests set closed = false where id = ${inv.po_id}`;
+    await audit(tx, user, 'invoice', id, 'Voided', reason);
+    if (inv.po_id) await audit(tx, user, 'purchase', inv.po_id, 'Invoice voided', inv.no);
+  });
+  return rid;
 }
 
 export type VendorBill = { id: string; no: string; date: string; ref: string; po_no: string | null; cc: string | null; project_id: string | null; dept_id: string | null; net: number; paid: number; open: number; request_no: string | null; request_id: string | null; party_id: string };
