@@ -5,7 +5,7 @@ import { fmt } from '@/lib/money';
 
 const KIND: Record<string, string> = {
   expense: 'Expense', collection: 'Collection', transfer: 'Transfer', adjustment: 'Adjustment', payment_request: 'Payment request',
-  sales_invoice: 'Sales invoice', payment: 'Vendor payment', receipt: 'Receipt', payroll: 'Payroll', reversal: 'Reversal',
+  sales_invoice: 'Sales invoice', payment: 'Vendor payment', receipt: 'Receipt', payroll: 'Payroll', reversal: 'Reversal', partner: 'Partners',
 };
 const STATUSES = ['all', 'draft', 'pending', 'posted', 'rejected'];
 

@@ -74,8 +74,11 @@ credit card with its limit, owed and available, and petty cash boxes with their 
 gets a reference number when it posts, CIB-34-00001 from the bank, CC-12-00001 from the card, PT-00001 from cash,
 and vendor payments carry it; bank charges and interest recorded from the bank's own page; a reconciliation summary per
 period grouped as the statement is read, credited: transfers to vendors, bank charges, credit card settlement, transfers
-between accounts, salaries; debited: collections, partners' deposits, interest, transfers; statement reconciliation by
-ticking cleared lines; payment requests are paid by bank transfer only; Finance only), Payroll (employees, monthly runs with
+between accounts, salaries, partners' withdrawals; debited: collections, partners' deposits, interest, transfers; statement reconciliation by
+ticking cleared lines; payment requests are paid by bank transfer only; Finance only), Partners (Adel, Haitham, Youssef
+and Marwan at 25% each, a current account per partner Q111–Q114 under Equity: money put in, withdrawals with a payment
+reference, Management shares out a period's profit (or loss) from retained earnings by share, once per period, redone by
+reversal; Finance), Payroll (employees, monthly runs with
 overtime and deductions, Egyptian social insurance 11% / 18.75% between 2,700 and 16,700, salary tax on annualised
 pay with the 20,000 exemption and progressive brackets, a per-employee "no social insurance or salary tax" switch for staff
 paid the full salary, posting per project or department, salary payment; Finance only),
