@@ -14,8 +14,8 @@ export default async function EntryPage({ params, searchParams }: { params: Prom
   const user = await requireUser();
   const { id } = await params;
   const { error } = await searchParams;
-  const [e] = await sql<{ id: string; no: string; date: string; memo: string; ref: string; kind: string; status: string; reverses_id: string | null; reversed_by: string | null; source_type: string | null; created_by: string | null }[]>`
-    select id, no, to_char(date,'YYYY-MM-DD') date, memo, ref, kind, status, reverses_id, reversed_by, source_type, created_by from journal_entries where id = ${id}`;
+  const [e] = await sql<{ id: string; no: string; date: string; memo: string; ref: string; payment_ref: string | null; kind: string; status: string; reverses_id: string | null; reversed_by: string | null; source_type: string | null; created_by: string | null }[]>`
+    select id, no, to_char(date,'YYYY-MM-DD') date, memo, ref, payment_ref, kind, status, reverses_id, reversed_by, source_type, created_by from journal_entries where id = ${id}`;
   if (!e) notFound();
   const [lines, log, links, settings, files] = await Promise.all([
     sql<{ account: string; name: string; dr: number; cr: number; cc: string | null; party: string | null; description: string }[]>`
@@ -40,7 +40,7 @@ export default async function EntryPage({ params, searchParams }: { params: Prom
     <>
       <div className="head">
         <div><h1>{e.no} <span className={'pill ' + e.status}>{e.status}</span></h1>
-          <p dir="auto">{e.date} · {e.memo}{e.ref ? ` · Ref ${e.ref}` : ''}</p></div>
+          <p dir="auto">{e.date} · {e.memo}{e.ref ? ` · Ref ${e.ref}` : ''}{e.payment_ref ? ` · Payment ${e.payment_ref}` : ''}</p></div>
         <div className="row">
           {editable && <Link className="btn" href={`/entries/${id}/edit`}>Edit</Link>}
           {e.status === 'pending' && approver && <form action={approveAction.bind(null, id)}><button className="btn pri">Approve &amp; post</button></form>}

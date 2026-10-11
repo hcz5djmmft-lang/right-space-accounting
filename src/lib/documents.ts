@@ -248,8 +248,9 @@ export async function postVendorPayment(user: User, p: PaymentInputForm) {
       values (${jno}, ${p.date}, ${no + ' · ' + (party?.name ?? '')}, ${p.ref || no}, 'payment', 'draft', 'payment', ${id}, ${user.id}) returning id`;
     await writeLines(tx, eid, jl);
     await postEntry(tx, user, eid, 'Posted from ' + no);
-    await tx`update payments set status = 'posted', entry_id = ${eid} where id = ${id}`;
-    await audit(tx, user, 'payment', id, 'Posted', `Journal entry ${jno}`);
+    const [{ payment_ref }] = await tx<{ payment_ref: string | null }[]>`select payment_ref from journal_entries where id = ${eid}`;
+    await tx`update payments set status = 'posted', entry_id = ${eid}, reference = ${payment_ref} where id = ${id}`;
+    await audit(tx, user, 'payment', id, 'Posted', `Journal entry ${jno}${payment_ref ? ' · ref ' + payment_ref : ''}`);
     return id;
   });
 }
