@@ -5,12 +5,16 @@ import { hasRole } from '@/lib/roles';
 import { audit, getSettings } from '@/lib/books';
 import { sql } from '@/lib/db';
 import { fmt, parseAmount } from '@/lib/money';
+import Link from 'next/link';
+import { isProcurement } from '@/lib/purchasing';
 
 async function addParty(form: FormData) {
   'use server';
-  const user = await requireUser('finance');
+  const user = await requireUser();
   const v = (k: string) => String(form.get(k) ?? '').trim() || null;
   const type = v('type') === 'customer' ? 'customer' : 'vendor';
+  // Finance adds anyone; Procurement keeps the vendor list
+  if (!hasRole(user, 'finance') && !(type === 'vendor' && await isProcurement(user))) redirect('/parties?error=' + encodeURIComponent('Only Finance, or Procurement for vendors, can add to this list.'));
   const name = v('name');
   if (!name) redirect('/parties?error=' + encodeURIComponent('Enter a name.'));
   await sql.begin(async tx => {
@@ -46,10 +50,10 @@ export default async function Parties({ searchParams }: { searchParams: Promise<
       {error && <div className="msg bad">{error}</div>}
       <div className="tw" style={{ marginBottom: 14 }}><table>
         <thead><tr><th>Code</th><th>Name</th><th className="hide-sm">Phone</th><th className="hide-sm">Tax ID</th><th className="num hide-sm">WHT %</th><th className="num">{tab === 'customer' ? 'They owe us' : 'We owe them'}</th></tr></thead>
-        <tbody>{rows.map(r => <tr key={r.id}><td className="mono">{r.code}</td><td dir="auto">{r.name}</td><td className="hide-sm">{r.phone}</td><td className="hide-sm">{r.tax_id}</td>
+        <tbody>{rows.map(r => <tr key={r.id}><td className="mono">{r.code}</td><td dir="auto"><Link href={`/parties/${r.id}`}>{r.name}</Link></td><td className="hide-sm">{r.phone}</td><td className="hide-sm">{r.tax_id}</td>
           <td className="num hide-sm">{r.wht_rate || ''}</td><td className="num">{fmt(sign * r.bal)}</td></tr>)}</tbody>
       </table></div>
-      {hasRole(user, 'finance') && (
+      {(hasRole(user, 'finance') || (tab === 'vendor' && await isProcurement(user))) && (
         <form action={addParty} className="card">
           <h2>Add {tab === 'customer' ? 'customer' : 'vendor'}</h2>
           <input type="hidden" name="type" value={tab} />

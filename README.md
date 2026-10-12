@@ -78,7 +78,13 @@ between accounts, salaries, partners' withdrawals; debited: collections, partner
 ticking cleared lines; payment requests are paid by bank transfer only; Finance only), Partners (Adel, Haitham, Youssef
 and Marwan at 25% each, a current account per partner Q111–Q114 under Equity: money put in, withdrawals with a payment
 reference, Management shares out a period's profit (or loss) from retained earnings by share, once per period, redone by
-reversal; Finance), Payroll (employees, monthly runs with
+reversal; Finance), Purchasing (a material list, each material on its GL code, a starter list of 20 until the real one
+arrives; purchase requests PRQ-00001 by anyone for a project or a department, priced by Procurement with the vendor, then
+the department head (a project's: the head of Engineering), then Management, becoming purchase order PO-00001, printed
+with the logo; Receive and invoice by Finance against the PO with the vendor's invoice attached, VI-00001, posted to the
+items' GL codes for the PO's cost center and to the vendor's account, with ordered / received / remaining per line; a
+payment request can tick the vendor's unpaid invoices instead of having lines, and once approved those invoices are paid
+from Pay a vendor; a vendor account page per vendor), Payroll (employees, monthly runs with
 overtime and deductions, Egyptian social insurance 11% / 18.75% between 2,700 and 16,700, salary tax on annualised
 pay with the 20,000 exemption and progressive brackets, a per-employee "no social insurance or salary tax" switch for staff
 paid the full salary, posting per project or department, salary payment; Finance only),

@@ -7,7 +7,10 @@ type Line = { assign: string; acc: string; desc: string; qty: string; price: str
 export type PRInitial = {
   id?: string; date: string; due: string; party: string; assign: string; costType: string; ref: string; requester: string;
   vatRate: string; whtRate: string; siRate: string; retRate: string; dpAmount: string; lines: Line[];
+  bills?: string[];
 };
+/** A vendor invoice received against a PO and not yet paid (see unpaidBills). */
+export type OpenBill = { id: string; no: string; date: string; ref: string; po_no: string | null; cc: string | null; open: number; party_id: string; request_id: string | null; request_no: string | null };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const num = (s: string) => r2(Number(String(s).replace(/[,\s]/g, '')) || 0);
@@ -15,8 +18,8 @@ const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2,
 const parse = (v: string) => ({ project: v.startsWith('p:') ? v.slice(2) : null, dept: v.startsWith('d:') ? v.slice(2) : null });
 const blank: Line = { assign: '', acc: '', desc: '', qty: '1', price: '' };
 
-export function PRForm({ initial, accounts, projects, departments, vendors, save }: {
-  initial: PRInitial; accounts: Acc[]; projects: Proj[]; departments: Dept[]; vendors: Party[];
+export function PRForm({ initial, accounts, projects, departments, vendors, save, bills = [] }: {
+  initial: PRInitial; accounts: Acc[]; projects: Proj[]; departments: Dept[]; vendors: Party[]; bills?: OpenBill[];
   save: (x: unknown) => Promise<{ error?: string; id?: string }>;
 }) {
   const [f, setF] = useState(initial);
@@ -32,6 +35,12 @@ export function PRForm({ initial, accounts, projects, departments, vendors, save
     if (a.dept) return accounts.filter(x => x.postable && x.project_id === office);
     return [];
   };
+  // the vendor's unpaid invoices that this request may pay (not already on another request)
+  const vendorBills = bills.filter(b => b.party_id === f.party && (!b.request_id || b.request_id === f.id));
+  const ticked = (f.bills ?? []).filter(id => vendorBills.some(b => b.id === id));
+  const paysBills = ticked.length > 0;
+  const billTotal = r2(vendorBills.filter(b => ticked.includes(b.id)).reduce((t, b) => t + b.open, 0));
+  const tick = (id: string, on: boolean) => set({ bills: on ? [...ticked, id] : ticked.filter(x => x !== id) });
   const sub = r2(f.lines.reduce((s, l) => s + num(l.qty) * num(l.price), 0));
   const pct = (r: string) => r2(sub * num(r) / 100);
   const vat = pct(f.vatRate), wht = pct(f.whtRate), si = pct(f.siRate), ret = pct(f.retRate), dp = num(f.dpAmount);
@@ -44,7 +53,8 @@ export function PRForm({ initial, accounts, projects, departments, vendors, save
       id: f.id, submit, date: f.date, due: f.due || null, party: f.party, project: h.project, dept: h.dept,
       costType: f.costType || null, ref: f.ref.trim(), requester: f.requester.trim() || null,
       vatRate: num(f.vatRate), whtRate: num(f.whtRate), siRate: num(f.siRate), retRate: num(f.retRate), dpAmount: dp,
-      lines: f.lines.filter(l => l.acc || num(l.price)).map(l => ({ acc: l.acc, desc: l.desc.trim(), qty: num(l.qty), price: num(l.price), ...parse(l.assign) })),
+      lines: paysBills ? [] : f.lines.filter(l => l.acc || num(l.price)).map(l => ({ acc: l.acc, desc: l.desc.trim(), qty: num(l.qty), price: num(l.price), ...parse(l.assign) })),
+      bills: ticked,
     });
     if (res.error) setErr(res.error); else router.push('/payment-requests/' + res.id);
   });
@@ -72,6 +82,20 @@ export function PRForm({ initial, accounts, projects, departments, vendors, save
         <label className="f" style={{ gridColumn: 'span 2' }}><span>Requester (if not you)</span><input className="inp" dir="auto" value={f.requester} onChange={e => set({ requester: e.target.value })} /></label>
       </div>
 
+      {vendorBills.length > 0 && (
+        <div className="card">
+          <h2>Unpaid invoices of this vendor</h2>
+          <p className="muted" style={{ margin: '0 0 8px', fontSize: 13 }}>Tick the invoices this request pays. They are already in the books from Receive and invoice, so the request needs no lines of its own.</p>
+          <div className="tw"><table>
+            <thead><tr><th></th><th>Invoice</th><th>Date</th><th className="hide-sm">Vendor&apos;s no.</th><th className="hide-sm">PO</th><th className="hide-sm">Cost center</th><th className="num">Unpaid</th></tr></thead>
+            <tbody>{vendorBills.map(b => (
+              <tr key={b.id}><td><input type="checkbox" aria-label={'Pay ' + b.no} checked={ticked.includes(b.id)} onChange={e => tick(b.id, e.target.checked)} /></td>
+                <td className="mono">{b.no}</td><td className="mono">{b.date}</td><td className="hide-sm">{b.ref}</td><td className="mono hide-sm">{b.po_no}</td><td className="hide-sm">{b.cc}</td><td className="num">{fmt(b.open)}</td></tr>))}</tbody>
+            {paysBills && <tfoot><tr><td colSpan={6}>Net to pay</td><td className="num">{fmt(billTotal)}</td></tr></tfoot>}
+          </table></div>
+        </div>)}
+
+      {!paysBills && <>
       <div className="card">
         <div className="lines-grid">{f.lines.map((l, i) => {
           const list = glFor(l.assign);
@@ -107,6 +131,7 @@ export function PRForm({ initial, accounts, projects, departments, vendors, save
           {dp ? <tr><td>Less down payment</td><td className="num">({fmt(dp)})</td></tr> : null}
         </tbody><tfoot><tr><td>Net to pay</td><td className="num">{fmt(net)}</td></tr></tfoot></table></div>
       </div>
+      </>}
 
       <div className="row" style={{ justifyContent: 'flex-end' }}>
         <button type="button" className="btn" disabled={busy} onClick={() => router.back()}>Cancel</button>

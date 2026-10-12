@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { amountInWords, lineAmount } from '@/lib/ledger';
-import { getSteps, stepLabel } from '@/lib/documents';
+import { getSteps, requestBills, stepLabel } from '@/lib/documents';
 import { getPR, getPRApprovals, getPRLines } from '@/lib/pr-queries';
 import { today } from '@/lib/dates';
 
@@ -13,10 +13,11 @@ export default async function PrintPR({ params }: { params: Promise<{ id: string
   const { id } = await params;
   const r = await getPR(id);
   if (!r) notFound();
-  const [lines, approvals, steps, [v]] = await Promise.all([
+  const [lines, approvals, steps, [v], bills] = await Promise.all([
     getPRLines(id), getPRApprovals(id), getSteps(),
     sql<{ full_name: string | null; bank_name: string | null; account_no: string | null; iban: string | null; swift: string | null }[]>`
       select full_name, bank_name, account_no, iban, swift from parties where id = ${r.party_id}`,
+    requestBills(id),
   ]);
   // the signatures given, then the steps still to come
   const sigs = [...approvals.map(a => ({ key: 'a' + a.step, name: a.step_name, who: a.who ?? ' ', at: a.at.slice(0, 10) })),
@@ -50,6 +51,7 @@ export default async function PrintPR({ params }: { params: Promise<{ id: string
       </div>
       <table><thead><tr><th>A/C code</th><th>A/C name</th><th>Description</th><th>Assigned to</th><th className="n">Amount (EGP)</th></tr></thead>
         <tbody>
+          {bills.map(b => <tr key={b.id}><td>{b.no}</td><td>Vendor invoice {b.ref}</td><td>{b.po_no ? 'Purchase order ' + b.po_no : ''}</td><td>{r.cc ?? ''}</td><td className="n">{fmt(b.amount)}</td></tr>)}
           {lines.map((l, i) => <tr key={i}><td>{l.account}</td><td dir="auto">{l.name}</td><td dir="auto">{l.description}</td><td>{l.cc ?? r.cc}</td><td className="n">{fmt(lineAmount(l))}</td></tr>)}
           <tr><td colSpan={4}>Subtotal</td><td className="n">{fmt(r.subtotal)}</td></tr>
           {r.vat ? <tr><td colSpan={4}>VAT {r.vat_rate}%</td><td className="n">{fmt(r.vat)}</td></tr> : null}
@@ -62,7 +64,7 @@ export default async function PrintPR({ params }: { params: Promise<{ id: string
           {v?.bank_name && <div>Bank: {v.bank_name}</div>}{v?.account_no && <div>Account no.: {v.account_no}</div>}
           {v?.iban && <div>IBAN: {v.iban}</div>}{v?.swift && <div>SWIFT: {v.swift}</div>}
           {!v?.bank_name && !v?.iban && <div>Cash / no bank details on file</div>}</div>
-        <div className="box"><h3>Status</h3>{r.status === 'posted' ? `Approved and posted (${r.entry_no})` : r.status === 'pending' ? `Waiting for ${steps[approvals.length] ? stepLabel(steps[approvals.length], r) : 'approval'}` : r.status}</div>
+        <div className="box"><h3>Status</h3>{r.status === 'posted' ? (r.entry_no ? `Approved and posted (${r.entry_no})` : 'Approved for payment') : r.status === 'pending' ? `Waiting for ${steps[approvals.length] ? stepLabel(steps[approvals.length], r) : 'approval'}` : r.status}</div>
       </div>
       <div className="sigs">{sigs.map(g => <div className="sig" key={g.key}><b>{g.name}</b><div>{g.who}</div><div className="sd">{g.at}</div></div>)}</div>
       <div className="foot">Printed from Right Space Accounting · {today()}</div>
