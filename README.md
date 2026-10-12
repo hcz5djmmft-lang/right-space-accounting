@@ -84,7 +84,10 @@ the department head (a project's: the head of Engineering), then Management, bec
 with the logo; Receive and invoice by Finance against the PO with the vendor's invoice attached, VI-00001, posted to the
 items' GL codes for the PO's cost center and to the vendor's account, with ordered / received / remaining per line; a
 payment request can tick the vendor's unpaid invoices instead of having lines, and once approved those invoices are paid
-from Pay a vendor; a vendor account page per vendor), Payroll (employees, monthly runs with
+from Pay a vendor; a vendor account page per vendor; an unpaid vendor invoice can be voided), BOQ per project (upload an
+Excel .xlsx or CSV BOQ, English or Arabic headers, read without extra libraries; each line matched to one of the project's
+GL codes by its code column or by name, the rest by hand; BOQ vs actual vs on order per GL code with % used; a new
+upload replaces the BOQ; Finance or Engineering), Payroll (employees, monthly runs with
 overtime and deductions, Egyptian social insurance 11% / 18.75% between 2,700 and 16,700, salary tax on annualised
 pay with the 20,000 exemption and progressive brackets, a per-employee "no social insurance or salary tax" switch for staff
 paid the full salary, posting per project or department, salary payment; Finance only),
