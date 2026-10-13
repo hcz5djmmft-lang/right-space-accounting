@@ -31,7 +31,7 @@ export default async function EmployeeFilePage({ params, searchParams }: { param
   return (
     <>
       <div className="head"><div><h1 dir="auto">{e.name}</h1><p>{e.code}{e.job_title ? ` · ${e.job_title}` : ''}{e.dept_name ? ` · ${e.dept_name}` : ''} · {e.work_location === 'site' ? 'Site' : 'Office'}{e.active ? '' : ' · inactive'}</p></div>
-        <div className="row"><Link className="btn" href="/hr">All employees</Link>{hasRole(user, 'finance') && <Link className="btn" href={`/payroll/employees/${id}`}>Salary (Payroll)</Link>}</div></div>
+        <div className="row"><Link className="btn" href="/hr">All employees</Link><Link className="btn" href={`/attendance/${id}`}>Attendance</Link>{hasRole(user, 'finance') && <Link className="btn" href={`/payroll/employees/${id}`}>Salary (Payroll)</Link>}</div></div>
       <div className="tabs">{tabs.map(([k, v]) => <Link key={k} href={`${path}?tab=${k}`} className={tab === k ? 'on' : ''}>{v}</Link>)}</div>
       {flash && <div className="msg good">{flash}</div>}
       {saved && <div className="msg good">Saved.</div>}

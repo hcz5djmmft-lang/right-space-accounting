@@ -5,6 +5,7 @@ import { type DocInput, type DocLine, RuleError, docLines, docTotals, paymentLin
 import { type Role, type User, hasRole } from './roles';
 import { audit, checkLock, getSettings, nextNo, postEntry, validateLines, writeLines } from './books';
 import { appUrl, sendMail } from './mail';
+import { leaveWaitingFor } from './leave';
 
 export type Step = { position: number; name: string; user_ids: string[] };
 export const getSteps = (tx: Tx = sql) => tx<Step[]>`select position, name, user_ids from approval_steps order by position`;
@@ -328,12 +329,14 @@ export async function waitingForUser(user: User) {
       left join users u on u.id = r.created_by where r.status in ('procurement', 'head', 'management') order by r.date`,
     sql<{ ok: boolean }[]>`select true ok from departments where code = 'PUR' and (head_user_id = ${user.id} or id = ${user.dept_id ?? ''})`,
   ]);
+  const leave = await leaveWaitingFor(user);
   const procurement = hasRole(user, 'management') || !!proc;
   const mine = purchases.filter(r => r.status === 'procurement' ? procurement : r.status === 'head' ? canSign(user, steps[0], r) : canSign(user, steps[steps.length - 1]));
   return [
     ...prs.filter(p => canSign(user, steps[p.signed], p)).map(p => ({ ...p, href: `/payment-requests/${p.id}`, type: `Payment request · ${stepLabel(steps[p.signed], p)}` })),
     ...mine.map(r => ({ ...r, href: `/purchasing/${r.id}`, type: `Purchase request · ${r.status === 'procurement' ? 'Procurement pricing' : r.status === 'head' ? r.approver_label ?? 'Department head' : 'Management'}` })),
     ...(hasRole(user, 'finance') ? entries.map(e => ({ ...e, href: `/entries/${e.id}`, type: 'Entry' })) : []),
+    ...leave.map(l => ({ id: l.id, no: l.name, date: l.from_date, memo: `${l.type_label} ${l.from_date} to ${l.to_date} (${l.days} days)${l.reason ? ` · ${l.reason}` : ''}`, who: l.name, amount: 0, href: `/leave/${l.id}`, type: `Leave · ${l.status === 'head' ? 'Department head' : 'HR'}` })),
   ];
 }
 

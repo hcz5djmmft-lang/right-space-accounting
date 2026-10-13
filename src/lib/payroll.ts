@@ -1,5 +1,6 @@
 import 'server-only';
 import { sql, type Tx } from './db';
+import { r2 } from './money';
 import { audit, checkLock, getSettings, nextNo, postEntry, validateLines, writeLines } from './books';
 import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
@@ -123,26 +124,32 @@ export async function saveRun(user: User, period: string, edits: { employee_id: 
   });
 }
 
-/** Fills overtime pay and the lateness deduction from the month's timesheet (attendance.ts); typed figures are replaced. */
-export async function fillFromTimesheets(user: User, period: string) {
+/** Fills the month from the records: overtime and lateness from the timesheet, the pay items (bonuses, penalties, advances, loan instalments),
+ *  unpaid leave days at a day's pay. Typed figures in those columns are replaced; the loan instalments due this month are created first. */
+export async function fillFromRecords(user: User, period: string) {
   needFinance(user, 'edit payroll');
-  const { timesheetFeed } = await import('./attendance');
+  const [{ timesheetFeed, getHr }, { dueInstalments, takeIntoRun }, { unpaidDays }] = await Promise.all([import('./attendance'), import('./pay-items'), import('./leave')]);
   await sql.begin(async tx => {
     await lockRun(tx, period);
-    const R = rates((await getSettings(tx)).payroll);
-    const feed = await timesheetFeed(period, tx);
+    const s = await getSettings(tx);
+    const R = rates(s.payroll), hr = await getHr(tx);
+    await dueInstalments(user, period, tx);
+    const [feed, items, unpaid] = [await timesheetFeed(period, tx), await takeIntoRun(period, tx), await unpaidDays(period, tx)];
     const lines = await runLines(tx, period);
     let n = 0;
     for (const l of lines) {
-      const f = feed.get(l.employee_id);
-      if (!f) continue;
-      const next = payLine(l, f.overtime, l.deductions, R, f.late);
+      const f = feed.get(l.employee_id), i = items.get(l.employee_id), u = unpaid.get(l.employee_id) ?? 0;
+      if (!f && !i && !u) continue;
+      const dayPay = hr.days_per_month > 0 ? r2((l.basic + l.allowances) / hr.days_per_month) : 0;
+      const next = payLine(l, r2((f?.overtime ?? 0) + (i?.overtime ?? 0)), r2(i?.deductions ?? 0), R, r2((f?.late ?? 0) + (i?.late ?? 0) + u * dayPay));
       await tx`update payroll_lines set ${tx(next)} where run_period = ${period} and employee_id = ${l.employee_id}`;
       n++;
     }
-    await audit(tx, user, 'payroll', period, 'Filled from timesheets', `${n} employees`);
+    await audit(tx, user, 'payroll', period, 'Filled from timesheets and pay items', `${n} employees`);
   });
 }
+/** Kept for the older name. */
+export const fillFromTimesheets = fillFromRecords;
 
 export async function deleteRun(user: User, period: string) {
   needFinance(user, 'delete payroll');

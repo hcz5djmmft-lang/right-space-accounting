@@ -20,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const items: NavItem[] = [
     { href: '/', label: 'Overview' },
     { href: '/clock', label: 'Clock in' },
+    { href: '/leave', label: 'Leave' },
     { href: '/approvals', label: 'Approvals', badge: n },
     { href: '/tasks', label: 'Tasks', badge: myTasks },
     ...(finance ? ['Finance',
@@ -34,7 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       { href: '/payroll', label: 'Payroll' }] as NavItem[]
       : ['Requests', { href: '/payment-requests', label: 'Payment requests' }] as NavItem[]),
     'Purchasing', { href: '/purchasing', label: 'Purchase requests' }, { href: '/purchasing/materials', label: 'Materials' },
-    ...(hr ? ['HR', { href: '/hr', label: 'Employees' }, { href: '/attendance', label: 'Attendance' }] as NavItem[] : []),
+    ...(hr ? ['HR', { href: '/hr', label: 'Employees' }, { href: '/attendance', label: 'Attendance' }, { href: '/hr/pay-items', label: 'Pay items' }, { href: '/hr/reports', label: 'HR reports' }] as NavItem[] : []),
     ...(projects || tenders ? ['Projects',
       ...(projects ? [{ href: '/cost-centers', label: 'Cost centers' }] : []),
       ...(tenders ? [{ href: '/tenders', label: 'Tenders' }] : [])] as NavItem[] : []),
