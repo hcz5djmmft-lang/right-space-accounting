@@ -8,13 +8,13 @@ import { storage } from './storage';
 import { TZ } from './dates';
 
 /** Documents that can carry files. The names match audit_log.entity so the history shows uploads. */
-export const ENTITIES = { invoice: 'invoices', journal: 'journal_entries' } as const;
+export const ENTITIES = { invoice: 'invoices', journal: 'journal_entries', employee: 'employees' } as const;
 export type Entity = keyof typeof ENTITIES;
 
 /** 4 MB: phones shrink photos before sending, and the host refuses request bodies above 4.5 MB. */
 export const MAX_BYTES = 4 * 1024 * 1024;
 
-export type Attachment = { id: string; file_name: string; mime_type: string; size_bytes: number; uploaded_by: string | null; who: string | null; at: string };
+export type Attachment = { id: string; file_name: string; mime_type: string; size_bytes: number; uploaded_by: string | null; who: string | null; at: string; tag: string | null };
 
 /** Work out the real file type from its first bytes; the browser's claim is not trusted. */
 export function sniff(b: Buffer): { mime: string; ext: string } | null {
@@ -29,22 +29,28 @@ export function sniff(b: Buffer): { mime: string; ext: string } | null {
 async function docStatus(entity: Entity, id: string): Promise<string> {
   const [d] = entity === 'invoice'
     ? await sql<{ status: string }[]>`select status from invoices where id = ${id}`
-    : await sql<{ status: string }[]>`select status from journal_entries where id = ${id}`;
+    : entity === 'employee'
+      ? await sql<{ status: string }[]>`select 'open' status from employees where id = ${id}`
+      : await sql<{ status: string }[]>`select status from journal_entries where id = ${id}`;
   if (!d) throw new RuleError('That document no longer exists.');
   return d.status;
 }
 
 export async function listAttachments(entity: Entity, id: string) {
   return sql<Attachment[]>`
-    select a.id, a.file_name, a.mime_type, a.size_bytes::int size_bytes, a.uploaded_by, u.name who,
+    select a.id, a.file_name, a.mime_type, a.size_bytes::int size_bytes, a.uploaded_by, u.name who, a.tag,
       to_char(a.uploaded_at at time zone ${TZ},'YYYY-MM-DD HH24:MI') at
     from attachments a left join users u on u.id = a.uploaded_by
     where a.entity = ${entity} and a.entity_id = ${id} order by a.uploaded_at`;
 }
 
-/** Anyone signed in can add a receipt, also after posting (receipts often arrive later). */
-export async function addAttachment(user: User, entity: Entity, id: string, name: string, body: Buffer): Promise<string> {
+/** Employee files are private: HR and Finance add and see their documents. */
+const canFile = (user: User, entity: Entity) => entity !== 'employee' || hasRole(user, 'hr', 'finance');
+
+/** Anyone signed in can add a receipt, also after posting (receipts often arrive later). `tag` names the document of a form (employee files). */
+export async function addAttachment(user: User, entity: Entity, id: string, name: string, body: Buffer, tag: string | null = null): Promise<string> {
   if (!(entity in ENTITIES)) throw new RuleError('Unknown document.');
+  if (!canFile(user, entity)) throw new RuleError('Only HR or Finance can add files to an employee file.');
   if (!body.length) throw new RuleError('The file is empty.');
   if (body.length > MAX_BYTES) throw new RuleError('That file is over 4 MB. Take a smaller photo or send a smaller PDF.');
   const t = sniff(body);
@@ -56,9 +62,9 @@ export async function addAttachment(user: User, entity: Entity, id: string, name
   try {
     return await sql.begin(async tx => {
       const [a] = await tx<{ id: string }[]>`
-        insert into attachments (entity, entity_id, file_name, mime_type, size_bytes, storage_key, uploaded_by)
-        values (${entity}, ${id}, ${fileName}, ${t.mime}, ${body.length}, ${key}, ${user.id}) returning id`;
-      await audit(tx, user, entity, id, 'Attached file', fileName);
+        insert into attachments (entity, entity_id, file_name, mime_type, size_bytes, storage_key, uploaded_by, tag)
+        values (${entity}, ${id}, ${fileName}, ${t.mime}, ${body.length}, ${key}, ${user.id}, ${tag || null}) returning id`;
+      await audit(tx, user, entity, id, 'Attached file', tag ? `${tag}: ${fileName}` : fileName);
       return a.id;
     });
   } catch (e) { await storage().remove(key).catch(() => {}); throw e; }
@@ -69,7 +75,7 @@ export async function removeAttachment(user: User, attachmentId: string) {
   const [a] = await sql<{ entity: Entity; entity_id: string; file_name: string; storage_key: string; uploaded_by: string | null }[]>`
     select entity, entity_id, file_name, storage_key, uploaded_by from attachments where id = ${attachmentId}`;
   if (!a) return;
-  if (a.uploaded_by !== user.id && !hasRole(user, 'finance')) throw new RuleError('Only the person who attached it, or Finance, can remove this file.');
+  if (a.uploaded_by !== user.id && !hasRole(user, 'finance') && !(a.entity === 'employee' && hasRole(user, 'hr'))) throw new RuleError('Only the person who attached it, or Finance, can remove this file.');
   if ((await docStatus(a.entity, a.entity_id)) === 'posted') throw new RuleError('This document is posted, so its files are kept.');
   await sql.begin(async tx => {
     await tx`delete from attachments where id = ${attachmentId}`;
@@ -78,10 +84,12 @@ export async function removeAttachment(user: User, attachmentId: string) {
   await storage().remove(a.storage_key).catch(e => console.error('Could not delete stored file', a.storage_key, e));
 }
 
-export async function readAttachment(attachmentId: string) {
-  const [a] = await sql<{ file_name: string; mime_type: string; storage_key: string }[]>`
-    select file_name, mime_type, storage_key from attachments where id = ${attachmentId}`;
+/** The file's bytes for a signed-in user; an employee document is given only to HR or Finance. */
+export async function readAttachment(attachmentId: string, user?: User) {
+  const [a] = await sql<{ file_name: string; mime_type: string; storage_key: string; entity: Entity }[]>`
+    select file_name, mime_type, storage_key, entity from attachments where id = ${attachmentId}`;
   if (!a) return null;
+  if (user && !canFile(user, a.entity)) throw new RuleError('Employee documents are for HR and Finance.');
   return { ...a, body: await storage().get(a.storage_key) };
 }
 

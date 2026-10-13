@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { sql } from '@/lib/db';
+import { listAssignees } from '@/lib/hr';
 import { hasRole } from '@/lib/roles';
 import { getTask, listComments, LINKS } from '@/lib/tasks';
 import { TaskForm } from '@/components/TaskForm';
@@ -13,7 +14,7 @@ export default async function TaskPage({ params, searchParams }: { params: Promi
   const { error } = await searchParams;
   const t = await getTask(id);
   if (!t) notFound();
-  const [people, comments] = await Promise.all([sql<{ id: string; name: string }[]>`select id, name from users where active order by name`, listComments(id)]);
+  const [people, comments] = await Promise.all([listAssignees(), listComments(id)]);
   const mayDelete = t.created_by === user.id || t.assignee_id === user.id || hasRole(user, 'management');
   return (
     <>

@@ -1,7 +1,7 @@
 import { PRIORITIES, STATUSES, type Task } from '@/lib/tasks';
 
-type People = { id: string; name: string }[];
-/** Server-rendered task form; the action is a server action. */
+type People = { key: string; name: string; detail: string; user_id: string | null }[];
+/** Server-rendered task form; the action is a server action. The assignee list is every employee (see hr.listAssignees). */
 export function TaskForm({ t, people, action, me, link }: {
   t?: Partial<Task>; people: People; action: (f: FormData) => Promise<void>; me: string;
   link?: { type: string; id: string; label: string } | null;
@@ -16,8 +16,8 @@ export function TaskForm({ t, people, action, me, link }: {
         <label className="f"><span>Status</span><select className="inp" name="status" defaultValue={t?.status ?? 'todo'}>{STATUSES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         <label className="f"><span>Priority</span><select className="inp" name="priority" defaultValue={t?.priority ?? 'normal'}>{PRIORITIES.map(p => <option key={p}>{p}</option>)}</select></label>
         <label className="f"><span>Due date</span><input className="inp" type="date" name="due" defaultValue={t?.due ?? ''} /></label>
-        <label className="f"><span>Assignee</span><select className="inp" name="assignee_id" defaultValue={t?.assignee_id ?? (t?.id ? '' : me)}>
-          <option value="">Unassigned</option>{people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+        <label className="f"><span>Assigned to</span><select className="inp" name="assignee" defaultValue={t?.assignee_key ?? (t?.id ? '' : (people.find(p => p.user_id === me)?.key ?? ''))}>
+          <option value="">Unassigned</option>{people.map(p => <option key={p.key} value={p.key}>{p.name}{p.detail ? ` · ${p.detail}` : ''}</option>)}</select></label>
       </div>
       <label className="f" style={{ marginTop: 10 }}><span>Details</span><textarea className="inp" name="details" dir="auto" rows={4} defaultValue={t?.details ?? ''} /></label>
       {l && <p className="muted" style={{ fontSize: 13 }}>Linked to {l.label || l.id}</p>}

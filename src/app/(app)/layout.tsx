@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [waiting, myTasks] = await Promise.all([waitingForUser(user), openForUser(user.id)]);
   const n = waiting.length;
   // The menu follows the department: Finance holds the books; everyone else raises requests and sees their projects.
-  const finance = hasRole(user, 'finance'), projects = hasRole(user, 'finance', 'engineering', 'projects'), tenders = hasRole(user, 'tenders');
+  const finance = hasRole(user, 'finance'), projects = hasRole(user, 'finance', 'engineering', 'projects'), tenders = hasRole(user, 'tenders'), hr = hasRole(user, 'hr', 'finance');
   const items: NavItem[] = [
     { href: '/', label: 'Overview' },
     { href: '/approvals', label: 'Approvals', badge: n },
@@ -33,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       { href: '/payroll', label: 'Payroll' }] as NavItem[]
       : ['Requests', { href: '/payment-requests', label: 'Payment requests' }] as NavItem[]),
     'Purchasing', { href: '/purchasing', label: 'Purchase requests' }, { href: '/purchasing/materials', label: 'Materials' },
+    ...(hr ? ['HR', { href: '/hr', label: 'Employees' }] as NavItem[] : []),
     ...(projects || tenders ? ['Projects',
       ...(projects ? [{ href: '/cost-centers', label: 'Cost centers' }] : []),
       ...(tenders ? [{ href: '/tenders', label: 'Tenders' }] : [])] as NavItem[] : []),

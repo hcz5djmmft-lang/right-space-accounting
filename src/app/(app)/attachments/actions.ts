@@ -10,13 +10,13 @@ function msg(e: unknown) {
   return 'The file could not be saved. Nothing was changed.';
 }
 
-export async function uploadAction(entity: Entity, id: string, path: string, form: FormData): Promise<{ error?: string; added?: number }> {
+export async function uploadAction(entity: Entity, id: string, path: string, form: FormData, tag: string | null = null): Promise<{ error?: string; added?: number }> {
   const user = await requireUser();
   const files = form.getAll('files').filter((f): f is File => f instanceof File && f.size > 0);
   if (!files.length) return { error: 'Pick a photo or file first.' };
   let added = 0;
   try {
-    for (const f of files) { await addAttachment(user, entity, id, f.name, Buffer.from(await f.arrayBuffer())); added++; }
+    for (const f of files) { await addAttachment(user, entity, id, f.name, Buffer.from(await f.arrayBuffer()), tag); added++; }
   } catch (e) { revalidatePath(path); return { error: msg(e), added }; }
   revalidatePath(path);
   return { added };

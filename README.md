@@ -35,6 +35,10 @@ Locally the command line works too:
 npm run create-user -- Adel_hassan@live.com "Adel Maksoud" <password> management,finance,engineering
 ```
 
+HR (the Admin & HR department, Finance and Management) keeps every employee's file under HR → Employees: personal and contract data,
+Office or Site, the Employment Documents checklist with photos or scans per document, and the login, created from the file
+(the employee gets the file's name and department). Tasks are assigned to employees, with or without a login. Salary figures stay under Payroll.
+
 Settings → Departments names the head of each department (the first signer of its payment requests) and what its members may do;
 Settings → People puts each login in a department. The final approval is given by the people ticked under Settings → Approvals.
 

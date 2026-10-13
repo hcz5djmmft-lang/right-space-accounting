@@ -14,27 +14,29 @@ export const LINKS: Record<string, string> = { entry: '/entries/', 'payment-requ
 
 export type Task = {
   id: string; title: string; details: string; status: Status; priority: Priority; due: string | null;
-  assignee_id: string | null; assignee: string | null; link_type: string | null; link_id: string | null; link_label: string | null;
+  assignee_id: string | null; assignee_emp_id: string | null; assignee: string | null; assignee_key: string | null; link_type: string | null; link_id: string | null; link_label: string | null;
   created_by: string | null; creator: string | null; created_at: string; done_at: string | null; comments: number;
 };
 const select = (where = sql``) => sql<Task[]>`
-  select t.id, t.title, t.details, t.status, t.priority, to_char(t.due,'YYYY-MM-DD') due, t.assignee_id, a.name assignee,
+  select t.id, t.title, t.details, t.status, t.priority, to_char(t.due,'YYYY-MM-DD') due, t.assignee_id, t.assignee_emp_id, coalesce(e.name, a.name) assignee,
+    case when t.assignee_emp_id is not null then 'e:' || t.assignee_emp_id when t.assignee_id is not null then 'u:' || t.assignee_id end assignee_key,
     t.link_type, t.link_id, t.link_label, t.created_by, c.name creator,
     to_char(t.created_at at time zone ${TZ},'YYYY-MM-DD HH24:MI') created_at, to_char(t.done_at at time zone ${TZ},'YYYY-MM-DD HH24:MI') done_at,
     (select count(*)::int from task_comments x where x.task_id = t.id) comments
-  from tasks t left join users a on a.id = t.assignee_id left join users c on c.id = t.created_by
+  from tasks t left join users a on a.id = t.assignee_id left join employees e on e.id = t.assignee_emp_id left join users c on c.id = t.created_by
   ${where}
   order by case t.priority when 'high' then 0 when 'normal' then 1 else 2 end, t.due nulls last, t.created_at`;
 
 export const listTasks = (opts: { mine?: string; link?: { type: string; id: string } } = {}) =>
-  opts.mine ? select(sql`where t.assignee_id = ${opts.mine}`)
+  opts.mine ? select(sql`where t.assignee_id = ${opts.mine} or exists (select 1 from employees e where e.id = t.assignee_emp_id and e.user_id = ${opts.mine})`)
   : opts.link ? select(sql`where t.link_type = ${opts.link.type} and t.link_id = ${opts.link.id}`)
   : select();
 export async function getTask(id: string) { return (await select(sql`where t.id = ${id}`))[0]; }
-export const openForUser = async (userId: string) => (await sql<{ n: number }[]>`select count(*)::int n from tasks where assignee_id = ${userId} and status <> 'done'`)[0].n;
+export const openForUser = async (userId: string) => (await sql<{ n: number }[]>`select count(*)::int n from tasks t where status <> 'done' and (t.assignee_id = ${userId} or exists (select 1 from employees e where e.id = t.assignee_emp_id and e.user_id = ${userId}))`)[0].n;
 
+/** `assignee_id` is the login (for "assigned to me" and the badge), `assignee_emp_id` the employee file; either may be missing. */
 export type TaskInput = {
-  id?: string; title: string; details: string; status: Status; priority: Priority; due?: string | null; assignee_id?: string | null;
+  id?: string; title: string; details: string; status: Status; priority: Priority; due?: string | null; assignee_id?: string | null; assignee_emp_id?: string | null;
   link_type?: string | null; link_id?: string | null; link_label?: string | null;
 };
 export async function saveTask(user: User, i: TaskInput) {
@@ -43,7 +45,7 @@ export async function saveTask(user: User, i: TaskInput) {
   if (!STATUSES.some(s => s[0] === i.status)) throw new RuleError('Unknown status.');
   if (!PRIORITIES.includes(i.priority)) throw new RuleError('Unknown priority.');
   if (i.link_type && !LINKS[i.link_type]) throw new RuleError('Unknown link.');
-  const vals = { title, details: i.details ?? '', status: i.status, priority: i.priority, due: i.due || null, assignee_id: i.assignee_id || null,
+  const vals = { title, details: i.details ?? '', status: i.status, priority: i.priority, due: i.due || null, assignee_id: i.assignee_id || null, assignee_emp_id: i.assignee_emp_id || null,
     link_type: i.link_type || null, link_id: i.link_id || null, link_label: i.link_label || null };
   if (i.id) {
     const n = await sql`update tasks set ${sql(vals)}, updated_at = now(), done_at = case when ${i.status} = 'done' then coalesce(done_at, now()) else null end where id = ${i.id}`;

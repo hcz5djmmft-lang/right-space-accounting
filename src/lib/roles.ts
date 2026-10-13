@@ -4,6 +4,7 @@ export const ROLES = {
   engineering: 'Engineering',
   projects: 'Projects (manager / designer)',
   tenders: 'Tenders',
+  hr: 'HR (employee files, attendance, leave)',
 } as const;
 export type Role = keyof typeof ROLES;
 
