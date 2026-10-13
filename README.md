@@ -73,6 +73,18 @@ chat for the designer and the signers, with every step noted. The Drawing regist
 Finishes & materials keeps what the client chose per room, and the Design status and Hours and cost tabs show where each set waits
 and the design hours against the design fee set on the project.
 
+QS and pricing: Projects → QS and pricing holds the Master BOQ workbook of the technical office. An estimate per project (with
+revisions) carries the five calculators, bathroom and kitchen plumbing rough-in (dimensions, distances to the risers, the fixtures
+and appliances), electrical rough-in (points per room: lights, switches, sockets, power, heater, TV, data) and the sanitary and
+electrical finishing lists; the app counts the materials with the workbook's formulas, waste factors and whole purchase units, and
+their totals price the linked Master BOQ items (bathroom × the number of bathrooms + labour, kitchen + labour, electrical, sanitary,
+electrical finishing); the other items take typed quantities and rates. The dry cost is 70 % of the client price (risk 10 %, margin
+20 %, both changeable) and VAT 14 % is shown apart. The Rate table tab holds the unit prices (Procurement, the engineers or Finance
+change them; a new estimate takes the prices of the day). "Client BOQ (print)" prints the quotation at client rates with the logo;
+"Send to the client" freezes the estimate, "Client accepted" makes it the contract (the project's contract value), its Master BOQ
+the project's budget on BOQ vs actual, its materials the project's material plan, and moves the project to Planning; "New revision"
+copies an estimate. The BOQ summary tab lists every project's dry cost, risk, margin, client price and contract.
+
 Settings → Departments names the head of each department (the first signer of its payment requests) and what its members may do;
 Settings → People puts each login in a department. The final approval is given by the people ticked under Settings → Approvals.
 
