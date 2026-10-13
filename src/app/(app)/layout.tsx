@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       { href: '/parties', label: 'Customers & vendors' },
       { href: '/payroll', label: 'Payroll' }] as NavItem[]
       : ['Requests', { href: '/payment-requests', label: 'Payment requests' }] as NavItem[]),
-    'Purchasing', { href: '/purchasing', label: 'Purchase requests' }, { href: '/purchasing/materials', label: 'Materials' },
+    'Purchasing', { href: '/purchasing', label: 'Purchase requests' }, { href: '/purchasing/plan', label: 'Material plan' }, { href: '/purchasing/vendors', label: 'Vendors' }, { href: '/purchasing/work-orders', label: 'Work orders' }, { href: '/purchasing/stock', label: 'Site stock' }, { href: '/purchasing/reports', label: 'Procurement reports' }, { href: '/purchasing/materials', label: 'Materials' },
     ...(hr ? ['HR', { href: '/hr', label: 'Employees' }, { href: '/attendance', label: 'Attendance' }, { href: '/hr/pay-items', label: 'Pay items' }, { href: '/hr/reports', label: 'HR reports' }] as NavItem[] : []),
     ...(projects || tenders ? ['Projects',
       ...(projects ? [{ href: '/cost-centers', label: 'Cost centers' }, { href: '/design', label: 'Design' }, { href: '/qs', label: 'QS and pricing' }, { href: '/planning', label: 'Planning' }] : []),

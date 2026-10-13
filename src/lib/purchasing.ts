@@ -126,7 +126,7 @@ export async function pricePurchaseRequest(user: User, id: string, p: { vendor: 
       if (price < 0) throw new RuleError('Prices cannot be negative.');
       await tx`update purchase_request_lines set price = ${price} where id = ${l.id}`;
     }
-    await tx`update purchase_requests set vendor_id = ${p.vendor || null}, vat_rate = ${p.vatRate || 0} where id = ${id}`;
+    await tx`update purchase_requests set vendor_id = ${p.vendor || null}, vat_rate = ${p.vatRate || 0}, buyer_id = coalesce(buyer_id, ${user.id}) where id = ${id}`;
     if (!p.send) { await audit(tx, user, 'purchase', id, 'Prices saved'); return; }
     if (!p.vendor) throw new RuleError('Choose the vendor before sending it on.');
     const [v] = await tx`select 1 from parties where id = ${p.vendor} and type = 'vendor'`;
@@ -163,7 +163,7 @@ export async function approvePurchaseRequest(user: User, id: string) {
     }
     const po = await nextNo(tx, 'PO-');
     await tx`insert into purchase_request_approvals (request_id, step, step_name, user_id) values (${id}, 'management', 'Management', ${user.id})`;
-    await tx`update purchase_requests set status = 'approved', po_no = ${po}, po_date = ${today()} where id = ${id}`;
+    await tx`update purchase_requests set status = 'approved', po_no = ${po}, po_date = ${today()}, delivery_date = coalesce(delivery_date, needed_by) where id = ${id}`;
     await audit(tx, user, 'purchase', id, 'Management approved', 'Purchase order ' + po);
     return po;
   });
@@ -211,16 +211,19 @@ export type PurchaseRow = {
   id: string; no: string; date: string; needed_by: string | null; status: string; project_id: string | null; dept_id: string | null; cc: string | null;
   notes: string; vendor_id: string | null; vendor: string | null; vendor_full: string | null; vat_rate: number; approver_id: string | null; approver_label: string | null; approver_name: string | null;
   po_no: string | null; po_date: string | null; closed: boolean; created_by: string | null; created_by_name: string | null;
-  subtotal: number; received: number;
+  subtotal: number; received: number; buyer_id: string | null; buyer: string | null; delivery_date: string | null; delivered: number; quotes: number;
 };
 const rowSelect = sql`
   select r.id, r.no, to_char(r.date,'YYYY-MM-DD') date, to_char(r.needed_by,'YYYY-MM-DD') needed_by, r.status, r.project_id, r.dept_id,
     coalesce(p.code, d.name) cc, r.notes, r.vendor_id, v.name vendor, v.full_name vendor_full, r.vat_rate, r.approver_id, r.approver_label, ap.name approver_name,
     r.po_no, to_char(r.po_date,'YYYY-MM-DD') po_date, r.closed, r.created_by, u.name created_by_name,
     coalesce((select sum(round(l.qty * l.price, 2)) from purchase_request_lines l where l.request_id = r.id), 0) subtotal,
-    coalesce((select sum(i.subtotal) from invoices i where i.po_id = r.id and i.status = 'posted'), 0) received
+    coalesce((select sum(i.subtotal) from invoices i where i.po_id = r.id and i.status = 'posted'), 0) received,
+    r.buyer_id, b.name buyer, to_char(r.delivery_date,'YYYY-MM-DD') delivery_date,
+    coalesce((select sum(round(dl.qty * l.price, 2)) from delivery_lines dl join purchase_request_lines l on l.id = dl.line_id where l.request_id = r.id), 0) delivered,
+    (select count(*)::int from quotations q where q.request_id = r.id) quotes
   from purchase_requests r left join projects p on p.id = r.project_id left join departments d on d.id = r.dept_id left join parties v on v.id = r.vendor_id
-  left join users u on u.id = r.created_by left join users ap on ap.id = r.approver_id`;
+  left join users u on u.id = r.created_by left join users ap on ap.id = r.approver_id left join users b on b.id = r.buyer_id`;
 
 const STATE: Record<string, string> = { draft: 'Draft', procurement: 'Procurement', head: 'Department head', management: 'Management', approved: 'Purchase order', rejected: 'Returned', cancelled: 'Cancelled' };
 /** What a request is waiting for, or where its PO stands. */
@@ -236,12 +239,13 @@ export async function getPurchaseRequest(id: string) {
 export const listPurchaseRequests = () => sql<PurchaseRow[]>`${rowSelect} order by r.date desc, r.no desc limit 500`;
 
 export type PRQLine = { id: string; line_no: number; material_id: string | null; code: string | null; name: string | null; name_ar: string | null; description: string; unit: string;
-  qty: number; price: number; account: string | null; account_name: string | null; received_qty: number; received_amount: number };
+  qty: number; price: number; account: string | null; account_name: string | null; received_qty: number; received_amount: number; delivered_qty: number };
 /** The lines with what has been received on each (posted vendor invoices against the PO). */
 export const getPurchaseLines = (id: string, tx: Tx = sql) => tx<PRQLine[]>`
   select l.id::text id, l.line_no, l.material_id, m.code, m.name, m.name_ar, l.description, l.unit, l.qty, l.price, l.account, a.name account_name,
     coalesce((select sum(il.qty) from invoice_lines il join invoices i on i.id = il.invoice_id and i.status = 'posted' where il.po_line_id = l.id), 0) received_qty,
-    coalesce((select sum(round(il.qty * il.price, 2)) from invoice_lines il join invoices i on i.id = il.invoice_id and i.status = 'posted' where il.po_line_id = l.id), 0) received_amount
+    coalesce((select sum(round(il.qty * il.price, 2)) from invoice_lines il join invoices i on i.id = il.invoice_id and i.status = 'posted' where il.po_line_id = l.id), 0) received_amount,
+    coalesce((select sum(dl.qty) from delivery_lines dl where dl.line_id = l.id), 0) delivered_qty
   from purchase_request_lines l left join materials m on m.id = l.material_id left join accounts a on a.code = l.account
   where l.request_id = ${id} order by l.line_no`;
 
