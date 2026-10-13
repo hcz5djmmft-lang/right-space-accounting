@@ -9,6 +9,7 @@ import { kindLabel } from './design-calc';
 import { canQs } from './qs';
 import { canPlan, progressDue } from './planning';
 import { canEngineer } from './claims';
+import { siteSteps } from './site';
 
 // Every pending step that needs someone's input shows as a task for that person until it is done (Adel's item 18):
 // a form to complete, a drawing set to upload or approve, an estimate to finish or answer, a schedule to set, this
@@ -60,5 +61,7 @@ export async function pendingSteps(user: User): Promise<Step[]> {
   for (const c of certified) out.push({ kind: 'claim', title: `Invoice the client for claim ${c.no} of ${c.code}`, href: `/claims/client/${c.id}`, since: c.at });
   for (const v of vos) out.push({ kind: 'variation', title: `Record the client's answer on variation order ${v.no} of ${v.code}`, href: `/variations/${v.id}`, since: v.at });
   for (const f of samples) out.push({ kind: 'sample', title: `Record the client's answer on the sample ${f.area} · ${f.item} of ${f.code}`, href: `/samples?project=${f.project_id}`, since: f.at });
+  // site execution (update 15): today's report, snags to fix, fixed snags to verify
+  out.push(...await siteSteps(user, now));
   return out;
 }
