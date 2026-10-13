@@ -43,12 +43,16 @@ async function signerEmails(tx: Tx, s: Step, doc?: Signable) {
 /**
  * Who signs a request first: the head of its department; a project's request goes to the head of Engineering.
  * The header's cost center decides, else the first line that names one. No head set (or the head deactivated): Management.
+ * A section (Technical Office, Site execution) with no head of its own sends its requests to its parent department's head.
  */
 export async function approverFor(tx: Tx, doc: { dept?: string | null; project?: string | null; lines?: { dept?: string | null; project?: string | null }[] }) {
   const dept = doc.dept || (!doc.project && doc.lines?.find(l => l.dept)?.dept) || null;
   const project = doc.project || doc.lines?.find(l => l.project)?.project || null;
   const [d] = dept
-    ? await tx<{ name: string; head: string | null }[]>`select d.name, (select u.id from users u where u.id = d.head_user_id and u.active) head from departments d where d.id = ${dept}`
+    ? await tx<{ name: string; head: string | null }[]>`
+        select case when h.id is null and ph.id is not null then p.name else d.name end name, coalesce(h.id, ph.id) head
+        from departments d left join users h on h.id = d.head_user_id and h.active
+        left join departments p on p.id = d.parent_id and p.active left join users ph on ph.id = p.head_user_id and ph.active where d.id = ${dept}`
     : project
       ? await tx<{ name: string; head: string | null }[]>`select d.name, (select u.id from users u where u.id = d.head_user_id and u.active) head from departments d where d.code = 'ENG' and d.active`
       : [];

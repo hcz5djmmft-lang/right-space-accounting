@@ -54,6 +54,15 @@ and other deductions; "Fill from timesheets and pay items" on the payroll run ta
 reminders (contracts and probations ending, no insurance number, missing documents, waiting requests, open days), headcount, leave balances,
 documents and each person's KPIs from their tasks and attendance.
 
+Projects: Finance or an engineer adds a project (Projects → Cost centers → New project), which opens the company's Project
+Information form AF-PI-01 (35 answers in six sections, a notes box on every field, unit photos, drawings and the general layout
+as files). "Mark the form complete" moves the project to the Design phase (or straight to QS and pricing when the interior design
+is already ready); the phases Project form → Design → QS and pricing → Planning → Execution → Handover show on the project page and
+in the list, and Finance or an engineer can move a project by hand with a note. Engineering has two sections, Technical Office and
+Site execution (departments under Engineering: members get Engineering's permissions, and a section without a head sends its requests
+to the head of Engineering). Settings → Org chart names who holds each position (director of engineering, head of design, technical
+office head, designers, planning, QS, pricing, cost control, site engineers, procurement, HR and Finance heads).
+
 Settings → Departments names the head of each department (the first signer of its payment requests) and what its members may do;
 Settings → People puts each login in a department. The final approval is given by the people ticked under Settings → Approvals.
 
