@@ -14,6 +14,7 @@ import { FIELDS } from '@/lib/project-form';
 import { KINDS, OPEN_STATUSES } from '@/lib/design-calc';
 import { canDesign, listSets } from '@/lib/design';
 import { ProjectQsCard } from '../../qs/ProjectQsCard';
+import { ProjectPlanCard } from '../../planning/ProjectPlanCard';
 import { setPhaseAction } from './form/actions';
 import { createSetAction } from '../../design/actions';
 
@@ -99,6 +100,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             })}</tbody></table></div>
         </div>)}
       {!p.is_office && <ProjectQsCard id={id} user={user} />}
+      {!p.is_office && <ProjectPlanCard id={id} user={user} phase={p.phase} />}
       {hasRole(user, 'finance') && (
         <form action={updateProject.bind(null, id)} className="card">
           <h2>Project details</h2>

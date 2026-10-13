@@ -6,7 +6,7 @@ import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { CALCULATORS, PRICING, type CalcResult, type Part, type Rec, statusClass } from '@/lib/qs-calc';
 import { BATHROOM, ELECFIN, ELECTRICAL, KITCHEN, MASTER, SANITARY, type QsParam } from '@/lib/qs-data';
-import { canQs, getEstimate, type EstimateFull } from '@/lib/qs';
+import { canQs, getEstimate, materialPlan, type EstimateFull } from '@/lib/qs';
 import { decideEstimateAction, newRevisionAction, saveInputsAction, sendEstimateAction } from '../actions';
 
 const TABS = [['master', 'Master BOQ'], ['bathroom', 'Bathroom'], ['kitchen', 'Kitchen'], ['electrical', 'Electrical'], ['sanitary', 'Sanitary'], ['elecfin', 'Electrical finishing'], ['materials', 'Material plan']] as const;
@@ -21,6 +21,7 @@ export default async function EstimatePage({ params, searchParams }: { params: P
   const edit = e.editable && canQs(user);
   const log = await sql<{ at: string; who: string | null; action: string; note: string }[]>`select to_char(g.at at time zone 'Africa/Cairo','YYYY-MM-DD HH24:MI') at, u.name who, g.action, g.note from audit_log g left join users u on u.id = g.user_id where g.entity = 'estimate' and g.entity_id = ${id} order by g.at desc limit 30`;
   const c = e.calc;
+  const needed = e.status === 'accepted' ? Object.fromEntries((await materialPlan(e.project_id)).filter(m => m.needed_by).map(m => [`${m.calculator}-${m.no}`, m.needed_by!])) : {};
   return (
     <>
       <div className="head"><div><h1><Link href={`/cost-centers/${e.project_id}`}>{e.project_code}</Link> · Estimate <span className="muted">rev {e.rev}</span></h1>
@@ -42,7 +43,7 @@ export default async function EstimatePage({ params, searchParams }: { params: P
       {tab === 'electrical' && <Electrical e={e} edit={edit} />}
       {tab === 'sanitary' && <Finishing e={e} edit={edit} part="sanitary" />}
       {tab === 'elecfin' && <Finishing e={e} edit={edit} part="elecfin" />}
-      {tab === 'materials' && <Materials e={e} />}
+      {tab === 'materials' && <Materials e={e} needed={needed} />}
       <div className="card log"><h2 style={{ marginTop: 0 }}>History</h2>{log.map((g, i) => <div key={i}>{g.at} · {g.who ?? ''} · {g.action}{g.note ? ` — ${g.note}` : ''}</div>)}</div>
     </>
   );
@@ -182,17 +183,18 @@ function Finishing({ e, edit, part }: { e: EstimateFull; edit: boolean; part: 's
     </form>);
 }
 
-function Materials({ e }: { e: EstimateFull }) {
+function Materials({ e, needed }: { e: EstimateFull; needed: Record<string, string> }) {
   const ms = e.calc.materials;
+  const dated = Object.keys(needed).length > 0;
   return (
     <div className="card">
       <h2 style={{ marginTop: 0 }}>Material plan</h2>
-      <p className="muted" style={{ fontSize: 13 }}>Every material the calculators count, with its quantity and price. When the client accepts this estimate these lines become the project&apos;s material plan for procurement.</p>
+      <p className="muted" style={{ fontSize: 13 }}>Every material the calculators count, with its quantity and price. When the client accepts this estimate these lines become the project&apos;s material plan for procurement{dated ? ', and the schedule\'s baseline sets when each is needed on site (a week before its work starts).' : '.'}</p>
       <div className="tw"><table>
-        <thead><tr><th>Calculator</th><th>No.</th><th>Material</th><th className="hide-sm">Size / brand</th><th>Unit</th><th className="num">Qty</th><th className="num">Price</th><th className="num">Amount</th></tr></thead>
+        <thead><tr><th>Calculator</th><th>No.</th><th>Material</th><th className="hide-sm">Size / brand</th><th>Unit</th><th className="num">Qty</th><th className="num">Price</th><th className="num">Amount</th>{dated && <th>Needed by</th>}</tr></thead>
         <tbody>{ms.map(m => <tr key={`${m.calculator}-${m.key}`}><td>{CALCULATORS.find(c => c[0] === m.calculator)?.[1]}</td><td className="mono">{m.no}</td><td dir="auto" style={{ fontSize: 13, maxWidth: 420 }}>{m.desc}</td>
-          <td className="hide-sm muted" dir="auto" style={{ fontSize: 12 }}>{[m.size, m.brand].filter(Boolean).join(' · ')}</td><td dir="auto">{m.unit}</td><td className="num mono">{num(m.qty)}</td><td className="num mono">{fmt(m.price)}</td><td className="num mono">{fmt(m.total)}</td></tr>)}
-          <tr className="tot"><td colSpan={7}><b>Materials total</b></td><td className="num mono"><b>{fmt(ms.reduce((t, m) => t + m.total, 0))}</b></td></tr>
+          <td className="hide-sm muted" dir="auto" style={{ fontSize: 12 }}>{[m.size, m.brand].filter(Boolean).join(' · ')}</td><td dir="auto">{m.unit}</td><td className="num mono">{num(m.qty)}</td><td className="num mono">{fmt(m.price)}</td><td className="num mono">{fmt(m.total)}</td>{dated && <td className="mono">{needed[`${m.calculator}-${m.no}`] ?? ''}</td>}</tr>)}
+          <tr className="tot"><td colSpan={dated ? 8 : 7}><b>Materials total</b></td><td className="num mono"><b>{fmt(ms.reduce((t, m) => t + m.total, 0))}</b></td></tr>
         </tbody></table></div>
     </div>);
 }

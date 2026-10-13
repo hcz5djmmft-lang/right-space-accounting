@@ -85,6 +85,8 @@ change them; a new estimate takes the prices of the day). "Client BOQ (print)" p
 the project's budget on BOQ vs actual, its materials the project's material plan, and moves the project to Planning; "New revision"
 copies an estimate. The BOQ summary tab lists every project's dry cost, risk, margin, client price and contract.
 
+Planning: once the client accepts the estimate the project is in Planning and appears under Projects → Planning. Start the schedule gives it one activity per work category (the Master BOQ's ten sections; add or remove rows), the planning engineer dates each one and saves, and Set the baseline freezes the plan: the project moves to Execution and every material in the material plan gets a needed-by date a week before its category starts (shown on the estimate's Material plan tab for procurement). The schedule page shows the planned-by-today and done percentages, how many activities are behind, the expected finish against the baseline and a Gantt by week. This week's progress is recorded from the phone by the site engineer, the project manager or the engineers as a percentage per activity (it never goes down); an activity that is late or ten points under the plan raises a high task for the site engineer (once, until the task is done). Planning → Schedule progress is the report across projects. Tasks opens with Pending steps for you: every approval, form, drawing set, estimate, schedule and weekly progress that waits for the person, computed from the records.
+
 Settings → Departments names the head of each department (the first signer of its payment requests) and what its members may do;
 Settings → People puts each login in a department. The final approval is given by the people ticked under Settings → Approvals.
 
