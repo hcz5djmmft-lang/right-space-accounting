@@ -16,6 +16,7 @@ import { canDesign, listSets } from '@/lib/design';
 import { ProjectQsCard } from '../../qs/ProjectQsCard';
 import { ProjectPlanCard } from '../../planning/ProjectPlanCard';
 import { ProjectProcurementCard } from '../../purchasing/ProjectProcurementCard';
+import { ProjectClaimsCard } from '../../claims/ProjectClaimsCard';
 import { setPhaseAction } from './form/actions';
 import { createSetAction } from '../../design/actions';
 
@@ -101,7 +102,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             })}</tbody></table></div>
         </div>)}
       {!p.is_office && <ProjectQsCard id={id} user={user} />}
-      {!p.is_office && <><ProjectPlanCard id={id} user={user} phase={p.phase} /><ProjectProcurementCard id={id} /></>}
+      {!p.is_office && <><ProjectPlanCard id={id} user={user} phase={p.phase} /><ProjectProcurementCard id={id} /><ProjectClaimsCard id={id} /></>}
       {hasRole(user, 'finance') && (
         <form action={updateProject.bind(null, id)} className="card">
           <h2>Project details</h2>

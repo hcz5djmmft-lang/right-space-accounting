@@ -282,10 +282,30 @@ export const register = async (projectId: string, onlyIfc = false): Promise<Regi
   .map(r => ({ ...r, kind_label: kindLabel(r.kind), set_status_label: statusLabel(r.set_status), ifc: r.set_status === 'ifc' && !r.superseded }));
 
 // Finishes and materials chosen with the client.
-export type Finish = { id: string; project_id: string; area: string; item: string; material: string; ref: string; status: string; note: string; who: string | null; created_at: string; decided_by_name: string | null; decided_at: string | null };
-export const listFinishes = (projectId: string) => sql<Finish[]>`
-  select f.id, f.project_id, f.area, f.item, f.material, f.ref, f.status, f.note, u.name who, to_char(f.created_at at time zone ${TZ},'YYYY-MM-DD') created_at, d.name decided_by_name, to_char(f.decided_at at time zone ${TZ},'YYYY-MM-DD') decided_at
-  from finishes f left join users u on u.id = f.created_by left join users d on d.id = f.decided_by where f.project_id = ${projectId} order by f.area, f.item, f.created_at`;
+export type Finish = { id: string; project_id: string; code: string; area: string; item: string; material: string; ref: string; sample_ref: string; status: string; note: string; who: string | null; created_at: string; sent_at: string | null; decided_by_name: string | null; decided_at: string | null; photos: number };
+const finishSelect = sql`
+  select f.id, f.project_id, p.code, f.area, f.item, f.material, f.ref, f.sample_ref, f.status, f.note, u.name who, to_char(f.created_at at time zone ${TZ},'YYYY-MM-DD') created_at, to_char(f.sent_at at time zone ${TZ},'YYYY-MM-DD') sent_at,
+    d.name decided_by_name, to_char(f.decided_at at time zone ${TZ},'YYYY-MM-DD') decided_at, (select count(*)::int from attachments a where a.entity = 'finish' and a.entity_id = f.id) photos
+  from finishes f join projects p on p.id = f.project_id left join users u on u.id = f.created_by left join users d on d.id = f.decided_by`;
+export const listFinishes = (projectId: string) => sql<Finish[]>`${finishSelect} where f.project_id = ${projectId} order by f.area, f.item, f.created_at`;
+/** The samples register across projects: what waits for the client first. */
+export const listSamples = (f: { project?: string; open?: boolean } = {}) => sql<Finish[]>`${finishSelect}
+  where (${f.project || null}::text is null or f.project_id = ${f.project || null}) and (${f.open ? 1 : 0} = 0 or f.status in ('proposed', 'sent'))
+  order by case f.status when 'sent' then 0 when 'proposed' then 1 else 2 end, p.code, f.area, f.item`;
+export const getFinish = async (id: string) => (await sql<Finish[]>`${finishSelect} where f.id = ${id}`)[0] ?? null;
+/** How many of a project's finishes still wait for the client's answer (shown where materials are about to be bought). */
+export const pendingSamples = async (projectId: string) => (await sql<{ n: number }[]>`select count(*)::int n from finishes where project_id = ${projectId} and status in ('proposed', 'sent')`)[0].n;
+export async function setSampleRef(user: User, id: string, sampleRef: string) {
+  needDesign(user, 'edit samples');
+  await sql`update finishes set sample_ref = ${sampleRef.trim()} where id = ${id}`;
+}
+/** The sample goes to the client (photos are attached to the finish). */
+export async function sendSample(user: User, id: string, sampleRef = '') {
+  needDesign(user, 'send samples to the client');
+  const [f] = await sql<{ project_id: string; area: string; item: string }[]>`update finishes set status = 'sent', sent_at = now(), sample_ref = case when ${sampleRef.trim()} = '' then sample_ref else ${sampleRef.trim()} end where id = ${id} and status in ('proposed', 'rejected') returning project_id, area, item`;
+  if (!f) throw new RuleError('This sample was already sent or decided.');
+  await audit(sql, user, 'project', f.project_id, 'Sample sent to the client', `${f.area} · ${f.item}`);
+}
 export async function addFinish(user: User, projectId: string, i: { area: string; item: string; material?: string; ref?: string; note?: string }) {
   needDesign(user, 'add finishes');
   if (!i.area.trim() || !i.item.trim()) throw new RuleError('Give the area and the item (floor, wall, ceiling…).');
@@ -300,6 +320,7 @@ export async function decideFinish(user: User, id: string, approve: boolean, not
 }
 export async function removeFinish(user: User, id: string) {
   needDesign(user, 'remove finishes');
+  await sql`delete from attachments where entity = 'finish' and entity_id = ${id} and exists (select 1 from finishes f where f.id = ${id} and f.status = 'proposed')`;
   await sql`delete from finishes where id = ${id} and status = 'proposed'`;
 }
 

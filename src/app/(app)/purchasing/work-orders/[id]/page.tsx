@@ -10,6 +10,7 @@ import { categoryTitle } from '@/lib/planning-calc';
 import { listAttachments } from '@/lib/attachments';
 import { isProcurement } from '@/lib/purchasing';
 import { canActOnWO, getWOApprovals, getWOLines, getWorkOrder, woFigures, woState } from '@/lib/procurement';
+import { claimState, listSubClaims } from '@/lib/claims';
 import { Attachments } from '@/components/Attachments';
 import { approveWOAction, cancelWOAction, closeWOAction, returnWOAction } from '../../procurement-actions';
 
@@ -22,6 +23,7 @@ export default async function WorkOrderPage({ params, searchParams }: { params: 
   const [lines, approvals, proc, mayAct, files, log] = await Promise.all([getWOLines(id), getWOApprovals(id), isProcurement(user), canActOnWO(user, w), listAttachments('workorder', id),
     sql<{ at: string; who: string | null; action: string; note: string }[]>`select to_char(g.at at time zone ${TZ},'YYYY-MM-DD HH24:MI') at, u.name who, g.action, g.note from audit_log g left join users u on u.id = g.user_id where g.entity = 'workorder' and g.entity_id = ${id} order by g.at`]);
   const f = woFigures(w);
+  const claims = (await listSubClaims({ project: w.project_id, vendor: w.vendor_id ?? undefined })).filter(c => c.work_order_id === id);
   const finance = hasRole(user, 'finance');
   const issued = w.status === 'approved' || w.status === 'closed';
   const mayEdit = ['draft', 'rejected'].includes(w.status) && (w.created_by === user.id || proc);
@@ -63,8 +65,13 @@ export default async function WorkOrderPage({ params, searchParams }: { params: 
         <tbody>{lines.map(l => <tr key={l.id}><td className="mono">{l.line_no}</td><td dir="auto">{l.item}</td><td dir="auto">{l.unit}</td><td className="num mono">{num(l.qty)}</td><td className="num mono">{fmt(l.rate)}</td><td className="num mono">{fmt(Math.round(l.qty * l.rate * 100) / 100)}</td></tr>)}
           <tr className="tot"><td colSpan={5}><b>Total before VAT</b> <span className="muted" style={{ fontWeight: 400 }}>· GL code {w.account}{w.account_name ? ` · ${w.account_name}` : ''}</span></td><td className="num mono"><b>{fmt(f.amount)}</b></td></tr></tbody>
       </table></div>
-      <div className="card"><h2 style={{ marginTop: 0 }}>Progress claims</h2>
-        <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>The subcontractor&apos;s claims against this work order (previous, current and cumulative quantities per item) are certified by the site engineer, priced by Procurement and paid by Finance, less the retention and the advance recovery. Nothing certified yet.</p></div>
+      <div className="card">
+        <div className="row" style={{ justifyContent: 'space-between' }}><h2 style={{ margin: 0 }}>Progress claims</h2>{issued && <Link className="btn sm pri" href={`/claims/new?wo=${id}`}>New claim</Link>}</div>
+        <p className="muted" style={{ fontSize: 13 }}>The subcontractor&apos;s claims against this work order (previous, current and cumulative quantities per item) are certified by the site engineer, priced by Procurement and paid by Finance, less the retention and the advance recovery.</p>
+        {claims.length === 0 ? <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>Nothing certified yet.</p> : (
+          <div className="tw"><table><thead><tr><th>No.</th><th>Claim</th><th>Date</th><th>Status</th><th className="num">Cumulative work</th></tr></thead>
+            <tbody>{claims.map(c => <tr key={c.id}><td className="mono"><Link href={`/claims/${c.id}`}>{c.no}</Link></td><td className="mono">{c.claim_no}</td><td className="mono">{c.date}</td><td><span className={'pill ' + (c.status === 'requested' ? 'posted' : ['returned', 'cancelled'].includes(c.status) ? 'rejected' : c.status === 'draft' ? '' : 'pending')}>{claimState(c)}</span></td><td className="num mono">{fmt(c.gross)}</td></tr>)}</tbody></table></div>)}
+      </div>
       <div className="card"><h2 style={{ marginTop: 0 }}>Files</h2><p className="muted" style={{ fontSize: 13 }}>The signed work order, the subcontractor&apos;s offer, drawings.</p>
         <Attachments entity="workorder" id={id} path={`/purchasing/work-orders/${id}`} items={files} userId={user.id} canRemove={proc || finance} locked={false} /></div>
       <div className="card"><h2>History</h2><div className="log">{log.map((g, i) => <div key={i}>{g.at} · {g.who ?? '—'} · {g.action}{g.note ? ' — ' + g.note : ''}</div>)}</div></div>
