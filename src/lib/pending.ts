@@ -8,6 +8,7 @@ import { canDesign, signersFor } from './design';
 import { kindLabel } from './design-calc';
 import { canQs } from './qs';
 import { canPlan, progressDue } from './planning';
+import { canEngineer } from './claims';
 
 // Every pending step that needs someone's input shows as a task for that person until it is done (Adel's item 18):
 // a form to complete, a drawing set to upload or approve, an estimate to finish or answer, a schedule to set, this
@@ -47,5 +48,17 @@ export async function pendingSteps(user: User): Promise<Step[]> {
   }
   for (const p of plans) out.push({ kind: 'planning', title: `Set the schedule of ${p.code} and its baseline`, href: `/planning/${p.id}`, since: p.at });
   for (const p of due) if (p.site_user === user.id || p.manager_user === user.id || canPlan(user)) out.push({ kind: 'progress', title: `Record this week's progress on ${p.code}`, href: `/planning/${p.id}#progress` });
+  // claims, variation orders and samples (update 14)
+  const eng = canEngineer(user), fin = hasRole(user, 'finance');
+  const [myClaims, certified, vos, samples] = await Promise.all([
+    sql<{ id: string; no: string; code: string; status: string; at: string }[]>`select c.id, c.no, p.code, c.status, to_char(c.date,'YYYY-MM-DD') at from sub_claims c join projects p on p.id = c.project_id where c.status in ('draft','returned') and c.created_by = ${user.id} order by c.date`,
+    fin ? sql<{ id: string; no: string; code: string; at: string }[]>`select c.id, c.no, p.code, to_char(c.certified_at,'YYYY-MM-DD') at from client_claims c join projects p on p.id = c.project_id where c.status = 'certified' order by c.certified_at` : [],
+    eng || fin ? sql<{ id: string; no: string; code: string; at: string }[]>`select v.id, v.no, p.code, to_char(v.date,'YYYY-MM-DD') at from variation_orders v join projects p on p.id = v.project_id where v.status = 'sent' order by v.date` : [],
+    canDesign(user) ? sql<{ project_id: string; code: string; area: string; item: string; at: string }[]>`select f.project_id, p.code, f.area, f.item, to_char(f.sent_at,'YYYY-MM-DD') at from finishes f join projects p on p.id = f.project_id where f.status = 'sent' order by f.sent_at` : [],
+  ]);
+  for (const c of myClaims) out.push({ kind: 'claim', title: `${c.status === 'returned' ? 'Correct and resend' : 'Complete and certify'} progress claim ${c.no} of ${c.code}`, href: `/claims/${c.id}`, since: c.at });
+  for (const c of certified) out.push({ kind: 'claim', title: `Invoice the client for claim ${c.no} of ${c.code}`, href: `/claims/client/${c.id}`, since: c.at });
+  for (const v of vos) out.push({ kind: 'variation', title: `Record the client's answer on variation order ${v.no} of ${v.code}`, href: `/variations/${v.id}`, since: v.at });
+  for (const f of samples) out.push({ kind: 'sample', title: `Record the client's answer on the sample ${f.area} · ${f.item} of ${f.code}`, href: `/samples?project=${f.project_id}`, since: f.at });
   return out;
 }

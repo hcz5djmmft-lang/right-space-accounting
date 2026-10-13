@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { pendingSamples } from '@/lib/design';
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { hasRole } from '@/lib/roles';
@@ -26,6 +27,7 @@ export default async function PurchasePage({ params, searchParams }: { params: P
       from audit_log g left join users u on u.id = g.user_id where g.entity = 'purchase' and g.entity_id = ${id} order by g.at`,
     compareQuotations(id), listDeliveries(id), procurementPeople(),
   ]);
+  const samplesOpen = r.project_id && !['approved', 'cancelled'].includes(r.status) ? await pendingSamples(r.project_id) : 0;
   const qfiles: Record<string, Attachment[]> = Object.fromEntries(await Promise.all(cmp.quotes.map(async q => [q.id, await listAttachments('quotation', q.id)] as const)));
   const dfiles: Record<string, Attachment[]> = Object.fromEntries(await Promise.all(deliveries.map(async d => [d.id, await listAttachments('delivery', d.id)] as const)));
   const fig = poFigures(lines);
@@ -48,7 +50,7 @@ export default async function PurchasePage({ params, searchParams }: { params: P
       <div className="head">
         <div><h1>{isPO ? `${r.po_no} ` : ''}{r.no} <span className={'pill ' + (isPO ? 'posted' : r.status === 'rejected' || r.status === 'cancelled' ? 'rejected' : 'pending')}>{stateOf(r)}</span>
           {isPO && <span className={'pill ' + (dstate === 'full' ? 'posted' : late ? 'rejected' : dstate === 'part' ? 'pending' : '')} style={{ marginLeft: 6 }}>{deliveryLabel[dstate]}{late ? ` · ${late} day${late === 1 ? '' : 's'} late` : ''}</span>}</h1>
-          <p dir="auto">{r.date} · for {r.cc}{r.vendor ? ` · ${r.vendor}` : ''}{r.needed_by ? ` · needed by ${r.needed_by}` : ''}{r.delivery_date ? ` · promised ${r.delivery_date}` : ''} · raised by {r.created_by_name ?? '—'}{r.buyer ? ` · buyer ${r.buyer}` : ''}</p></div>
+          <p dir="auto">{r.date} · for {r.cc}{r.vendor ? ` · ${r.vendor}` : ''}{r.needed_by ? ` · needed by ${r.needed_by}` : ''}{r.delivery_date ? ` · promised ${r.delivery_date}` : ''} · raised by {r.created_by_name ?? '—'}{r.buyer ? ` · buyer ${r.buyer}` : ''}{samplesOpen > 0 && <> · <Link href={`/samples?project=${r.project_id}`} className="pill pending">{samplesOpen} sample{samplesOpen === 1 ? '' : 's'} still with the client</Link></>}</p></div>
         <div className="row">
           {isPO && <a className="btn" href={`/print/po/${id}`} target="_blank">Purchase order PDF</a>}
           {isPO && !r.closed && finance && <Link className="btn pri" href={`/purchasing/${id}/receive`}>Receive and invoice</Link>}
