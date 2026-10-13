@@ -43,7 +43,7 @@ export default async function RunPage({ params, searchParams }: { params: Promis
 
       <form action={saveRunAction.bind(null, period)}>
         <div className="tw" style={{ marginBottom: 14 }}><table>
-          <thead><tr><th>Employee</th><th className="hide-sm">Cost center</th><th className="num hide-sm">Basic</th><th className="num hide-sm">Allowances</th><th className="num">Overtime</th><th className="num">Lateness</th><th className="num">Gross</th><th className="num">Social ins. (emp.)</th><th className="num">Salary tax</th><th className="num">Other deductions</th><th className="num">Net pay</th><th className="num hide-sm">Social ins. (co.)</th></tr></thead>
+          <thead><tr><th>Employee</th><th className="hide-sm">Cost center</th><th className="num hide-sm">Basic</th><th className="num hide-sm">Allowances</th><th className="num">Overtime &amp; bonus</th><th className="num">Lateness &amp; penalties</th><th className="num">Gross</th><th className="num">Social ins. (emp.)</th><th className="num">Salary tax</th><th className="num">Other deductions</th><th className="num">Net pay</th><th className="num hide-sm">Social ins. (co.)</th></tr></thead>
           <tbody>{r.lines.map(l => (
             <tr key={l.employee_id}><td dir="auto">{l.name}<div className="muted" style={{ fontSize: 11 }}>{l.code}</div></td><td className="hide-sm">{l.cc ?? <span style={{ color: 'var(--bad)' }}>Not assigned</span>}</td>
               <td className="num hide-sm">{fmt(l.basic)}</td><td className="num hide-sm">{fmt(l.allowances)}</td>
@@ -60,7 +60,7 @@ export default async function RunPage({ params, searchParams }: { params: Promis
             <button className="btn" name="refresh" value="1">Refresh from employee records</button>
             <button className="btn">Save</button>
           </div>)}
-      {ed && <form action={fillTimesheetsAction.bind(null, period)} className="row" style={{ justifyContent: 'flex-end', marginBottom: 14 }}><button className="btn">Fill overtime and lateness from timesheets</button><span className="muted" style={{ fontSize: 12 }}>Overtime hours × hourly cost × the overtime rate; lateness minutes at the hourly cost (HR → Attendance settings).</span></form>}
+      {ed && <form action={fillTimesheetsAction.bind(null, period)} className="row" style={{ justifyContent: 'flex-end', marginBottom: 14 }}><button className="btn">Fill from timesheets and pay items</button><span className="muted" style={{ fontSize: 12 }}>Overtime and lateness from the clock-ins (HR → Attendance settings), bonuses, penalties, advances and loan instalments from HR → Pay items, unpaid leave at a day's pay.</span></form>}
       </form>
       {ed && <form action={postRunAction.bind(null, period)} className="row" style={{ justifyContent: 'flex-end', marginBottom: 14 }}><button className="btn pri" disabled={missing.length > 0}>Post payroll</button></form>}
 

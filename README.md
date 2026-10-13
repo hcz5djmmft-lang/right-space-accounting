@@ -46,6 +46,14 @@ and overtime; "Fill overtime and lateness from timesheets" on a payroll run pric
 ((basic + allowances) ÷ standard monthly hours). Designers start and stop design work on a project from the same page; the hours and
 their cost show on the project and under Attendance → Design hours per project.
 
+Leave: everyone asks from the phone (Leave → Ask for leave); the head of their department signs first, then HR (a head who is also HR
+signs both at once), and each request waits on the Approvals page. Annual leave is 21 working days a year, 30 after ten years of service
+or from age 50, pro rata in the hire year; casual leave comes off that balance two days at a time; sick, unpaid and other leave have no balance.
+HR → Pay items holds the month's bonuses, typed overtime, penalties, advances to recover, loans (an instalment a month from the first month)
+and other deductions; "Fill from timesheets and pay items" on the payroll run takes them and the approved unpaid days in. HR → HR reports:
+reminders (contracts and probations ending, no insurance number, missing documents, waiting requests, open days), headcount, leave balances,
+documents and each person's KPIs from their tasks and attendance.
+
 Settings → Departments names the head of each department (the first signer of its payment requests) and what its members may do;
 Settings → People puts each login in a department. The final approval is given by the people ticked under Settings → Approvals.
 
