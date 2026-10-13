@@ -7,6 +7,8 @@ import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { ProjectFields } from '@/components/ProjectFields';
 import { updateProject } from '../actions';
+import { designTotals } from '@/lib/attendance';
+import { fmtMin } from '@/lib/attendance-calc';
 
 export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string }> }) {
   const user = await requireUser();
@@ -14,7 +16,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const { saved } = await searchParams;
   const [p] = await sql`select *, to_char(start_date,'YYYY-MM-DD') start, to_char(end_date,'YYYY-MM-DD') "end" from projects where id = ${id}`;
   if (!p) notFound();
-  const [settings, customers, byCode, [tot]] = await Promise.all([
+  const [settings, customers, byCode, [tot], [design]] = await Promise.all([
     getSettings(),
     sql<{ id: string; name: string }[]>`select id, name from parties where type = 'customer' order by name`,
     sql<{ code: string; name: string; budget: number | null; actual: number }[]>`
@@ -26,6 +28,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     sql<{ spent: number; collected: number }[]>`
       select coalesce(sum(case when a.type='expense' then l.dr - l.cr end),0) spent, coalesce(sum(case when a.type='revenue' then l.cr - l.dr end),0) collected
       from journal_lines l join accounts a on a.code = l.account join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.project_id = ${id}`,
+    designTotals(id),
   ]);
   const used = byCode.filter(r => r.actual || r.budget);
   return (
@@ -38,6 +41,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <div className="tile"><div className="k">Cost budget</div><div className="v mono">{fmt(p.budget)}</div></div>
         <div className="tile"><div className="k">Spent</div><div className="v mono">{fmt(tot.spent)}</div></div>
         <div className="tile"><div className="k">Collected</div><div className="v mono">{fmt(tot.collected)}</div></div>
+        {design && <div className="tile"><div className="k">Design hours · cost</div><div className="v mono">{fmtMin(design.minutes)} · {fmt(design.cost)}</div></div>}
       </div>
       <h2>Spending by GL code</h2>
       {used.length === 0 ? <div className="empty card">No spending posted on this project yet.</div> : (

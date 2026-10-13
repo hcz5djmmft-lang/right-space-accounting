@@ -66,7 +66,7 @@ export const listRuns = () => sql<Run[]>`
 export type RunLine = PayLine & { employee_id: string; name: string; code: string | null; project_id: string | null; dept_id: string | null; cc: string | null };
 const runLines = (tx: Tx, period: string) => tx<RunLine[]>`
   select l.employee_id, l.name, e.code, l.project_id, l.dept_id, coalesce(p.code, d.name) cc,
-    l.basic, l.allowances, l.overtime, l.deductions, l.gross, l.insurable, l.soc_emp, l.soc_co, l.tax, l.net, l.no_deductions
+    l.basic, l.allowances, l.overtime, l.late, l.deductions, l.gross, l.insurable, l.soc_emp, l.soc_co, l.tax, l.net, l.no_deductions
   from payroll_lines l join employees e on e.id = l.employee_id left join projects p on p.id = l.project_id left join departments d on d.id = l.dept_id
   where l.run_period = ${period} order by l.line_no`;
 
@@ -105,8 +105,8 @@ export async function createRun(user: User, period: string, date: string) {
   });
 }
 
-/** Saves overtime and deductions, recalculating each line; with `refresh`, salaries and cost centers are re-read from the employee records. */
-export async function saveRun(user: User, period: string, edits: { employee_id: string; overtime: number; deductions: number }[], refresh = false) {
+/** Saves overtime, lateness and deductions, recalculating each line; with `refresh`, salaries and cost centers are re-read from the employee records. */
+export async function saveRun(user: User, period: string, edits: { employee_id: string; overtime: number; deductions: number; late?: number }[], refresh = false) {
   needFinance(user, 'edit payroll');
   await sql.begin(async tx => {
     await lockRun(tx, period);
@@ -116,10 +116,31 @@ export async function saveRun(user: User, period: string, edits: { employee_id: 
     for (const l of lines) {
       const ed = edits.find(e => e.employee_id === l.employee_id);
       const base = refresh && emps.get(l.employee_id) ? emps.get(l.employee_id)! : { name: l.name, project_id: l.project_id, dept_id: l.dept_id, basic: l.basic, allowances: l.allowances, insurable: l.insurable, no_deductions: l.no_deductions };
-      const n = payLine(base, ed ? ed.overtime : l.overtime, ed ? ed.deductions : l.deductions, R);
+      const n = payLine(base, ed ? ed.overtime : l.overtime, ed ? ed.deductions : l.deductions, R, ed ? (ed.late ?? l.late) : l.late);
       await tx`update payroll_lines set ${tx({ name: base.name, project_id: base.project_id, dept_id: base.dept_id, ...n })} where run_period = ${period} and employee_id = ${l.employee_id}`;
     }
     await audit(tx, user, 'payroll', period, refresh ? 'Refreshed from employee records' : 'Saved');
+  });
+}
+
+/** Fills overtime pay and the lateness deduction from the month's timesheet (attendance.ts); typed figures are replaced. */
+export async function fillFromTimesheets(user: User, period: string) {
+  needFinance(user, 'edit payroll');
+  const { timesheetFeed } = await import('./attendance');
+  await sql.begin(async tx => {
+    await lockRun(tx, period);
+    const R = rates((await getSettings(tx)).payroll);
+    const feed = await timesheetFeed(period, tx);
+    const lines = await runLines(tx, period);
+    let n = 0;
+    for (const l of lines) {
+      const f = feed.get(l.employee_id);
+      if (!f) continue;
+      const next = payLine(l, f.overtime, l.deductions, R, f.late);
+      await tx`update payroll_lines set ${tx(next)} where run_period = ${period} and employee_id = ${l.employee_id}`;
+      n++;
+    }
+    await audit(tx, user, 'payroll', period, 'Filled from timesheets', `${n} employees`);
   });
 }
 

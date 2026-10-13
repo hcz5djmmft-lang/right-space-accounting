@@ -50,10 +50,11 @@ export async function saveRunAction(period: string, f: FormData) {
   const user = await requireUser('finance');
   const edits = [...f.keys()].filter(k => k.startsWith('ot_')).map(k => {
     const emp = k.slice(3);
-    return { employee_id: emp, overtime: parseAmount(f.get(k)), deductions: parseAmount(f.get('ded_' + emp)) };
+    return { employee_id: emp, overtime: parseAmount(f.get(k)), deductions: parseAmount(f.get('ded_' + emp)), late: parseAmount(f.get('late_' + emp)) };
   });
   await act(period, () => pay.saveRun(user, period, edits, f.get('refresh') === '1'));
 }
+export async function fillTimesheetsAction(period: string) { const u = await requireUser('finance'); await act(period, () => pay.fillFromTimesheets(u, period)); }
 export async function postRunAction(period: string) { const u = await requireUser('finance'); await act(period, () => pay.postRun(u, period)); }
 export async function deleteRunAction(period: string) { const u = await requireUser('finance'); await act(period, () => pay.deleteRun(u, period), '/payroll?tab=runs'); }
 export async function payRunAction(period: string, f: FormData) {

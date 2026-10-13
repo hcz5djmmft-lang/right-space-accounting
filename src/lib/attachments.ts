@@ -8,7 +8,7 @@ import { storage } from './storage';
 import { TZ } from './dates';
 
 /** Documents that can carry files. The names match audit_log.entity so the history shows uploads. */
-export const ENTITIES = { invoice: 'invoices', journal: 'journal_entries', employee: 'employees' } as const;
+export const ENTITIES = { invoice: 'invoices', journal: 'journal_entries', employee: 'employees', attendance: 'attendance' } as const;
 export type Entity = keyof typeof ENTITIES;
 
 /** 4 MB: phones shrink photos before sending, and the host refuses request bodies above 4.5 MB. */
@@ -31,6 +31,8 @@ async function docStatus(entity: Entity, id: string): Promise<string> {
     ? await sql<{ status: string }[]>`select status from invoices where id = ${id}`
     : entity === 'employee'
       ? await sql<{ status: string }[]>`select 'open' status from employees where id = ${id}`
+    : entity === 'attendance'
+      ? await sql<{ status: string }[]>`select 'open' status from attendance where id = ${id}`
       : await sql<{ status: string }[]>`select status from journal_entries where id = ${id}`;
   if (!d) throw new RuleError('That document no longer exists.');
   return d.status;
@@ -44,13 +46,14 @@ export async function listAttachments(entity: Entity, id: string) {
     where a.entity = ${entity} and a.entity_id = ${id} order by a.uploaded_at`;
 }
 
-/** Employee files are private: HR and Finance add and see their documents. */
-const canFile = (user: User, entity: Entity) => entity !== 'employee' || hasRole(user, 'hr', 'finance');
+/** Employee files are private: HR and Finance add and see their documents. Clock-in selfies are seen by HR, Finance and the person. */
+const canFile = (user: User, entity: Entity, uploadedBy: string | null = null) =>
+  entity === 'employee' ? hasRole(user, 'hr', 'finance') : entity === 'attendance' ? hasRole(user, 'hr', 'finance') || uploadedBy === user.id : true;
 
 /** Anyone signed in can add a receipt, also after posting (receipts often arrive later). `tag` names the document of a form (employee files). */
 export async function addAttachment(user: User, entity: Entity, id: string, name: string, body: Buffer, tag: string | null = null): Promise<string> {
   if (!(entity in ENTITIES)) throw new RuleError('Unknown document.');
-  if (!canFile(user, entity)) throw new RuleError('Only HR or Finance can add files to an employee file.');
+  if (!canFile(user, entity, user.id)) throw new RuleError('Only HR or Finance can add files to an employee file.');
   if (!body.length) throw new RuleError('The file is empty.');
   if (body.length > MAX_BYTES) throw new RuleError('That file is over 4 MB. Take a smaller photo or send a smaller PDF.');
   const t = sniff(body);
@@ -86,10 +89,10 @@ export async function removeAttachment(user: User, attachmentId: string) {
 
 /** The file's bytes for a signed-in user; an employee document is given only to HR or Finance. */
 export async function readAttachment(attachmentId: string, user?: User) {
-  const [a] = await sql<{ file_name: string; mime_type: string; storage_key: string; entity: Entity }[]>`
-    select file_name, mime_type, storage_key, entity from attachments where id = ${attachmentId}`;
+  const [a] = await sql<{ file_name: string; mime_type: string; storage_key: string; entity: Entity; uploaded_by: string | null }[]>`
+    select file_name, mime_type, storage_key, entity, uploaded_by from attachments where id = ${attachmentId}`;
   if (!a) return null;
-  if (user && !canFile(user, a.entity)) throw new RuleError('Employee documents are for HR and Finance.');
+  if (user && !canFile(user, a.entity, a.uploaded_by)) throw new RuleError('Employee documents are for HR and Finance.');
   return { ...a, body: await storage().get(a.storage_key) };
 }
 

@@ -39,6 +39,13 @@ HR (the Admin & HR department, Finance and Management) keeps every employee's fi
 Office or Site, the Employment Documents checklist with photos or scans per document, and the login, created from the file
 (the employee gets the file's name and department). Tasks are assigned to employees, with or without a login. Salary figures stay under Payroll.
 
+Attendance: everyone with an employee file clocks in and out on the phone (Clock in): a selfie and the GPS position go with each tap.
+Office staff may clock in only within the office radius once HR has set the office location (HR → Attendance → Attendance settings);
+site staff clock in anywhere and HR sees where. HR → Attendance shows the month per employee, the selfies and places to check, lateness
+and overtime; "Fill overtime and lateness from timesheets" on a payroll run prices them from each person's hourly cost
+((basic + allowances) ÷ standard monthly hours). Designers start and stop design work on a project from the same page; the hours and
+their cost show on the project and under Attendance → Design hours per project.
+
 Settings → Departments names the head of each department (the first signer of its payment requests) and what its members may do;
 Settings → People puts each login in a department. The final approval is given by the people ticked under Settings → Approvals.
 
