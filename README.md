@@ -55,7 +55,7 @@ reminders (contracts and probations ending, no insurance number, missing documen
 documents and each person's KPIs from their tasks and attendance.
 
 Projects: Finance or an engineer adds a project (Projects → Cost centers → New project), which opens the company's Project
-Information form AF-PI-01 (35 answers in six sections, a notes box on every field, unit photos, drawings and the general layout
+Information form AF-PI-01 (35 answers in six sections, a notes box on every field, unit photos, drawings and the general layout The Designer box of section 3 is a picker of all employees (or a typed name and contact for an outside designer): picking an employee gives them the project as a task under Tasks (one open task per project, replaced when the designer changes) and makes them the owner of the project's drawing sets.
 as files). "Mark the form complete" moves the project to the Design phase (or straight to QS and pricing when the interior design
 is already ready); the phases Project form → Design → QS and pricing → Planning → Execution → Handover show on the project page and
 in the list, and Finance or an engineer can move a project by hand with a note. Engineering has two sections, Technical Office and
@@ -72,6 +72,18 @@ issued for construction (every drawing is stamped with its issue date and the pr
 chat for the designer and the signers, with every step noted. The Drawing register lists every drawing with its revisions and status,
 Finishes & materials keeps what the client chose per room, and the Design status and Hours and cost tabs show where each set waits
 and the design hours against the design fee set on the project.
+
+QS and pricing: Projects → QS and pricing holds the Master BOQ workbook of the technical office. An estimate per project (with
+revisions) carries the five calculators, bathroom and kitchen plumbing rough-in (dimensions, distances to the risers, the fixtures
+and appliances), electrical rough-in (points per room: lights, switches, sockets, power, heater, TV, data) and the sanitary and
+electrical finishing lists; the app counts the materials with the workbook's formulas, waste factors and whole purchase units, and
+their totals price the linked Master BOQ items (bathroom × the number of bathrooms + labour, kitchen + labour, electrical, sanitary,
+electrical finishing); the other items take typed quantities and rates. The dry cost is 70 % of the client price (risk 10 %, margin
+20 %, both changeable) and VAT 14 % is shown apart. The Rate table tab holds the unit prices (Procurement, the engineers or Finance
+change them; a new estimate takes the prices of the day). "Client BOQ (print)" prints the quotation at client rates with the logo;
+"Send to the client" freezes the estimate, "Client accepted" makes it the contract (the project's contract value), its Master BOQ
+the project's budget on BOQ vs actual, its materials the project's material plan, and moves the project to Planning; "New revision"
+copies an estimate. The BOQ summary tab lists every project's dry cost, risk, margin, client price and contract.
 
 Settings → Departments names the head of each department (the first signer of its payment requests) and what its members may do;
 Settings → People puts each login in a department. The final approval is given by the people ticked under Settings → Approvals.

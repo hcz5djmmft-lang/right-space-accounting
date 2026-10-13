@@ -14,7 +14,8 @@ export default async function ProjectFormPage({ params, searchParams }: { params
   const { saved, error, new: isNew } = await searchParams;
   const [p] = await sql<{ id: string; code: string; name: string; phase: string | null; is_office: boolean }[]>`select id, code, name, phase, is_office from projects where id = ${id}`;
   if (!p || p.is_office) notFound();
-  const [info, files] = await Promise.all([getInfo(id), listAttachments('project', id)]);
+  const [info, files, employees] = await Promise.all([getInfo(id), listAttachments('project', id),
+    sql<{ id: string; name: string; job_title: string | null }[]>`select id, name, job_title from employees where active order by name`]);
   const edit = canProjects(user);
   const path = `/cost-centers/${id}/form`;
   const v = (k: string): Answer | undefined => info.data[k];
@@ -28,6 +29,14 @@ export default async function ProjectFormPage({ params, searchParams }: { params
       case 'long': return <textarea className="inp" name={f.key} defaultValue={str(f.key)} dir="auto" rows={2} disabled={!edit} />;
       case 'date': return <input className="inp" type="date" name={f.key} defaultValue={str(f.key)} disabled={!edit} />;
       case 'number': case 'int': return <input className="inp mono" name={f.key} defaultValue={str(f.key)} inputMode="decimal" disabled={!edit} />;
+      case 'person': {
+        const emp = str(`${f.key}_emp`);
+        return (
+          <div className="grid g2" style={{ gap: 6 }}>
+            <select className="inp" name={f.key} defaultValue={emp ? `e:${emp}` : ''} disabled={!edit}><option value="">Pick an employee…</option>{employees.map(e => <option key={e.id} value={`e:${e.id}`}>{e.name}{e.job_title ? ` · ${e.job_title}` : ''}</option>)}</select>
+            <input className="inp" name={`${f.key}_other`} defaultValue={emp ? '' : str(f.key)} dir="auto" placeholder="or an outside designer: name and contact" disabled={!edit} />
+          </div>);
+      }
       default: return <input className="inp" name={f.key} defaultValue={str(f.key)} dir="auto" disabled={!edit} />;
     }
   };

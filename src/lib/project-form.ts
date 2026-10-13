@@ -1,7 +1,8 @@
 // The company's Project Information form AF-PI-01, field by field, without a database: what the engineer who adds a project
 // must answer. Every field also has a Notes / Attachments cell; photos, drawings and the layout sketch are attachments.
 
-export type Kind = 'text' | 'long' | 'number' | 'int' | 'date' | 'choice' | 'yesno' | 'multi';
+export type Kind = 'text' | 'long' | 'number' | 'int' | 'date' | 'choice' | 'yesno' | 'multi' | 'person';
+/** A `person` field is picked from the employee list (posted as `e:<employee id>`, stored as the name plus `<key>_emp`) or typed for someone outside the company. */
 export type Field = { key: string; label: string; kind: Kind; options?: readonly (readonly [string, string])[]; required?: boolean };
 export type Section = { key: string; title: string; fields: Field[] };
 export type Answer = string | number | boolean | string[];
@@ -41,7 +42,7 @@ export const SECTIONS: Section[] = [
     { key: 'finishing_level', label: 'Finishing level', kind: 'choice', options: opts('Economy', 'Standard', 'Lux'), required: true },
     { key: 'drawings_available', label: 'Architectural drawings available', kind: 'yesno' },
     { key: 'design_status', label: 'Interior design status', kind: 'choice', options: opts('Ready', 'To Be Prepared'), required: true },
-    { key: 'designer', label: 'Designer name & contact', kind: 'text' },
+    { key: 'designer', label: 'Designer (an employee, or an outside name and contact)', kind: 'person' },
     { key: 'style', label: 'Design style / theme', kind: 'text' },
     { key: 'layout_changes', label: 'Partition / layout changes required', kind: 'long' },
   ] },
@@ -97,7 +98,7 @@ export function parseAnswer(f: Field, raw: string | string[] | null | undefined)
 export function parseAnswers(get: (key: string) => string | null, getAll: (key: string) => string[]): { data: Answers; errors: string[] } {
   const data: Answers = {}, errors: string[] = [];
   for (const f of FIELDS) {
-    const r = parseAnswer(f, f.kind === 'multi' ? getAll(f.key) : get(f.key));
+    const r = parseAnswer(f, f.kind === 'multi' ? getAll(f.key) : f.kind === 'person' ? (get(f.key) || get(f.key + '_other')) : get(f.key));
     if (r.error) errors.push(r.error);
     else if (r.value !== undefined) data[f.key] = r.value;
   }

@@ -4,7 +4,7 @@ import { audit } from './books';
 import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
 import { TZ } from './dates';
-import { type Answers, answered, designIncluded, missing } from './project-form';
+import { type Answers, answered, designIncluded, missing, FIELDS, type Field } from './project-form';
 
 // A project's life: the Project Information form, then Design (when the design is still to be prepared), QS and pricing,
 // Planning, Execution and Handover. The form is completed by the engineer who adds the project; later phases are moved by
@@ -34,17 +34,46 @@ export async function getInfo(projectId: string, tx: Tx = sql): Promise<ProjectI
   return { ...base, answered: answered(base.data), missing: missing(base.data) };
 }
 
-/** Saves the answers and the notes as they stand; nothing is required until the form is marked complete. */
+/** Saves the answers and the notes as they stand; nothing is required until the form is marked complete. A person picked from the employee list gets the project as a task. */
 export async function saveInfo(user: User, projectId: string, i: { rev?: string; data: Answers; notes: Record<string, string> }) {
   need(user, 'fill the project form');
   const notes = Object.fromEntries(Object.entries(i.notes).map(([k, v]) => [k, String(v ?? '').trim().slice(0, 2000)]).filter(([, v]) => v));
   await sql.begin(async tx => {
-    const [p] = await tx<{ id: string }[]>`select id from projects where id = ${projectId} and not is_office`;
+    const [p] = await tx<{ id: string; code: string }[]>`select id, code from projects where id = ${projectId} and not is_office`;
     if (!p) throw new RuleError('Project not found.');
-    await tx`insert into project_info (project_id, rev, data, notes, updated_at, updated_by) values (${projectId}, ${(i.rev ?? '').trim()}, ${tx.json(i.data as never)}, ${tx.json(notes as never)}, now(), ${user.id})
+    const data = { ...i.data };
+    const before = (await getInfo(projectId, tx)).data;
+    for (const f of FIELDS) if (f.kind === 'person') await assignPerson(tx, user, p, f, data, before);
+    await tx`insert into project_info (project_id, rev, data, notes, updated_at, updated_by) values (${projectId}, ${(i.rev ?? '').trim()}, ${tx.json(data as never)}, ${tx.json(notes as never)}, now(), ${user.id})
       on conflict (project_id) do update set rev = excluded.rev, data = excluded.data, notes = excluded.notes, updated_at = now(), updated_by = ${user.id}`;
-    await audit(tx, user, 'project', projectId, 'Project form saved', `${answered(i.data)} answers`);
+    await audit(tx, user, 'project', projectId, 'Project form saved', `${answered(data)} answers`);
   });
+}
+
+const TASK_MARK = 'Assigned from the Project Information form';
+/**
+ * A person field posted as `e:<employee id>` is an employee: the answer becomes their name, `<key>_emp` their file, and the
+ * project becomes a task for them (one open task per field; a new pick closes the earlier one). A typed name stays as typed.
+ */
+async function assignPerson(tx: Tx, user: User, p: { id: string; code: string }, f: Field, data: Answers, before: Answers) {
+  const raw = data[f.key], empKey = `${f.key}_emp`;
+  const picked = typeof raw === 'string' && raw.startsWith('e:') ? raw.slice(2) : null;
+  const prevEmp = typeof before[empKey] === 'string' ? (before[empKey] as string) : null;
+  delete data[empKey];
+  if (picked) {
+    const [e] = await tx<{ id: string; name: string; user_id: string | null }[]>`select e.id, e.name, (select u.id from users u where u.id = e.user_id and u.active) user_id from employees e where e.id = ${picked} and e.active`;
+    if (!e) throw new RuleError(`${f.label}: that employee is no longer on the list.`);
+    data[f.key] = e.name;
+    data[empKey] = e.id;
+    if (prevEmp === e.id) return;
+  } else if (!prevEmp) return;
+  await tx`update tasks set status = 'done', done_at = now(), updated_at = now() where link_type = 'cost-center' and link_id = ${p.id} and status <> 'done' and details like ${TASK_MARK + '%'} and title like ${`${f.label.split(' ')[0]}: %`}`;
+  if (!picked) return;
+  const [e] = await tx<{ user_id: string | null; name: string }[]>`select (select u.id from users u where u.id = e.user_id and u.active) user_id, e.name from employees e where e.id = ${picked}`;
+  const what = f.key === 'designer' ? 'prepare the interior design' : 'take charge';
+  await tx`insert into tasks (title, details, status, priority, assignee_id, assignee_emp_id, link_type, link_id, link_label, created_by)
+    values (${`${f.label.split(' ')[0]}: ${p.code}${typeof data.title === 'string' && data.title ? ` · ${data.title}` : ''}`}, ${`${TASK_MARK} by ${user.name}: ${what} of project ${p.code}${typeof data.client_name === 'string' && data.client_name ? ` for ${data.client_name}` : ''}.`}, 'todo', 'normal', ${e.user_id}, ${picked}, 'cost-center', ${p.id}, ${p.code}, ${user.id})`;
+  await audit(tx, user, 'project', p.id, `${f.label.split(' ')[0]} assigned`, `${e.name}: a task for the project`);
 }
 
 /** Marks the form complete (every required field answered) and moves a project still at the form step on to Design or QS. */

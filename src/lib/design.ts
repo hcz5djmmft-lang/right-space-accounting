@@ -73,7 +73,9 @@ export async function createSet(user: User, projectId: string, kind: Kind) {
     if (!p) throw new RuleError('Project not found.');
     const [open] = await tx<{ version: number }[]>`select version from drawing_sets where project_id = ${projectId} and kind = ${kind} and status in ${sql(OPEN_STATUSES)}`;
     if (open) throw new RuleError(`A ${kindLabel(kind)} set (v${open.version}) is already in progress for this project.`);
-    const [s] = await tx<{ id: string }[]>`insert into drawing_sets (project_id, kind, designer_id, created_by) values (${projectId}, ${kind}, ${user.id}, ${user.id}) returning id`;
+    // the designer named on the project form (an employee with a login) owns the set; otherwise whoever starts it
+    const [d] = await tx<{ user_id: string | null }[]>`select u.id user_id from project_info i join employees e on e.id = i.data->>'designer_emp' and e.active join users u on u.id = e.user_id and u.active where i.project_id = ${projectId}`;
+    const [s] = await tx<{ id: string }[]>`insert into drawing_sets (project_id, kind, designer_id, created_by) values (${projectId}, ${kind}, ${d?.user_id ?? user.id}, ${user.id}) returning id`;
     for (const [no, title] of DEFAULT_DRAWINGS[kind]) await tx`insert into drawings (set_id, project_id, no, title, created_by) values (${s.id}, ${projectId}, ${no}, ${title}, ${user.id})`;
     await audit(tx, user, 'drawing_set', s.id, 'Started', `${kindLabel(kind)} for ${projectId}`);
     await audit(tx, user, 'project', projectId, 'Drawing set started', kindLabel(kind));
