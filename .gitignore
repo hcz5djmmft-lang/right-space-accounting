@@ -5,3 +5,6 @@ node_modules
 next-env.d.ts
 
 uploads
+
+# written by next dev for AI agents
+AGENTS.md

@@ -6,7 +6,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const user = await currentUser();
   if (!user) return new Response('Sign in first', { status: 401 });
   const { id } = await params;
-  const a = await readAttachment(id);
+  let a;
+  try { a = await readAttachment(id, user); } catch { return new Response('Employee documents are for HR and Finance.', { status: 403 }); }
   if (!a) return new Response('Not found', { status: 404 });
   return new Response(new Uint8Array(a.body), {
     headers: {

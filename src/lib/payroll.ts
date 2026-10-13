@@ -8,6 +8,7 @@ import { monthEnd, payLine, payrollLines, rates, runTotals, salaryPaymentLines, 
 // Employees and monthly payroll runs. Finance (and Management) only: salary data is private.
 
 const needFinance = (u: User, what: string) => { if (!hasRole(u, 'finance')) throw new RuleError(`Only Finance can ${what}.`); };
+// employee files (names, documents, Office or Site) are edited by HR in hr.ts; the salary figures here stay with Finance
 
 export type Employee = {
   id: string; code: string | null; name: string; job_title: string | null; dept_id: string | null; dept_name: string | null;
