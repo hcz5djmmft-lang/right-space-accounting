@@ -15,7 +15,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   if ((await sql<{ n: number }[]>`select count(*)::int n from users`)[0].n === 0) redirect('/setup');
   const { error } = await searchParams;
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, background: 'var(--ink)' }}>
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, background: 'var(--sand)' }}>
       <form action={signIn} className="card" style={{ width: '100%', maxWidth: 360, display: 'grid', gap: 12 }}>
         <div className="brand" style={{ padding: 0 }}>RIGHT <b style={{ color: 'var(--gold-ink)' }}>SPACE</b> <span className="muted" style={{ fontWeight: 400 }}>Accounting</span></div>
         {error && <div className="msg bad">{error === 'locked' ? 'Too many wrong attempts. Try again in 15 minutes.' : 'Wrong email or password.'}</div>}
