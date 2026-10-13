@@ -4,26 +4,29 @@ import { ROLES, type Role } from '@/lib/roles';
 import { sql } from '@/lib/db';
 import { getSettings } from '@/lib/books';
 import { getSteps, isHeadStep } from '@/lib/documents';
-import { addDepartment, addUser, resetPassword, saveCompany, saveDepartment, saveSteps, updateUser } from './actions';
+import { GROUPS, POSITIONS } from '@/lib/org-chart';
+import { positionHolders } from '@/lib/org';
+import { addDepartment, addUser, resetPassword, saveCompany, saveDepartment, savePositionsAction, saveSteps, updateUser } from './actions';
 
-type Dept = { id: string; code: string; name: string; head_user_id: string | null; roles: Role[]; active: boolean; members: number };
+type Dept = { id: string; code: string; name: string; parent_name: string | null; head_user_id: string | null; roles: Role[]; active: boolean; members: number };
 
 export default async function Settings({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string }> }) {
   const me = await requireUser('management');
   const { saved, error } = await searchParams;
   const flash = (await cookies()).get('rsa_flash')?.value; // a temporary password, set by actions.ts for one minute
-  const [s, steps, users, depts] = await Promise.all([
+  const [s, steps, users, depts, holders] = await Promise.all([
     getSettings(), getSteps(),
     sql<{ id: string; email: string; name: string; roles: Role[]; dept_id: string | null; active: boolean }[]>`select id, email, name, roles, dept_id, active from users order by active desc, name`,
-    sql<Dept[]>`select d.id, d.code, d.name, d.head_user_id, d.roles, d.active, (select count(*)::int from users u where u.dept_id = d.id and u.active) members
-      from departments d order by d.active desc, d.code`,
+    sql<Dept[]>`select d.id, d.code, d.name, p.name parent_name, d.head_user_id, d.roles, d.active, (select count(*)::int from users u where u.dept_id = d.id and u.active) members
+      from departments d left join departments p on p.id = d.parent_id order by d.active desc, coalesce(p.code, d.code), d.parent_id nulls first, d.code`,
+    positionHolders(),
   ]);
   const active = users.filter(u => u.active);
   const roleTicks = (name: string, picked: readonly Role[]) => (Object.keys(ROLES) as Role[]).map(r => (
     <label key={r} className="row" style={{ fontSize: 13, gap: 3 }}><input type="checkbox" name={name} value={r} defaultChecked={picked.includes(r)} />{ROLES[r].split(' ')[0]}</label>));
   const deptSelect = (name: string, value: string | null) => (
     <select className="inp" name={name} defaultValue={value ?? ''} style={{ maxWidth: 180 }}>
-      <option value="">No department</option>{depts.filter(d => d.active).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select>);
+      <option value="">No department</option>{depts.filter(d => d.active).map(d => <option key={d.id} value={d.id}>{d.parent_name ? `${d.parent_name} › ${d.name}` : d.name}</option>)}</select>);
   return (
     <>
       <div className="head"><div><h1>Settings</h1><p>Only Management sees this page. Every change here is recorded with who made it.</p></div></div>
@@ -53,7 +56,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <tbody>{depts.map(d => (
             <tr key={d.id}><td colSpan={7} style={{ padding: 0 }}>
               <form action={saveDepartment.bind(null, d.id)} className="row" style={{ padding: '8px 10px', justifyContent: 'space-between' }}>
-                <span className="mono" style={{ minWidth: 48 }}>{d.code}</span>
+                <span className="mono" style={{ minWidth: 48 }} title={d.parent_name ? `Section of ${d.parent_name}` : undefined}>{d.parent_name ? '↳ ' : ''}{d.code}</span>
                 <input className="inp" name="name" defaultValue={d.name} style={{ maxWidth: 180 }} />
                 <select className="inp" name="head" defaultValue={d.head_user_id ?? ''} style={{ maxWidth: 180 }}>
                   <option value="">No head yet (Management signs)</option>{active.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
@@ -95,6 +98,23 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <button className="btn pri">Add person</button>
         </form>
       </div>
+
+      <form action={savePositionsAction} className="card">
+        <h2>Org chart</h2>
+        <p className="muted" style={{ marginTop: 0 }}>Who holds each position of the company&apos;s org chart. The engineering workflows use them: a drawing set goes to the head of design, then the technical office head, then the director of engineering; purchases to the head of procurement. One person can hold several positions.</p>
+        <div className="grid g2">{GROUPS.map(g => (
+          <fieldset key={g} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: 10 }}>
+            <legend><b>{g}</b></legend>
+            {POSITIONS.filter(p => p.group === g).map(p => (
+              <div key={p.key} className="f" style={{ marginBottom: 8 }}><span>{p.label}</span>
+                {p.single ? (
+                  <select className="inp" name={`pos_${p.key}`} defaultValue={holders[p.key]?.[0]?.id ?? ''}><option value="">Nobody yet</option>{active.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select>
+                ) : (
+                  <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>{active.map(u => <label key={u.id} className="row" style={{ fontSize: 13, gap: 3 }}><input type="checkbox" name={`pos_${p.key}`} value={u.id} defaultChecked={holders[p.key]?.some(h => h.id === u.id)} />{u.name}</label>)}</div>)}
+              </div>))}
+          </fieldset>))}</div>
+        <div className="row" style={{ justifyContent: 'flex-end', marginTop: 10 }}><button className="btn pri">Save org chart</button></div>
+      </form>
 
       <form action={saveCompany} className="card">
         <h2>Company rules</h2>

@@ -113,6 +113,17 @@ export async function saveDepartment(id: string, f: FormData) {
   back(`${name} saved.`);
 }
 
+/** The org chart: every position's holders at once (pos_<key> fields, one value for a single-holder position). */
+export async function savePositionsAction(f: FormData) {
+  const admin = await requireUser('management');
+  const { POSITIONS } = await import('@/lib/org-chart');
+  const { savePositions } = await import('@/lib/org');
+  const picks = Object.fromEntries(POSITIONS.map(p => [p.key, f.getAll(`pos_${p.key}`).map(String).filter(Boolean)]));
+  try { await savePositions(admin, picks); } catch (e) { back((e as Error).message, true); }
+  revalidatePath('/', 'layout');
+  back('Org chart saved.');
+}
+
 export async function addDepartment(f: FormData) {
   const admin = await requireUser('management');
   const code = s(f, 'code').toUpperCase(), name = s(f, 'name');

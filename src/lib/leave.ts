@@ -41,11 +41,11 @@ export async function balanceOf(employeeId: string, year: number, tx: Tx = sql):
   return { year, entitlement: ent, taken: t.taken, pending: t.pending, balance: ent - t.taken, thirty: ent === 30 };
 }
 
-/** Who signs first: the head of the person's department, unless there is none or it is the person themself (then HR straight away). */
+/** Who signs first: the head of the person's department (a section without a head: its parent's head), unless there is none or it is the person themself (then HR straight away). */
 async function headFor(tx: Tx, employeeId: string): Promise<string | null> {
   const [r] = await tx<{ head: string | null }[]>`
-    select (select u.id from users u where u.id = d.head_user_id and u.active and u.id is distinct from e.user_id) head
-    from employees e left join departments d on d.id = e.dept_id where e.id = ${employeeId}`;
+    select coalesce((select u.id from users u where u.id = d.head_user_id and u.active), (select u.id from users u where u.id = p.head_user_id and u.active)) head
+    from employees e left join departments d on d.id = e.dept_id left join departments p on p.id = d.parent_id where e.id = ${employeeId} and coalesce(d.head_user_id, p.head_user_id) is distinct from e.user_id`;
   return r?.head ?? null;
 }
 const isHrHead = async (tx: Tx, user: User) => hasRole(user, 'hr');

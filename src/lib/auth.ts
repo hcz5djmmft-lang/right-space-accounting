@@ -57,8 +57,8 @@ export async function currentUser(): Promise<User | null> {
   const t = (await cookies()).get(COOKIE)?.value;
   if (!t) return null;
   const [u] = await sql<(User & { dept_roles: string[] | null })[]>`
-    select u.id, u.email, u.name, u.roles, u.dept_id, d.name dept_name, d.roles dept_roles
-    from sessions s join users u on u.id = s.user_id left join departments d on d.id = u.dept_id and d.active
+    select u.id, u.email, u.name, u.roles, u.dept_id, d.name dept_name, d.roles || coalesce(p.roles, '{}') dept_roles
+    from sessions s join users u on u.id = s.user_id left join departments d on d.id = u.dept_id and d.active left join departments p on p.id = d.parent_id and p.active
     where s.token_hash = ${hash(t)} and s.expires_at > now() and u.active`;
   if (!u) return null;
   const { dept_roles, ...user } = u;

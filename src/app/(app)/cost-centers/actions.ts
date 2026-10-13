@@ -10,18 +10,20 @@ const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const optNum = (f: FormData, k: string) => (s(f, k) ? parseAmount(s(f, k)) : null);
 const optDate = (f: FormData, k: string) => s(f, k) || null;
 
+/** Finance or an engineer adds the project; it starts at the Project form phase and its own GL codes are created at once. */
 export async function createProject(form: FormData) {
-  const user = await requireUser('finance');
+  const user = await requireUser('finance', 'engineering', 'projects');
   const code = s(form, 'code');
   if (!code) redirect('/cost-centers/new?error=' + encodeURIComponent('Enter the project code.'));
   let id = '', err = '';
   try {
     id = await sql.begin(async tx => {
-      const [p] = await tx<{ id: string }[]>`insert into projects (code, name, client_id, type, service, unit, location, area, contract, budget, start_date, end_date, description)
+      const [p] = await tx<{ id: string }[]>`insert into projects (code, name, client_id, type, service, unit, location, area, contract, budget, start_date, end_date, description, phase, created_by)
         values (${code}, ${s(form, 'name') || code}, ${s(form, 'client') || null}, ${s(form, 'type') || null}, ${s(form, 'service') || null},
           ${s(form, 'unit') || null}, ${s(form, 'location') || null}, ${optNum(form, 'area')}, ${optNum(form, 'contract')}, ${optNum(form, 'budget')},
-          ${optDate(form, 'start')}, ${optDate(form, 'end')}, ${s(form, 'description') || null}) returning id`;
+          ${optDate(form, 'start')}, ${optDate(form, 'end')}, ${s(form, 'description') || null}, 'form', ${user.id}) returning id`;
       const r = await createProjectCodes(tx, p.id, code);
+      await tx`insert into project_phases (project_id, phase, user_id, note) values (${p.id}, 'form', ${user.id}, 'Project added')`;
       await audit(tx, user, 'project', p.id, 'Created', `${r.count} GL codes created with suffix -${r.suffix}`);
       return p.id;
     });
@@ -29,7 +31,7 @@ export async function createProject(form: FormData) {
     err = /duplicate key/.test(String(e)) ? `A project with code ${code} already exists.` : (e as Error).message;
   }
   revalidatePath('/', 'layout');
-  redirect(err ? '/cost-centers/new?error=' + encodeURIComponent(err) : `/cost-centers/${id}`);
+  redirect(err ? '/cost-centers/new?error=' + encodeURIComponent(err) : `/cost-centers/${id}/form?new=1`);
 }
 
 export async function updateProject(id: string, form: FormData) {

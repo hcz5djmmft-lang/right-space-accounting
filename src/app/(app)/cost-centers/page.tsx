@@ -3,13 +3,14 @@ import { requireUser } from '@/lib/auth';
 import { hasRole } from '@/lib/roles';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
+import { canProjects, phaseLabel } from '@/lib/projects';
 import { createDepartment } from './actions';
 
 export default async function CostCenters() {
   const user = await requireUser();
   const [projects, depts] = await Promise.all([
-    sql<{ id: string; code: string; name: string; type: string | null; status: string; budget: number | null; contract: number | null; spent: number; suffix: number | null }[]>`
-      select p.id, p.code, p.name, p.type, p.status, p.budget, p.contract, p.gl_suffix suffix,
+    sql<{ id: string; code: string; name: string; type: string | null; status: string; phase: string | null; budget: number | null; contract: number | null; spent: number; suffix: number | null }[]>`
+      select p.id, p.code, p.name, p.type, p.status, p.phase, p.budget, p.contract, p.gl_suffix suffix,
         coalesce((select sum(l.dr - l.cr) from journal_lines l join accounts a on a.code = l.account and a.type = 'expense'
           join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.project_id = p.id),0) spent
       from projects p order by p.is_office desc, p.code`,
@@ -21,14 +22,14 @@ export default async function CostCenters() {
   const canEdit = hasRole(user, 'finance');
   return (
     <>
-      <div className="head"><div><h1>Cost centers</h1><p>Every expense is assigned to a project or a department.</p></div>
-        {canEdit && <Link className="btn pri" href="/cost-centers/new">New project</Link>}</div>
+      <div className="head"><div><h1>Cost centers</h1><p>Every expense is assigned to a project or a department. A new project starts with the Project Information form and moves through its phases.</p></div>
+        {canProjects(user) && <Link className="btn pri" href="/cost-centers/new">New project</Link>}</div>
       <h2>Projects</h2>
       <div className="tw" style={{ marginBottom: 18 }}><table>
-        <thead><tr><th>Code</th><th className="hide-sm">Name</th><th className="hide-sm">Type</th><th>Status</th><th className="num hide-sm">Contract</th><th className="num">Budget</th><th className="num">Spent</th></tr></thead>
+        <thead><tr><th>Code</th><th className="hide-sm">Name</th><th className="hide-sm">Type</th><th>Phase</th><th className="hide-sm">Status</th><th className="num hide-sm">Contract</th><th className="num">Budget</th><th className="num">Spent</th></tr></thead>
         <tbody>{projects.map(p => (
           <tr key={p.id}><td><Link href={`/cost-centers/${p.id}`}>{p.code}</Link>{p.suffix ? <span className="muted mono"> (-{p.suffix})</span> : null}</td>
-            <td className="hide-sm" dir="auto">{p.name}</td><td className="hide-sm">{p.type}</td><td><span className="pill">{p.status}</span></td>
+            <td className="hide-sm" dir="auto">{p.name}</td><td className="hide-sm">{p.type}</td><td>{p.phase ? <span className={'pill' + (p.phase === 'form' ? ' pending' : '')}>{phaseLabel(p.phase)}</span> : ''}</td><td className="hide-sm"><span className="pill">{p.status}</span></td>
             <td className="num hide-sm">{p.contract ? fmt(p.contract) : ''}</td><td className="num">{p.budget ? fmt(p.budget) : ''}</td><td className="num">{fmt(p.spent)}</td></tr>))}
         </tbody></table></div>
       <h2>Departments</h2>
