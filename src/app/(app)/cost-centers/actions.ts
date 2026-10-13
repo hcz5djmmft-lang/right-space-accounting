@@ -39,7 +39,7 @@ export async function updateProject(id: string, form: FormData) {
   await sql.begin(async tx => {
     await tx`update projects set name = ${s(form, 'name')}, client_id = ${s(form, 'client') || null}, type = ${s(form, 'type') || null},
       service = ${s(form, 'service') || null}, unit = ${s(form, 'unit') || null}, location = ${s(form, 'location') || null},
-      area = ${optNum(form, 'area')}, contract = ${optNum(form, 'contract')}, budget = ${optNum(form, 'budget')},
+      area = ${optNum(form, 'area')}, contract = ${optNum(form, 'contract')}, budget = ${optNum(form, 'budget')}, design_fee = ${optNum(form, 'design_fee')},
       status = ${s(form, 'status') || 'Active'}, start_date = ${optDate(form, 'start')}, end_date = ${optDate(form, 'end')},
       description = ${s(form, 'description') || null} where id = ${id}`;
     await audit(tx, user, 'project', id, 'Edited');
