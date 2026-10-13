@@ -55,7 +55,7 @@ reminders (contracts and probations ending, no insurance number, missing documen
 documents and each person's KPIs from their tasks and attendance.
 
 Projects: Finance or an engineer adds a project (Projects → Cost centers → New project), which opens the company's Project
-Information form AF-PI-01 (35 answers in six sections, a notes box on every field, unit photos, drawings and the general layout
+Information form AF-PI-01 (35 answers in six sections, a notes box on every field, unit photos, drawings and the general layout The Designer box of section 3 is a picker of all employees (or a typed name and contact for an outside designer): picking an employee gives them the project as a task under Tasks (one open task per project, replaced when the designer changes) and makes them the owner of the project's drawing sets.
 as files). "Mark the form complete" moves the project to the Design phase (or straight to QS and pricing when the interior design
 is already ready); the phases Project form → Design → QS and pricing → Planning → Execution → Handover show on the project page and
 in the list, and Finance or an engineer can move a project by hand with a note. Engineering has two sections, Technical Office and

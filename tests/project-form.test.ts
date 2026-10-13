@@ -33,6 +33,16 @@ describe('parseAnswer', () => {
   });
 });
 
+describe('a person field', () => {
+  it('takes the employee pick, else the typed name', () => {
+    const f = fieldOf('designer')!;
+    expect(f.kind).toBe('person');
+    expect(parseAnswers(k => ({ designer: 'e:emp-1', designer_other: 'ignored' } as Record<string, string>)[k] ?? null, () => []).data.designer).toBe('e:emp-1');
+    expect(parseAnswers(k => ({ designer: '', designer_other: 'Studio Nour' } as Record<string, string>)[k] ?? null, () => []).data.designer).toBe('Studio Nour');
+    expect(parseAnswers(k => ({ designer: '', designer_other: '' } as Record<string, string>)[k] ?? null, () => []).data.designer).toBeUndefined();
+  });
+});
+
 describe('parseAnswers, missing and completeness', () => {
   const posted: Record<string, string | string[]> = {
     client_name: 'Mr Hassan', title: 'PH-B1402', pi_date: '2026-10-13', unit_type: 'Apartment', gross_area: '180', unit_status: 'Bare Shell',

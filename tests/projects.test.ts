@@ -97,6 +97,37 @@ describe('the project form and the phases', () => {
   });
 });
 
+describe('the designer picked from the employee list', () => {
+  it('stores the name and the file, gives the designer the project as a task (one open task, replaced on a new pick), and lets an outside name be typed', async () => {
+    const malak = (await sql<{ id: string }[]>`insert into employees (name, user_id, dept_id, basic, job_title) values ('Malak Designer', ${mohamed.id}, 'to', 12000, 'Interior designer') returning id`)[0].id;
+    const omar = (await sql<{ id: string }[]>`insert into employees (name, dept_id, basic, job_title) values ('Omar Draft', 'to', 8000, 'Draftsman') returning id`)[0].id;
+    await pr.saveInfo(youssef as never, p2, { data: { ...full, designer: `e:${malak}` }, notes: {} });
+    let info = await pr.getInfo(p2);
+    expect(info.data.designer).toBe('Malak Designer');
+    expect(info.data.designer_emp).toBe(malak);
+    const open = () => sql<{ title: string; assignee_id: string | null; assignee_emp_id: string | null; status: string; link_id: string }[]>`select title, assignee_id, assignee_emp_id, status, link_id from tasks where link_type = 'cost-center' and link_id = ${p2} and status <> 'done' order by created_at`;
+    let t = await open();
+    expect(t).toHaveLength(1);
+    expect(t[0]).toMatchObject({ title: 'Designer: CS-R77 · Fit-out of 1402', assignee_id: mohamed.id, assignee_emp_id: malak, status: 'todo' });
+    // saving again with the same designer adds nothing
+    await pr.saveInfo(youssef as never, p2, { data: { ...full, designer: `e:${malak}` }, notes: {} });
+    expect(await open()).toHaveLength(1);
+    // a new pick closes Malak's task and opens Omar's (no login: the task sits on the employee file)
+    await pr.saveInfo(youssef as never, p2, { data: { ...full, designer: `e:${omar}` }, notes: {} });
+    t = await open();
+    expect(t).toHaveLength(1);
+    expect(t[0]).toMatchObject({ assignee_id: null, assignee_emp_id: omar });
+    expect((await sql<{ n: number }[]>`select count(*)::int n from tasks where link_type = 'cost-center' and link_id = ${p2} and status = 'done'`)[0].n).toBe(1);
+    // an outside designer: the name stays as typed, no employee file, the task closes
+    await pr.saveInfo(youssef as never, p2, { data: { ...full, designer: 'Studio Nour, 0100 000 0000' }, notes: {} });
+    info = await pr.getInfo(p2);
+    expect(info.data.designer).toBe('Studio Nour, 0100 000 0000');
+    expect(info.data.designer_emp).toBeUndefined();
+    expect(await open()).toHaveLength(0);
+    await expect(pr.saveInfo(youssef as never, p2, { data: { ...full, designer: 'e:no-such-employee' }, notes: {} })).rejects.toThrow(/no longer on the list/);
+  });
+});
+
 describe('org-chart positions', () => {
   it('Management assigns the positions; a single position takes one person; inactive logins drop out', async () => {
     await expect(org.savePositions(youssef as never, { eng_director: [youssef.id] })).rejects.toThrow(/Only Management/);
