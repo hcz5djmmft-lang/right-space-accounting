@@ -8,7 +8,9 @@ import { storage } from './storage';
 import { TZ } from './dates';
 
 /** Documents that can carry files. The names match audit_log.entity so the history shows uploads. */
-export const ENTITIES = { invoice: 'invoices', journal: 'journal_entries', employee: 'employees', attendance: 'attendance', project: 'projects', drawing: 'drawings', vendor: 'parties', quotation: 'quotations', delivery: 'deliveries', workorder: 'work_orders', finish: 'finishes', claim: 'sub_claims' } as const;
+export const ENTITIES = { invoice: 'invoices', journal: 'journal_entries', employee: 'employees', attendance: 'attendance', project: 'projects', drawing: 'drawings', vendor: 'parties', quotation: 'quotations', delivery: 'deliveries', workorder: 'work_orders', finish: 'finishes', claim: 'sub_claims', 'site-report': 'site_reports', inspection: 'inspection_requests', snag: 'snags' } as const;
+/** The site records carry a project: their photos are added by the project's site team as well as the engineers. */
+const SITE: Partial<Record<Entity, string>> = { 'site-report': 'site_reports', inspection: 'inspection_requests', snag: 'snags' };
 export type Entity = keyof typeof ENTITIES;
 
 /** 4 MB: phones shrink photos before sending, and the host refuses request bodies above 4.5 MB. */
@@ -49,6 +51,8 @@ async function docStatus(entity: Entity, id: string): Promise<string> {
       ? await sql<{ status: string }[]>`select 'open' status from finishes where id = ${id}`
     : entity === 'claim'
       ? await sql<{ status: string }[]>`select 'open' status from sub_claims where id = ${id}`
+    : SITE[entity]
+      ? await sql<{ status: string }[]>`select 'open' status from ${sql(SITE[entity]!)} where id = ${id}`
       : await sql<{ status: string }[]>`select status from journal_entries where id = ${id}`;
   if (!d) throw new RuleError('That document no longer exists.');
   return d.status;
@@ -66,12 +70,20 @@ export async function listAttachments(entity: Entity, id: string) {
 const canFile = (user: User, entity: Entity, uploadedBy: string | null = null) =>
   entity === 'employee' ? hasRole(user, 'hr', 'finance') : entity === 'attendance' ? hasRole(user, 'hr', 'finance') || uploadedBy === user.id : true;
 /** Project photos and drawings are added by Finance and the engineers; everyone signed in sees them (and adds vendor documents, quotations and delivery notes). */
-const canAdd = (user: User, entity: Entity) => entity === 'project' || entity === 'drawing' || entity === 'finish' ? hasRole(user, 'finance', 'engineering', 'projects') : canFile(user, entity, user.id);
+async function canAdd(user: User, entity: Entity, id: string) {
+  if (entity === 'project' || entity === 'drawing' || entity === 'finish') return hasRole(user, 'finance', 'engineering', 'projects');
+  if (SITE[entity]) {
+    if (hasRole(user, 'finance', 'engineering', 'projects')) return true;
+    const [r] = await sql<{ project_id: string }[]>`select project_id from ${sql(SITE[entity]!)} where id = ${id}`;
+    return !!r && !!(await sql`select 1 from projects p join employees e on e.id in (p.site_eng_id, p.manager_id) where p.id = ${r.project_id} and e.user_id = ${user.id}`)[0];
+  }
+  return canFile(user, entity, user.id);
+}
 
 /** Anyone signed in can add a receipt, also after posting (receipts often arrive later). `tag` names the document of a form (employee files). */
 export async function addAttachment(user: User, entity: Entity, id: string, name: string, body: Buffer, tag: string | null = null): Promise<string> {
   if (!(entity in ENTITIES)) throw new RuleError('Unknown document.');
-  if (!canAdd(user, entity)) throw new RuleError(entity === 'project' || entity === 'drawing' ? 'Only Engineering or Finance can add files to a project.' : 'Only HR or Finance can add files to an employee file.');
+  if (!(await canAdd(user, entity, id))) throw new RuleError(entity === 'project' || entity === 'drawing' ? 'Only Engineering or Finance can add files to a project.' : SITE[entity] ? 'Only the site team or the engineers add photos here.' : 'Only HR or Finance can add files to an employee file.');
   if (!body.length) throw new RuleError('The file is empty.');
   if (body.length > MAX_BYTES) throw new RuleError('That file is over 4 MB. Take a smaller photo or send a smaller PDF.');
   const t = sniff(body);
@@ -96,7 +108,7 @@ export async function removeAttachment(user: User, attachmentId: string) {
   const [a] = await sql<{ entity: Entity; entity_id: string; file_name: string; storage_key: string; uploaded_by: string | null }[]>`
     select entity, entity_id, file_name, storage_key, uploaded_by from attachments where id = ${attachmentId}`;
   if (!a) return;
-  if (a.uploaded_by !== user.id && !hasRole(user, 'finance') && !(a.entity === 'employee' && hasRole(user, 'hr')) && !((a.entity === 'project' || a.entity === 'drawing') && hasRole(user, 'engineering', 'projects'))) throw new RuleError('Only the person who attached it, or Finance, can remove this file.');
+  if (a.uploaded_by !== user.id && !hasRole(user, 'finance') && !(a.entity === 'employee' && hasRole(user, 'hr')) && !((a.entity === 'project' || a.entity === 'drawing' || !!SITE[a.entity]) && hasRole(user, 'engineering', 'projects'))) throw new RuleError('Only the person who attached it, or Finance, can remove this file.');
   if ((await docStatus(a.entity, a.entity_id)) === 'posted') throw new RuleError('This document is posted, so its files are kept.');
   await sql.begin(async tx => {
     await tx`delete from attachments where id = ${attachmentId}`;
