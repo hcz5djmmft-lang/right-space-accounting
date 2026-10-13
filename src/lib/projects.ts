@@ -63,7 +63,8 @@ export async function completeForm(user: User, projectId: string) {
   });
 }
 
-async function movePhase(tx: Tx, user: User, projectId: string, phase: Phase, note: string) {
+/** Moves a project within a transaction (the phase steps call this when their work is done). */
+export async function movePhase(tx: Tx, user: User, projectId: string, phase: Phase, note: string) {
   await tx`update projects set phase = ${phase}, phase_at = now() where id = ${projectId}`;
   await tx`insert into project_phases (project_id, phase, user_id, note) values (${projectId}, ${phase}, ${user.id}, ${note})`;
   await audit(tx, user, 'project', projectId, `Moved to ${phaseLabel(phase)}`, note);

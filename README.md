@@ -63,6 +63,16 @@ Site execution (departments under Engineering: members get Engineering's permiss
 to the head of Engineering). Settings → Org chart names who holds each position (director of engineering, head of design, technical
 office head, designers, planning, QS, pricing, cost control, site engineers, procurement, HR and Finance heads).
 
+Design: every project in the Design phase appears under Projects → Design with three drawing sets, the Main Concept 2D, the Main
+Concept 3D and the Shop drawings, each started with the company's default list of drawings (the designer adds, removes and revises
+drawings and attaches the files from the phone). "Submit for approval" sends a set to the head of design, then the technical office
+head, then the director of engineering (the org-chart holders, or the section and department heads, or Management; each can send it
+back with a note); an approved concept goes to the client, whose approval or changes the designer records; approved shop drawings are
+issued for construction (every drawing is stamped with its issue date and the project moves to QS and pricing). Each set has a group
+chat for the designer and the signers, with every step noted. The Drawing register lists every drawing with its revisions and status,
+Finishes & materials keeps what the client chose per room, and the Design status and Hours and cost tabs show where each set waits
+and the design hours against the design fee set on the project.
+
 Settings → Departments names the head of each department (the first signer of its payment requests) and what its members may do;
 Settings → People puts each login in a department. The final approval is given by the people ticked under Settings → Approvals.
 

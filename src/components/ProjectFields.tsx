@@ -1,5 +1,5 @@
 type P = Partial<Record<'code' | 'name' | 'client_id' | 'type' | 'service' | 'unit' | 'location' | 'description' | 'status' | 'start' | 'end', string | null>> &
-  Partial<Record<'area' | 'contract' | 'budget', number | null>>;
+  Partial<Record<'area' | 'contract' | 'budget' | 'design_fee', number | null>>;
 
 export function ProjectFields({ p = {}, cats, customers, isNew }: {
   p?: P; cats: Record<string, string[]>; customers: { id: string; name: string }[]; isNew?: boolean;
@@ -18,6 +18,7 @@ export function ProjectFields({ p = {}, cats, customers, isNew }: {
       <label className="f"><span>Area (m²)</span><input className="inp mono" name="area" inputMode="decimal" defaultValue={p.area ?? ''} /></label>
       <label className="f"><span>Contract value (EGP)</span><input className="inp mono" name="contract" inputMode="decimal" defaultValue={p.contract ?? ''} /></label>
       <label className="f"><span>Cost budget (EGP)</span><input className="inp mono" name="budget" inputMode="decimal" defaultValue={p.budget ?? ''} /></label>
+      {!isNew && <label className="f"><span>Design fee (EGP)</span><input className="inp mono" name="design_fee" inputMode="decimal" defaultValue={p.design_fee ?? ''} /></label>}
       <label className="f"><span>Start</span><input className="inp" type="date" name="start" defaultValue={p.start ?? ''} /></label>
       <label className="f"><span>End</span><input className="inp" type="date" name="end" defaultValue={p.end ?? ''} /></label>
       {!isNew && pick('status', 'Status', ['Active', 'On hold', 'Completed', 'Closed'], p.status)}

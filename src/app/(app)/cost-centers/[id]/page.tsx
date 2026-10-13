@@ -11,7 +11,10 @@ import { designTotals } from '@/lib/attendance';
 import { fmtMin } from '@/lib/attendance-calc';
 import { PHASES, canProjects, getInfo, phaseLabel, phaseLog } from '@/lib/projects';
 import { FIELDS } from '@/lib/project-form';
+import { KINDS, OPEN_STATUSES } from '@/lib/design-calc';
+import { canDesign, listSets } from '@/lib/design';
 import { setPhaseAction } from './form/actions';
+import { createSetAction } from '../../design/actions';
 
 export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; moved?: string; error?: string }> }) {
   const user = await requireUser();
@@ -19,7 +22,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const { saved, moved, error } = await searchParams;
   const [p] = await sql`select *, to_char(start_date,'YYYY-MM-DD') start, to_char(end_date,'YYYY-MM-DD') "end" from projects where id = ${id}`;
   if (!p) notFound();
-  const [settings, customers, byCode, [tot], [design], info, log] = await Promise.all([
+  const [settings, customers, byCode, [tot], [design], info, log, sets] = await Promise.all([
     getSettings(),
     sql<{ id: string; name: string }[]>`select id, name from parties where type = 'customer' order by name`,
     sql<{ code: string; name: string; budget: number | null; actual: number }[]>`
@@ -34,6 +37,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     designTotals(id),
     p.is_office ? Promise.resolve(null) : getInfo(id),
     p.is_office ? Promise.resolve([]) : phaseLog(id),
+    p.is_office ? Promise.resolve([]) : listSets({ project: id }),
   ]);
   const used = byCode.filter(r => r.actual || r.budget);
   const engineer = canProjects(user);
@@ -75,6 +79,23 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
               <button className="btn">Move</button>
             </form>)}
           <div className="log">{log.length === 0 ? <span className="muted">No phase changes recorded.</span> : log.map((h, i) => <div key={i}>{h.at} · {h.who ?? ''} · {h.label}{h.note ? ` — ${h.note}` : ''}</div>)}</div>
+        </div>)}
+      {!p.is_office && (
+        <div className="card">
+          <div className="row" style={{ justifyContent: 'space-between' }}><h2 style={{ margin: 0 }}>Design</h2>
+            <span className="row"><Link className="btn sm" href={`/design?tab=register&project=${id}`}>Drawing register</Link><Link className="btn sm" href={`/design/finishes?project=${id}`}>Finishes & materials</Link></span></div>
+          <div className="tw" style={{ marginTop: 8 }}><table>
+            <thead><tr><th>Set</th><th>Status</th><th className="hide-sm">Designer</th><th></th></tr></thead>
+            <tbody>{KINDS.map(([kind, label]) => {
+              const open = sets.find(s => s.kind === kind && OPEN_STATUSES.includes(s.status));
+              const last = open ?? sets.find(s => s.kind === kind);
+              return (
+                <tr key={kind}><td>{label}{last ? <span className="muted"> v{last.version}</span> : ''}</td>
+                  <td>{last ? <span className={'pill ' + (['approved', 'client_approved', 'ifc'].includes(last.status) ? 'posted' : last.status === 'rejected' ? 'rejected' : last.status === 'draft' ? '' : 'pending')}>{last.status_label}</span> : <span className="muted">not started</span>}</td>
+                  <td className="hide-sm">{last?.designer ?? ''}</td>
+                  <td>{last && <Link className="btn sm" href={`/design/${last.id}`}>Open</Link>}
+                    {!open && canDesign(user) && <form action={createSetAction.bind(null, id, kind)} style={{ display: 'inline' }}><button className="btn sm" style={{ marginLeft: 6 }}>{last ? 'New set' : 'Start'}</button></form>}</td></tr>);
+            })}</tbody></table></div>
         </div>)}
       {hasRole(user, 'finance') && (
         <form action={updateProject.bind(null, id)} className="card">
