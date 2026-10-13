@@ -7,7 +7,7 @@ describe('Egyptian payroll maths', () => {
   it('basic 10,000 + allowances 2,000: insurance 11% / 18.75%, tax on annualised pay less 20,000 exemption', () => {
     const l = payLine({ basic: 10000, allowances: 2000 }, 0, 0, DEFAULT_RATES);
     // taxable = (12,000 − 1,320) × 12 − 20,000 = 108,160 → 0 + 1,500 + 2,250 + 7,632 = 11,382 a year
-    expect(l).toEqual({ basic: 10000, allowances: 2000, overtime: 0, deductions: 0, gross: 12000, insurable: 12000, soc_emp: 1320, soc_co: 2250, tax: 948.5, net: 9731.5, no_deductions: false });
+    expect(l).toEqual({ basic: 10000, allowances: 2000, overtime: 0, late: 0, deductions: 0, gross: 12000, insurable: 12000, soc_emp: 1320, soc_co: 2250, tax: 948.5, net: 9731.5, no_deductions: false });
   });
   it('"no insurance or tax" pays the full salary: nothing for insurance on either side, no tax, advances still recovered', () => {
     const l = payLine({ basic: 10000, allowances: 2000, no_deductions: true }, 500, 300, DEFAULT_RATES);

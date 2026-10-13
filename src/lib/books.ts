@@ -8,6 +8,7 @@ export type Settings = {
   company_name: string; vat_rate: number; require_approval: boolean; require_cc: boolean;
   lock_date: string | null; pr_prefix: string; fy_start_month: number; cats: Record<string, string[]>; account_map: AccountMap;
   payroll: Record<string, unknown>;
+  hr: Record<string, unknown>;      // attendance settings, see attendance-calc.ts
 };
 export async function getSettings(tx: Tx = sql): Promise<Settings> {
   const [s] = await tx<Settings[]>`select *, to_char(lock_date, 'YYYY-MM-DD') lock_date from settings where id = 1`;
