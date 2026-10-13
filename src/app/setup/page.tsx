@@ -27,7 +27,7 @@ export default async function SetupPage({ searchParams }: { searchParams: Promis
   if (!(await noUsers())) redirect('/login');
   const { error } = await searchParams;
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, background: 'var(--ink)' }}>
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, background: 'var(--sand)' }}>
       <form action={createFirst} className="card" style={{ width: '100%', maxWidth: 400, display: 'grid', gap: 12 }}>
         <div className="brand" style={{ padding: 0 }}>RIGHT <b style={{ color: 'var(--gold-ink)' }}>SPACE</b> <span className="muted" style={{ fontWeight: 400 }}>Accounting</span></div>
         <h1 style={{ fontSize: 18, margin: 0 }}>Welcome. Create the first login.</h1>

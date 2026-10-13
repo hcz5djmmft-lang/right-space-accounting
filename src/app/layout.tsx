@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 // a request that waits on the database gives up after half a minute instead of Vercel's five
 export const maxDuration = 30;
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#111111' };
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#f6f1e7' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
