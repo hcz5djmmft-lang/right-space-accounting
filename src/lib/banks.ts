@@ -12,7 +12,7 @@ import { type AccountInfo, type BankKind, summarize } from './bank-groups';
 export type BankAccount = {
   code: string; name: string; type: AccountType; balance: number; cleared: number; stmt_date: string | null; stmt_balance: number | null;
   kind: BankKind; bank_name: string | null; branch: string | null; account_no: string | null; iban: string | null; swift: string | null;
-  credit_limit: number | null; holder: string | null; ref_prefix: string | null;
+  credit_limit: number | null; holder: string | null; ref_prefix: string | null; hidden: boolean;
 };
 
 export async function bankAccounts() {
@@ -21,7 +21,7 @@ export async function bankAccounts() {
       coalesce((select sum(l.dr - l.cr) from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.account = a.code), 0) balance,
       coalesce((select sum(l.dr - l.cr) from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted' join bank_cleared c on c.line_id = l.id where l.account = a.code), 0) cleared,
       to_char(s.stmt_date, 'YYYY-MM-DD') stmt_date, s.stmt_balance,
-      coalesce(b.kind, 'bank') kind, b.bank_name, b.branch, b.account_no, b.iban, b.swift, b.credit_limit, b.holder, b.ref_prefix
+      coalesce(b.kind, 'bank') kind, b.bank_name, b.branch, b.account_no, b.iban, b.swift, b.credit_limit, b.holder, b.ref_prefix, coalesce(b.hidden, false) hidden
     from accounts a left join bank_statements s on s.account = a.code left join bank_accounts b on b.account = a.code
     where a.is_bank and a.postable order by a.code`;
 }
@@ -29,7 +29,7 @@ export async function bankAccounts() {
 /** What a card owes and what is left on its limit (its book balance is a credit when money is owed). */
 export const cardFigures = (a: Pick<BankAccount, 'balance' | 'credit_limit'>) => ({ owed: r2(-a.balance), available: a.credit_limit === null ? null : r2(a.credit_limit + a.balance) });
 
-export const KIND_LABEL: Record<BankKind, string> = { bank: 'Bank account', card: 'Credit card', cash: 'Petty cash' };
+export const KIND_LABEL: Record<BankKind, string> = { bank: 'Bank account', card: 'Credit card', cash: 'Office cash' };
 
 export type BankLine = {
   line_id: number; entry_id: string; no: string; date: string; memo: string; description: string; party: string | null; cc: string | null;
