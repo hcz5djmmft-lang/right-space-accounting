@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
+import { projectForToken } from '@/lib/client-link';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { getSettings } from '@/lib/books';
@@ -7,9 +8,12 @@ import { getInfo } from '@/lib/projects';
 import { getHandover, listSnags, snagCounts } from '@/lib/site';
 
 // The handover certificate (شهادة تسليم): project and client, contract and variations, the snag list's state, the defects period, two signatures.
-export default async function PrintHandover({ params }: { params: Promise<{ project: string }> }) {
-  await requireUser();
+export default async function PrintHandover({ params, searchParams }: { params: Promise<{ project: string }>; searchParams: Promise<{ c?: string }> }) {
   const { project } = await params;
+  // the client opens it from their client link (?c=<link>)
+  const { c: link } = await searchParams;
+  const client = link ? await projectForToken(link) : null;
+  if (client !== project) await requireUser();
   const [p] = await sql<{ id: string; code: string; name: string; contract: number | null; client: string | null; vo: number }[]>`
     select p.id, p.code, p.name, p.contract::float contract, c.name client,
       coalesce((select sum(round(l.qty * l.rate, 2)) from variation_orders v join variation_lines l on l.vo_id = v.id where v.project_id = p.id and v.status = 'approved'), 0)::float vo
@@ -53,7 +57,7 @@ export default async function PrintHandover({ params }: { params: Promise<{ proj
       {h.outstanding && <div className="box"><h3>Outstanding works accepted by the client (أعمال متبقية بموافقة العميل)</h3><div dir="auto" style={{ whiteSpace: 'pre-wrap' }}>{h.outstanding}</div></div>}
       {h.notes && <div className="box"><h3>Notes (ملاحظات)</h3><div dir="auto" style={{ whiteSpace: 'pre-wrap' }}>{h.notes}</div></div>}
       <div className="sigs">
-        <div className="sig"><b>Client (العميل)</b><div dir="auto">{h.client_rep || ' '}</div><div className="sd">Signature / date</div></div>
+        <div className="sig"><b>Client (العميل)</b>{h.client_signature && <img src={h.client_signature} alt="Client signature" style={{ display: 'block', height: 60, margin: '0 auto' }} />}<div dir="auto">{h.client_signed_name || h.client_rep || ' '}</div><div className="sd">{h.client_signed_at ? `Signed ${h.client_signed_at} on the client link` : 'Signature / date'}</div></div>
         <div className="sig"><b>{s.company_name}</b><div>{h.company_rep ?? ' '}</div><div className="sd">{h.status === 'signed' ? `Signed ${h.signed_at} by ${h.signed_by_name ?? ''}` : 'Signature / stamp / date'}</div></div>
       </div>
       <div className="foot">{h.no} · drafted {h.created_at}{h.created_by_name ? ` by ${h.created_by_name}` : ''} · Right Space</div>

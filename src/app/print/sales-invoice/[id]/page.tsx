@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
+import { projectForToken } from '@/lib/client-link';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { amountInWords, lineAmount } from '@/lib/ledger';
@@ -9,11 +10,14 @@ import { invoiceBankDetails } from '@/lib/collections';
 import { today } from '@/lib/dates';
 
 // Printable sales invoice for the client. Use the browser's Print / Save as PDF.
-export default async function PrintInvoice({ params }: { params: Promise<{ id: string }> }) {
-  await requireUser();
+export default async function PrintInvoice({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ c?: string }> }) {
+  // the client opens it from their client link (?c=<link>), for their own project's posted invoices only
+  const { c: link } = await searchParams;
+  const client = link ? await projectForToken(link) : null;
+  if (!client) await requireUser();
   const { id } = await params;
   const r = await getInvoice(id);
-  if (!r) notFound();
+  if (!r || (client && (r.project_id !== client || r.status !== 'posted'))) notFound();
   const [lines, settings, [c], bank] = await Promise.all([
     getInvoiceLines(id), getSettings(),
     sql<{ full_name: string | null; tax_id: string | null; email: string | null; phone: string | null }[]>`select full_name, tax_id, email, phone from parties where id = ${r.party_id}`,
