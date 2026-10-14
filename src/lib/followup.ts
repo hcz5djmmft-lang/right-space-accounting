@@ -38,8 +38,8 @@ export async function raiseCollectionReminders(now = today()) {
       await sql`insert into task_comments (task_id, user_id, text) values (${r.task_id}, null, ${`Reminder ${r.times + 1}: still ${fmt(d.balance)} open on ${now}.`})`;
       await sql`update collection_reminders set last_on = ${now}, times = times + 1 where invoice_id = ${d.id}`;
     } else {
-      const [{ id }] = await sql<{ id: string }[]>`insert into tasks (title, details, status, priority, due, assignee_id, link_type, link_id, link_label)
-        values (${title}, ${'Call or send the WhatsApp message from Collections → Follow-up. The task closes by itself when the invoice is paid.'}, 'todo', ${late > 30 ? 'high' : 'normal'}, ${now}, ${assignee}, 'sales-invoice', ${d.id}, ${d.no}) returning id`;
+      const [{ id }] = await sql<{ id: string }[]>`insert into tasks (title, details, status, priority, due, assignee_id, link_type, link_id, link_label, project_id)
+        values (${title}, ${'Call or send the WhatsApp message from Collections → Follow-up. The task closes by itself when the invoice is paid.'}, 'todo', ${late > 30 ? 'high' : 'normal'}, ${now}, ${assignee}, 'sales-invoice', ${d.id}, ${d.no}, ${inv?.project_id ?? null}) returning id`;
       await sql`insert into collection_reminders (invoice_id, task_id, last_on, times) values (${d.id}, ${id}, ${now}, 1)
         on conflict (invoice_id) do update set task_id = excluded.task_id, last_on = excluded.last_on, times = collection_reminders.times + 1`;
     }

@@ -28,7 +28,7 @@ export default async function NewPayment({ searchParams }: { searchParams: Promi
   await requireUser('finance');
   const { vendor = '', error, done } = await searchParams;
   const [vendors, banks, open] = await Promise.all([
-    sql<{ id: string; name: string }[]>`select id, name from parties where type = 'vendor' order by name`,
+    sql<{ id: string; name: string; is_sub: boolean }[]>`select id, name, coalesce(is_sub, false) is_sub from parties where type = 'vendor' order by name`,
     sql<{ code: string; name: string }[]>`select a.code, a.name from accounts a left join bank_accounts b on b.account = a.code
       where a.is_bank and a.postable and coalesce(b.kind, 'bank') = 'bank' order by a.code`,
     vendor ? openRequests(sql, vendor) : Promise.resolve([]),
@@ -37,13 +37,15 @@ export default async function NewPayment({ searchParams }: { searchParams: Promi
   const [paid] = done ? await sql<{ no: string; reference: string | null }[]>`select no, reference from payments where id = ${done}` : [];
   return (
     <>
-      <div className="head"><div><h1>Pay a vendor</h1><p>A bank transfer against approved requests; anything not allocated is recorded as a down payment (90000). Cash out of the office goes through Petty cash.</p></div>
+      <div className="head"><div><h1>Pay a vendor or subcontractor</h1><p>A bank transfer against approved requests; anything not allocated is recorded as a down payment (90000). Cash out of the office goes through Petty cash.</p></div>
         <Link className="btn" href="/payment-requests?tab=open">Approved, not paid</Link></div>
       {error && <div className="msg bad">{error}</div>}
       {paid && <div className="msg good">Payment {paid.no} posted{paid.reference ? ` · reference ${paid.reference}` : ''}.</div>}
       <form className="row card" style={{ alignItems: 'end' }}>
-        <label className="f" style={{ minWidth: 260 }}><span>Vendor</span><select className="inp" name="vendor" defaultValue={vendor}>
-          <option value="">Select…</option>{vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
+        <label className="f" style={{ minWidth: 260 }}><span>Vendor or subcontractor</span><select className="inp" name="vendor" defaultValue={vendor}>
+          <option value="">Select…</option>
+          <optgroup label="Vendors">{vendors.filter(v => !v.is_sub).map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup>
+          <optgroup label="Subcontractors">{vendors.filter(v => v.is_sub).map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup></select></label>
         <button className="btn">Show open requests</button>
       </form>
       {vendor && (

@@ -71,8 +71,8 @@ async function assignPerson(tx: Tx, user: User, p: { id: string; code: string },
   if (!picked) return;
   const [e] = await tx<{ user_id: string | null; name: string }[]>`select (select u.id from users u where u.id = e.user_id and u.active) user_id, e.name from employees e where e.id = ${picked}`;
   const what = f.key === 'designer' ? 'prepare the interior design' : 'take charge';
-  await tx`insert into tasks (title, details, status, priority, assignee_id, assignee_emp_id, link_type, link_id, link_label, created_by)
-    values (${`${f.label.split(' ')[0]}: ${p.code}${typeof data.title === 'string' && data.title ? ` · ${data.title}` : ''}`}, ${`${TASK_MARK} by ${user.name}: ${what} of project ${p.code}${typeof data.client_name === 'string' && data.client_name ? ` for ${data.client_name}` : ''}.`}, 'todo', 'normal', ${e.user_id}, ${picked}, 'cost-center', ${p.id}, ${p.code}, ${user.id})`;
+  await tx`insert into tasks (title, details, status, priority, assignee_id, assignee_emp_id, link_type, link_id, link_label, project_id, created_by)
+    values (${`${f.label.split(' ')[0]}: ${p.code}${typeof data.title === 'string' && data.title ? ` · ${data.title}` : ''}`}, ${`${TASK_MARK} by ${user.name}: ${what} of project ${p.code}${typeof data.client_name === 'string' && data.client_name ? ` for ${data.client_name}` : ''}.`}, 'todo', 'normal', ${e.user_id}, ${picked}, 'cost-center', ${p.id}, ${p.code}, ${p.id}, ${user.id})`;
   await audit(tx, user, 'project', p.id, `${f.label.split(' ')[0]} assigned`, `${e.name}: a task for the project`);
 }
 

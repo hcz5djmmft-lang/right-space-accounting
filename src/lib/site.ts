@@ -184,8 +184,8 @@ export async function raiseInspection(user: User, i: InspectionInput): Promise<s
     const no = await nextNo(tx, 'IR-');
     const [r] = await tx<{ id: string }[]>`insert into inspection_requests (no, project_id, activity_id, title, location, requested_for, inspector_id, requested_by)
       values (${no}, ${i.project}, ${activity?.id ?? null}, ${title}, ${(i.location ?? '').trim()}, ${i.requested_for}, ${u.id}, ${user.id}) returning id`;
-    const [t] = await tx<{ id: string }[]>`insert into tasks (title, details, status, priority, due, assignee_id, assignee_emp_id, link_type, link_id, link_label, created_by)
-      values (${`Inspect: ${title} · ${p.code}`}, ${[activity ? activity.name : '', i.location?.trim() ? `at ${i.location.trim()}` : '', `asked by ${user.name} for ${i.requested_for}`].filter(Boolean).join(' · ')}, 'todo', 'high', ${i.requested_for}, ${u.id}, ${await employeeOf(tx, u.id)}, 'inspection', ${r.id}, ${no}, ${user.id}) returning id`;
+    const [t] = await tx<{ id: string }[]>`insert into tasks (title, details, status, priority, due, assignee_id, assignee_emp_id, link_type, link_id, link_label, project_id, created_by)
+      values (${`Inspect: ${title} · ${p.code}`}, ${[activity ? activity.name : '', i.location?.trim() ? `at ${i.location.trim()}` : '', `asked by ${user.name} for ${i.requested_for}`].filter(Boolean).join(' · ')}, 'todo', 'high', ${i.requested_for}, ${u.id}, ${await employeeOf(tx, u.id)}, 'inspection', ${r.id}, ${no}, ${i.project}, ${user.id}) returning id`;
     await tx`update inspection_requests set task_id = ${t.id} where id = ${r.id}`;
     await audit(tx, user, 'inspection', r.id, 'Requested', `${no} · ${title} · ${u.name}`);
     return r.id;

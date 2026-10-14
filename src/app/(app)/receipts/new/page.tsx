@@ -35,7 +35,7 @@ export default async function NewReceipt({ searchParams }: { searchParams: Promi
   const [customers, accounts, projects, open, types] = await Promise.all([
     sql<{ id: string; name: string }[]>`select id, name from parties where type = 'customer' order by name`,
     sql<{ code: string; name: string; kind: string }[]>`select a.code, a.name, coalesce(b.kind, 'bank') kind from accounts a left join bank_accounts b on b.account = a.code
-      where a.is_bank and a.postable and coalesce(b.kind, 'bank') in ('bank', 'cash') order by (coalesce(b.kind, 'bank') = 'bank') desc, a.code`,
+      where a.is_bank and a.postable and coalesce(b.kind, 'bank') in ('bank', 'cash') and not coalesce(b.hidden, false) order by (coalesce(b.kind, 'bank') = 'bank') desc, a.code`,
     sql<{ id: string; code: string; name: string }[]>`select id, code, name from projects where not is_office and status <> 'Closed' order by code`,
     customer ? openInvoices(sql, customer) : Promise.resolve([]),
     collectionTypes(),

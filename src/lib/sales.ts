@@ -140,6 +140,8 @@ export async function postCustomerReceipt(user: User, p: ReceiptInput) {
     const s = await getSettings(tx);
     checkLock(s, p.date);
     if (!p.party) throw new RuleError('Choose the customer.');
+    const [into] = await tx<{ hidden: boolean }[]>`select coalesce(b.hidden, false) hidden from accounts a left join bank_accounts b on b.account = a.code where a.code = ${p.bank}`;
+    if (into?.hidden) throw new RuleError('That cash account is no longer in use: money comes into the bank or the office cash.');
     const received = r2(p.received), wht = r2(p.wht || 0), amount = r2(received + wht);
     if (received <= 0) throw new RuleError('Enter the amount received.');
     if (wht < 0) throw new RuleError('WHT cannot be negative.');

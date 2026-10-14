@@ -41,7 +41,7 @@ export default async function PartyAccount({ params, searchParams }: { params: P
   return (
     <>
       <div className="head"><div><h1>{p.name} <span className="muted mono" style={{ fontSize: 16 }}>{p.code}</span></h1>
-        <p dir="auto">{[vendor ? (p.is_sub ? 'Subcontractor' : 'Vendor') : 'Customer', p.vendor_type, p.full_name !== p.name ? p.full_name : null, p.phone, p.email, vendor ? payLabel(p) : p.tax_id ? `ID ${p.tax_id}` : null].filter(Boolean).join(' · ')}</p></div>
+        <p dir="auto">{[vendor ? (p.is_sub ? 'Subcontractor' : 'Vendor') : 'Customer', p.vendor_type, p.full_name !== p.name ? p.full_name : null, p.phone, p.email, vendor ? payLabel(p, may) : p.tax_id ? `ID ${p.tax_id}` : null].filter(Boolean).join(' · ')}</p></div>
         <div className="row">{vendor && <Link className="btn pri" href="/payment-requests/new">Pay a vendor or subcontractor</Link>}<Link className="btn" href={`/parties?tab=${kind}`}>All {vendor ? (p.is_sub ? 'subcontractors' : 'vendors') : 'customers'}</Link></div></div>
       {q.error && <div className="msg bad">{q.error}</div>}
       {q.ok && <div className="msg good">{q.ok}</div>}

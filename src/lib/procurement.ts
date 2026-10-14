@@ -260,8 +260,8 @@ export async function setDeliveryDate(user: User, poId: string, date: string) {
 
 /** One open task per PO whose promised date has passed with goods still to come, for its buyer (else the procurement head, else whoever raised it). */
 export async function raiseLateDeliveryTasks(now = today()) {
-  const pos = await sql<{ id: string; po_no: string; vendor: string | null; cc: string | null; due: string; buyer_id: string | null; created_by: string | null }[]>`
-    select r.id, r.po_no, v.name vendor, coalesce(p.code, d.name) cc, to_char(coalesce(r.delivery_date, r.needed_by),'YYYY-MM-DD') due, r.buyer_id, r.created_by
+  const pos = await sql<{ id: string; po_no: string; vendor: string | null; cc: string | null; due: string; buyer_id: string | null; created_by: string | null; project_id: string | null }[]>`
+    select r.id, r.po_no, v.name vendor, coalesce(p.code, d.name) cc, to_char(coalesce(r.delivery_date, r.needed_by),'YYYY-MM-DD') due, r.buyer_id, r.created_by, r.project_id
     from purchase_requests r left join parties v on v.id = r.vendor_id left join projects p on p.id = r.project_id left join departments d on d.id = r.dept_id
     where r.status = 'approved' and not r.closed and coalesce(r.delivery_date, r.needed_by) < ${now}::date
       and exists (select 1 from purchase_request_lines l where l.request_id = r.id and l.qty - coalesce((select sum(dl.qty) from delivery_lines dl where dl.line_id = l.id), 0) > 0.0005)
@@ -272,8 +272,8 @@ export async function raiseLateDeliveryTasks(now = today()) {
   for (const po of pos) {
     const who = po.buyer_id ?? head ?? po.created_by;
     const late = daysBetween(po.due, now) - 1;
-    await sql`insert into tasks (title, details, status, priority, due, assignee_id, link_type, link_id, link_label, created_by)
-      values (${`Late delivery: ${po.po_no}${po.vendor ? ` · ${po.vendor}` : ''}${po.cc ? ` · ${po.cc}` : ''}`}, ${`Promised for ${po.due}, ${late} day${late === 1 ? '' : 's'} late with goods still to come. Chase the vendor and record the delivery on the PO.`}, 'todo', 'high', ${po.due}, ${who}, 'purchase', ${po.id}, ${po.po_no}, ${who})`;
+    await sql`insert into tasks (title, details, status, priority, due, assignee_id, link_type, link_id, link_label, project_id, created_by)
+      values (${`Late delivery: ${po.po_no}${po.vendor ? ` · ${po.vendor}` : ''}${po.cc ? ` · ${po.cc}` : ''}`}, ${`Promised for ${po.due}, ${late} day${late === 1 ? '' : 's'} late with goods still to come. Chase the vendor and record the delivery on the PO.`}, 'todo', 'high', ${po.due}, ${who}, 'purchase', ${po.id}, ${po.po_no}, ${po.project_id}, ${who})`;
     n++;
   }
   return n;
