@@ -18,6 +18,7 @@ import { ProjectPlanCard } from '../../planning/ProjectPlanCard';
 import { ProjectProcurementCard } from '../../purchasing/ProjectProcurementCard';
 import { ProjectClaimsCard } from '../../claims/ProjectClaimsCard';
 import { ProjectSiteCard } from '../../site/ProjectSiteCard';
+import { SitePinCard } from './SitePinCard';
 import { setPhaseAction } from './form/actions';
 import { createSetAction } from '../../design/actions';
 
@@ -103,7 +104,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             })}</tbody></table></div>
         </div>)}
       {!p.is_office && <ProjectQsCard id={id} user={user} />}
-      {!p.is_office && <><ProjectPlanCard id={id} user={user} phase={p.phase} /><ProjectProcurementCard id={id} /><ProjectClaimsCard id={id} /><ProjectSiteCard id={id} phase={p.phase} /></>}
+      {!p.is_office && <><ProjectPlanCard id={id} user={user} phase={p.phase} /><ProjectProcurementCard id={id} /><ProjectClaimsCard id={id} /><ProjectSiteCard id={id} phase={p.phase} />
+        <SitePinCard id={id} code={p.code} lat={p.site_lat === null ? null : +p.site_lat} lng={p.site_lng === null ? null : +p.site_lng} radius={+p.site_radius_m} user={user} /></>}
       {hasRole(user, 'finance') && (
         <form action={updateProject.bind(null, id)} className="card">
           <h2>Project details</h2>

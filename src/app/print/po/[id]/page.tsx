@@ -61,7 +61,7 @@ export default async function PrintPO({ params }: { params: Promise<{ id: string
         <div className="sig"><b>For {s.company_name}</b><div>{mgmt?.who ?? ' '}</div><div className="sd">{mgmt ? `Approved ${mgmt.at}` : 'Signature / date'}</div></div>
         <div className="sig"><b>Vendor acceptance</b><div> </div><div className="sd">Signature / stamp / date</div></div>
       </div>
-      <div className="foot">Printed from Right Space Accounting · {today()}</div>
+      <div className="foot">Printed from Right Space · {today()}</div>
     </div>
   );
 }

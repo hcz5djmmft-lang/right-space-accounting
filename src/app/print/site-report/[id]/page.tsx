@@ -50,7 +50,7 @@ export default async function PrintSiteReport({ params }: { params: Promise<{ id
         <div className="sig"><b>Site engineer (مهندس الموقع)</b><div>{r.submitted_by_name ?? r.created_by_name ?? ' '}</div><div className="sd">{s.company_name}</div></div>
         <div className="sig"><b>Project manager (مدير المشروع)</b><div>{r.reviewed_by_name ?? ' '}</div><div className="sd">Signature / date</div></div>
       </div>
-      <div className="foot">Right Space Accounting · {r.no} · {r.day}</div>
+      <div className="foot">Right Space · {r.no} · {r.day}</div>
     </div>
   );
 }

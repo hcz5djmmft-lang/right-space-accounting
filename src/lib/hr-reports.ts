@@ -73,7 +73,7 @@ export const kpis = (period: string, today: string) => sql<Kpi[]>`
     (select count(*)::int from attendance a where a.employee_id = e.id and to_char(a.day,'YYYY-MM') = ${period} and a.late_min > 0) late_days,
     coalesce((select sum(a.late_min) from attendance a where a.employee_id = e.id and to_char(a.day,'YYYY-MM') = ${period}),0)::int late_min,
     coalesce((select sum(a.overtime_min) from attendance a where a.employee_id = e.id and to_char(a.day,'YYYY-MM') = ${period}),0)::int overtime_min,
-    coalesce((select sum(s.minutes) from design_sessions s where s.employee_id = e.id and to_char(s.start_at at time zone 'Africa/Cairo','YYYY-MM') = ${period}),0)::int design_min
+    coalesce((select sum(s.minutes) from work_sessions s where s.category = 'design' and s.employee_id = e.id and to_char(s.start_at at time zone 'Africa/Cairo','YYYY-MM') = ${period}),0)::int design_min
   from employees e left join departments d on d.id = e.dept_id where e.active order by e.code, e.name`;
 
 export type DocRow = { employee_id: string; code: string | null; name: string; missing: string[] };

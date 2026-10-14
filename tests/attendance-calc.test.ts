@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_HR, distanceM, fmtMin, hourlyRate, hrSettings, lateMinutes, localParts, placeOf, timesheetAmounts, workedAndOvertime } from '@/lib/attendance-calc';
+import { DEFAULT_HR, distanceM, fmtMin, hourlyRate, hrSettings, lateMinutes, localParts, placeLabel, placeOf, timesheetAmounts, whereText, workedAndOvertime } from '@/lib/attendance-calc';
+import { CATEGORIES, categoryOf, defaultPick, offeredCategories, whatLabel, whatPhrase } from '@/lib/clock-categories';
 
 const TZ = 'Africa/Cairo'; // UTC+3 in October 2026 (no DST change in these dates)
 const at = (iso: string) => new Date(iso);
@@ -30,7 +31,41 @@ describe('attendance maths', () => {
     expect(placeOf('office', { lat: 31.2100, lng: 29.9187 }, s)).toMatchObject({ place: 'away', distance: 1101 });
     expect(placeOf('office', null, s)).toEqual({ place: 'unknown', distance: null });
     expect(placeOf('office', { lat: 31.2100, lng: 29.9187 }, DEFAULT_HR)).toEqual({ place: 'unknown', distance: null });
-    expect(placeOf('site', { lat: 30.0, lng: 31.0 }, s)).toMatchObject({ place: 'site' });
+    expect(placeOf('site', { lat: 30.0, lng: 31.0 }, s)).toEqual({ place: 'unknown', distance: null });                    // no pin on the project: recorded, not checked
+    const pin = { lat: 30.0444, lng: 31.2357, radius_m: 150 };
+    expect(placeOf('site', { lat: 30.0449, lng: 31.2360 }, s, pin)).toEqual({ place: 'site', distance: 63 });
+    expect(placeOf('site', { lat: 30.0544, lng: 31.2357 }, s, pin)).toEqual({ place: 'away', distance: 1112 });
+    expect(placeOf('site', null, s, pin)).toEqual({ place: 'unknown', distance: null });
+    expect(placeLabel('office', true)).toBe('at the office'); expect(placeLabel('site', true)).toBe('on site'); expect(placeLabel('away', true)).toBe('away');
+    expect(placeLabel('unknown', true)).toBe('position recorded'); expect(placeLabel('unknown', false)).toBe('no location'); expect(placeLabel(null, false)).toBe('no location');
+  });
+  it('the phone is told where the system saw the person, or why it could not compare', () => {
+    const base = { place: 'office' as const, distance: 40, acc: 8, hasPos: true, rule: 'office' as const, compared: true };
+    expect(whereText('in', '', base)).toBe('Clocked in at the office, 40 m from its pin (accurate to about 8 m).');
+    expect(whereText('out', 'for design on PH-B1302', { ...base, acc: null })).toBe('Clocked out for design on PH-B1302 at the office, 40 m from its pin.');
+    expect(whereText('in', '', { ...base, place: 'unknown', distance: null, compared: false })).toBe('Clocked in. Your position was recorded (accurate to about 8 m); the office location is not set yet, so it was not compared.');
+    expect(whereText('in', 'on site PH-B1302', { ...base, rule: 'site', place: 'site', distance: null, compared: false })).toBe('Clocked in on site PH-B1302. Your position was recorded (accurate to about 8 m); this project has no location pin yet, so it was not compared.');
+    expect(whereText('in', 'on site PH-B1302', { ...base, rule: 'site', place: 'site', distance: 63 })).toBe('Clocked in on site PH-B1302, 63 m from the project pin (accurate to about 8 m).');
+    expect(whereText('out', '', { ...base, place: 'away', distance: 900 })).toBe('Clocked out about 900 m from the office, outside the allowed distance; HR will see it.');
+    expect(whereText('in', '', { ...base, hasPos: false, place: 'unknown', distance: null, acc: null })).toBe('Clocked in without a location: your phone did not give one. Allow the location for this site: in Safari tap aA next to the address, then Website Settings, Location, Allow.');
+  });
+  it('the categories are data: who gets which, what is preselected, how they read', () => {
+    expect(CATEGORIES.map(c => c.key)).toEqual(['office', 'site', 'design', 'payments', 'collections', 'payroll', 'bank_cash', 'cost_control', 'reports']);
+    expect(new Set(CATEGORIES.map(c => c.key)).size).toBe(CATEGORIES.length);
+    expect(offeredCategories({ dept_name: null }).map(c => c.key)).toEqual(['office']);
+    expect(offeredCategories({ dept_name: 'Admin', work_location: 'site' }).map(c => c.key)).toEqual(['office', 'site']);
+    expect(offeredCategories({ dept_name: 'Engineering', work_location: 'office' }).map(c => c.key)).toEqual(['office', 'site', 'design']);
+    expect(offeredCategories({ dept_name: null }, { roles: ['projects'] }).map(c => c.key)).toEqual(['office', 'site', 'design']);
+    expect(offeredCategories({ dept_name: 'Finance' }).map(c => c.key)).toEqual(['office', 'payments', 'collections', 'payroll', 'bank_cash', 'cost_control', 'reports']);
+    expect(offeredCategories({ dept_name: null }, { roles: ['finance'] })).toHaveLength(7);
+    expect(offeredCategories({ dept_name: 'Admin' }, { roles: ['management'] })).toHaveLength(9);
+    expect(defaultPick({ work_location: 'site', project_id: 'p1' }, null)).toEqual({ category: 'site', projectId: 'p1' });
+    expect(defaultPick({ work_location: 'office', project_id: null }, null)).toEqual({ category: 'office', projectId: null });
+    expect(defaultPick({ work_location: 'office', project_id: null }, { category: 'design', project_id: 'p2' })).toEqual({ category: 'design', projectId: 'p2' });
+    expect(defaultPick({ work_location: 'office', project_id: null }, { category: 'gone', project_id: null })).toEqual({ category: 'office', projectId: null });
+    expect(whatLabel(categoryOf('office'), null)).toBe('Office'); expect(whatLabel(categoryOf('site'), 'PH-B1302')).toBe('Site on PH-B1302'); expect(whatLabel(categoryOf('site'), null)).toBe('Site'); expect(whatLabel(categoryOf('bank_cash'), null)).toBe('Bank and petty cash');
+    expect(whatPhrase(categoryOf('design')!, 'PH-B1302')).toBe('for design on PH-B1302'); expect(whatPhrase(categoryOf('design')!, null)).toBe('for design'); expect(whatPhrase(categoryOf('site')!, null)).toBe('on site');
+    expect(whatPhrase(categoryOf('office')!, null)).toBe(''); expect(whatPhrase(categoryOf('reports')!, null)).toBe('for reports, tax and closing');
   });
   it('an hour costs the monthly pay over the standard hours; overtime and lateness are priced from it', () => {
     expect(hourlyRate(10000, 2000, DEFAULT_HR)).toBe(68.18);                     // 12,000 / 176

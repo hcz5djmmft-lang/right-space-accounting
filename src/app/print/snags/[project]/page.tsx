@@ -37,7 +37,7 @@ export default async function PrintSnags({ params }: { params: Promise<{ project
         <div className="sig"><b>Client representative</b><div className="sd">Signature / date</div></div>
         <div className="sig"><b>Site engineer</b><div className="sd">Signature / date</div></div>
       </div>
-      <div className="foot">Right Space Accounting · snags open and fixed are still to be verified before the handover certificate is signed.</div>
+      <div className="foot">Right Space · snags open and fixed are still to be verified before the handover certificate is signed.</div>
     </div>
   );
 }

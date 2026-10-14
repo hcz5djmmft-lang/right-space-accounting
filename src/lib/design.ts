@@ -341,6 +341,6 @@ export async function designStatus(now = new Date()): Promise<StatusRow[]> {
 export const designHoursVsFee = () => sql<{ project_id: string; code: string; name: string; phase: string | null; design_fee: number | null; minutes: number; cost: number; people: number }[]>`
   select p.id project_id, p.code, p.name, p.phase, p.design_fee,
     coalesce(sum(s.minutes),0)::int minutes, coalesce(sum(s.cost),0)::float cost, count(distinct s.employee_id)::int people
-  from projects p left join design_sessions s on s.project_id = p.id and s.end_at is not null
-  where not p.is_office and (p.phase = 'design' or p.design_fee is not null or exists (select 1 from design_sessions x where x.project_id = p.id))
+  from projects p left join work_sessions s on s.project_id = p.id and s.category = 'design' and s.end_at is not null
+  where not p.is_office and (p.phase = 'design' or p.design_fee is not null or exists (select 1 from work_sessions x where x.project_id = p.id and x.category = 'design'))
   group by p.id order by p.code`;

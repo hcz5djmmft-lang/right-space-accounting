@@ -57,6 +57,7 @@ td a { text-decoration: none; } td a:hover { text-decoration: underline; }
 .pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: var(--sand); color: #5d5545; text-transform: capitalize; }
 .pill.posted { background: #dff1e6; color: #1f5f3c; } .pill.pending { background: #fdf0d3; color: #7a5300; }
 .pill.rejected { background: #fbe1df; color: #8d1f19; }
+.pill.nocap { text-transform: none; }
 
 label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 .inp { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-height: 40px; width: 100%; }

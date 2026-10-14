@@ -3,7 +3,7 @@ import nodemailer, { type Transporter } from 'nodemailer';
 
 // The sender is configuration, not code: today a Gmail account (SMTP), later a company domain.
 //   SMTP_URL=smtps://rightspace.accounts%40gmail.com:<app password>@smtp.gmail.com:465
-//   EMAIL_FROM="Right Space Accounting <rightspace.accounts@gmail.com>"
+//   EMAIL_FROM="Right Space <rightspace.accounts@gmail.com>"
 // With no SMTP_URL (local and test), nothing is sent: the log notes the recipient and subject, never the body,
 // because a temporary password travels in the body.
 

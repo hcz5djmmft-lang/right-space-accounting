@@ -17,7 +17,7 @@ export default async function HrSettings({ searchParams }: { searchParams: Promi
       <form action={saveHrAction}>
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Office location</h2>
-          <p className="muted" style={{ marginTop: 0 }}>Office staff can clock in only within this distance of the office. Until it is set, their clock-ins are recorded wherever they are.</p>
+          <p className="muted" style={{ marginTop: 0 }}>Office, Design and Finance clock-ins must be within this distance of the office (a Site clock-in is checked against the project's own pin). Until it is set, they are recorded wherever the person is.</p>
           <div className="grid g3">
             <label className="f"><span>Latitude</span><input className="inp mono" name="office_lat" defaultValue={s.office_lat ?? ''} inputMode="decimal" placeholder="e.g. 31.2001" /></label>
             <label className="f"><span>Longitude</span><input className="inp mono" name="office_lng" defaultValue={s.office_lng ?? ''} inputMode="decimal" placeholder="e.g. 29.9187" /></label>
