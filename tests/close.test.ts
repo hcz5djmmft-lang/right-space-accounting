@@ -59,7 +59,7 @@ describe('month-end close', () => {
     await expect(close.tickItem(fin as never, P, 'vat', true)).rejects.toThrow(/by itself/);
     await close.tickItem(fin as never, P, 'petty', true);
     await close.tickItem(fin as never, P, 'petty', false);
-    expect((await item('petty')).done).toBe(false);
+    expect(await item('petty')).toMatchObject({ done: true, detail: 'No petty cash this month' }); // no petty cash box in this data
     await close.tickItem(fin as never, P, 'petty', true);
     expect((await item('petty')).detail).toMatch(/^Ticked by Ziad/);
   });

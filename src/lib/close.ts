@@ -6,6 +6,7 @@ import { audit, getSettings } from './books';
 import { reconcile } from './banks';
 import { TZ, lastDay } from './dates';
 import { depreciationFor, depreciationRun } from './assets';
+import { countedFor } from './petty';
 
 // Month-end close (improvement 9). For each month a checklist: the bank and the credit card reconciled through the
 // month end, petty cash counted, payroll posted, the VAT return marked prepared, and nothing left waiting in the month.
@@ -35,7 +36,7 @@ async function ticksOf(period: string) {
 export async function closeChecklist(period: string) {
   checkPeriod(period);
   const start = period + '-01', end = monthEnd(period);
-  const [banks, openLines, [run], [staff], [waiting], [vat], dep, depRun, saved, s] = await Promise.all([
+  const [banks, openLines, [run], [staff], [waiting], [vat], dep, depRun, petty, saved, s] = await Promise.all([
     sql<{ code: string; name: string; kind: string; balance: number; cleared: number; stmt_date: string | null; stmt_balance: number | null }[]>`
       select a.code, a.name, coalesce(b.kind, 'bank') kind, to_char(s.stmt_date,'YYYY-MM-DD') stmt_date, s.stmt_balance::float stmt_balance,
         coalesce((select sum(l.dr - l.cr) from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.account = a.code), 0)::float balance,
@@ -54,6 +55,7 @@ export async function closeChecklist(period: string) {
     sql<{ by: string | null; at: string }[]>`select u.name by, to_char(v.prepared_at at time zone ${TZ},'YYYY-MM-DD') at from vat_returns v left join users u on u.id = v.prepared_by where v.period = ${period}`,
     depreciationFor(period),
     depreciationRun(period),
+    countedFor(period, end),
     ticksOf(period),
     getSettings(),
   ]);
@@ -68,7 +70,11 @@ export async function closeChecklist(period: string) {
     { key: 'bank', label: 'Bank and credit card reconciled to the month end', auto: true, done: behind.length === 0, href: '/banks',
       detail: banks.length === 0 ? 'No bank activity this month' : behind.length === 0 ? 'Every statement reaches ' + end + ' and agrees with the books'
         : 'Still to do: ' + behind.map(b => `${b.name}${open.get(b.code) ? ` (${open.get(b.code)} statement lines not matched)` : !b.stmt_date || b.stmt_date < end ? ' (statement not up to the month end)' : ' (does not agree)'}`).join(', ') },
-    manual('petty', '/banks'),
+    // counted on the Petty cash page; Finance can still tick it by hand (a box counted outside the system)
+    (() => {
+      const m = manual('petty', '/petty-cash'), counted = petty.missing.length === 0;
+      return m.done ? m : { ...m, done: counted, detail: petty.boxes === 0 ? 'No petty cash this month' : counted ? 'Counted on the Petty cash page' : `Count ${petty.missing.join(', ')} on the Petty cash page, or tick when done` };
+    })(),
     { key: 'payroll', label: 'Payroll posted', auto: true, done: run?.status === 'posted' || staff.n === 0, href: `/payroll`,
       detail: run?.status === 'posted' ? `${period} payroll is posted` : staff.n === 0 ? 'No staff this month' : run ? `${period} payroll is ${run.status === 'pending' ? 'waiting for approval' : run.status}` : `No ${period} payroll yet` },
     { key: 'vat', label: 'VAT return prepared', auto: true, done: !!vat, href: `/reports/vat-return?m=${period}`,

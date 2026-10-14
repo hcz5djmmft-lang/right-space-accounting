@@ -66,7 +66,7 @@ export async function importStatementAction(f: FormData) {
   const file = f.get('file');
   if (!(file instanceof File) || !file.size) back(code, from, to, { error: 'Choose the statement file (Excel .xlsx or CSV).' });
   let r = { read: 0, added: 0, matched: 0 };
-  try { r = await importStatement(user, code, (file as File).name, Buffer.from(await (file as File).arrayBuffer())); }
+  try { r = await importStatement(user, code, (file as File).name, Buffer.from(await (file as File).arrayBuffer()), { chargesPositive: f.get('sign') === 'charges-positive' }); }
   catch (e) { back(code, from, to, { error: err(e) }); }
   back(code, from, to, { ok: `Statement read: ${r.read} lines, ${r.added} new, ${r.matched} matched to the books.${r.added > r.matched ? ' The rest are listed under Statement lines.' : ''}` });
 }

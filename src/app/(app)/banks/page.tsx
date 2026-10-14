@@ -127,6 +127,7 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
           <form action={importStatementAction} className="row" style={{ alignItems: 'end', flexWrap: 'wrap' }}>
             {hidden}
             <label className="f"><span>Statement file (Excel .xlsx or CSV, as downloaded from CIB online)</span><input className="inp" type="file" name="file" accept=".xlsx,.csv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required /></label>
+            {cur.kind === 'card' && <label className="f"><span>On this file, purchases are</span><select className="inp" name="sign" defaultValue="charges-positive"><option value="charges-positive">Plain amounts (payments marked CR or minus)</option><option value="charges-negative">Minus or in a Debit column</option></select></label>}
             <button className="btn pri">Import statement</button>
             {stCounts.open > 0 && <button className="btn" formAction={matchAgainAction} formNoValidate>Match again</button>}
           </form>

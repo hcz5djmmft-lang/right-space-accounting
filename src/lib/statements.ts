@@ -45,13 +45,14 @@ function valid(y: number, mo: number, d: number) {
   return new Date(iso + 'T00:00:00Z').toISOString().slice(0, 10) === iso ? iso : null;
 }
 
-/** An amount as printed: 1,234.50 · (1,234.50) · -1234.5 · 1,234.50 CR / DR. Empty: null. */
-export function parseMoney(raw: string): number | null {
+/** An amount as printed: 1,234.50 · (1,234.50) · -1234.5 · 1,234.50 CR / DR. Empty: null. `crMinus`: CR is the minus side (card statements). */
+export function parseMoney(raw: string, crMinus = false): number | null {
   let s = western(String(raw ?? '')).trim().replace(/EGP|LE|ج\.?م/gi, '').trim();
   if (!s) return null;
   let sign = 1;
   if (/^\(.*\)$/.test(s)) { sign = -1; s = s.slice(1, -1); }
   if (/\bDR\b|D$/i.test(s)) sign = -1;
+  if (crMinus && /\bCR\b|C$/i.test(s)) sign = -1;
   s = s.replace(/\b(CR|DR)\b|[CD]$/gi, '').replace(/[,\s]/g, '');
   if (s.startsWith('-')) { sign *= -1; s = s.slice(1); }
   if (!/^\d+(\.\d+)?$/.test(s)) return null;
@@ -70,7 +71,7 @@ const COL = {
 };
 
 /** Reads a statement file into lines. The header row is found by its titles (English or Arabic), wherever it is. */
-export function parseStatement(buf: Buffer, fileName = ''): ParsedLine[] {
+export function parseStatement(buf: Buffer, fileName = '', crMinus = false): ParsedLine[] {
   let rows: string[][];
   try { rows = readSpreadsheet(buf, fileName); } catch (e) { throw new RuleError(e instanceof Error ? e.message : 'The file could not be read.'); }
   let h = -1, cols: Partial<Record<keyof typeof COL, number>> = {};
@@ -94,13 +95,13 @@ export function parseStatement(buf: Buffer, fileName = ''): ParsedLine[] {
     if (cols.debit !== undefined && cols.credit !== undefined) {
       const dr = parseMoney(row[cols.debit] ?? ''), cr = parseMoney(row[cols.credit] ?? '');
       amount = dr === null && cr === null ? null : r2((cr ?? 0) - Math.abs(dr ?? 0));
-    } else amount = parseMoney(row[cols.amount!] ?? '');
+    } else amount = parseMoney(row[cols.amount!] ?? '', crMinus);
     if (amount === null || amount === 0) continue;
     out.push({
       date, amount,
       description: String(cols.description !== undefined ? row[cols.description] ?? '' : '').trim().slice(0, 300),
       ref: String(cols.ref !== undefined ? row[cols.ref] ?? '' : '').trim().slice(0, 80),
-      balance: cols.balance !== undefined ? parseMoney(row[cols.balance] ?? '') : null,
+      balance: cols.balance !== undefined ? parseMoney(row[cols.balance] ?? '', crMinus) : null,
     });
   }
   if (!out.length) throw new RuleError('The file has a header row but no lines with a date and an amount.');
@@ -114,10 +115,11 @@ async function statementAccount(code: string) {
 }
 
 /** Imports a statement for one account: new lines are kept (a line already imported is skipped), then matched. */
-export async function importStatement(user: User, account: string, fileName: string, buf: Buffer) {
+export async function importStatement(user: User, account: string, fileName: string, buf: Buffer, opts: { chargesPositive?: boolean } = {}) {
   if (!hasRole(user, 'finance')) throw new RuleError('Only Finance imports bank statements.');
   await statementAccount(account);
-  const lines = parseStatement(buf, fileName);
+  // card statements often print purchases as plain amounts and payments as CR: turned round, purchases are money out
+  const lines = parseStatement(buf, fileName, !!opts.chargesPositive).map(l => (opts.chargesPositive ? { ...l, amount: -l.amount, balance: l.balance === null ? null : -l.balance } : l));
   const res = await sql.begin(async tx => {
     const [{ id: importId }] = await tx<{ id: string }[]>`insert into statement_imports (account, file_name, imported_by) values (${account}, ${fileName.slice(0, 200)}, ${user.id}) returning id`;
     let added = 0;
