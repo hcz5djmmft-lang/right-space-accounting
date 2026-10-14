@@ -4,6 +4,8 @@ import { requireUser, hashPassword, endOtherSessions } from '@/lib/auth';
 import { ROLES } from '@/lib/roles';
 import { sql } from '@/lib/db';
 import { audit } from '@/lib/books';
+import { pushKeys } from '@/lib/push';
+import { PushButton } from '@/components/PushButton';
 
 async function changePassword(f: FormData) {
   'use server';
@@ -21,6 +23,7 @@ async function changePassword(f: FormData) {
 export default async function Account({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string }> }) {
   const u = await requireUser();
   const { saved, error } = await searchParams;
+  const { publicKey } = await pushKeys();
   return (
     <>
       <div className="head"><div><h1>My account</h1><p>{u.name} · {u.email} · {u.roles.map(r => ROLES[r]).join(', ') || 'no role yet'}</p></div></div>
@@ -31,6 +34,11 @@ export default async function Account({ searchParams }: { searchParams: Promise<
         <label className="f"><span>New password</span><input className="inp" type="password" name="next" autoComplete="new-password" minLength={8} required /></label>
         <button className="btn pri">Change password</button>
       </form>
+      <div className="card" style={{ maxWidth: 760 }}>
+        <h2 style={{ marginTop: 0 }}>Notifications on this phone</h2>
+        <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>A notification when an approval, a task or a progress claim waits for you{'; partners also get the morning summary at 08:00 (cash, collections due this week, approvals waiting)'}. Turn it on once on each phone you use.</p>
+        <PushButton publicKey={publicKey} />
+      </div>
     </>
   );
 }

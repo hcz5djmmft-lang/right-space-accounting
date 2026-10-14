@@ -3,6 +3,8 @@ import { requireUser } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { today } from '@/lib/dates';
+import { pushKeys } from '@/lib/push';
+import { PushButton } from '@/components/PushButton';
 
 export default async function Overview({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   const user = await requireUser();
@@ -27,6 +29,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
       where p.status <> 'Closed' group by p.id order by p.is_office desc, p.code`,
   ]);
   const cash = banks.reduce((s, b) => s + b.bal, 0);
+  const { publicKey } = await pushKeys();
   return (
     <>
       {denied && <div className="msg bad">Your role does not give you access to that page.</div>}
@@ -34,6 +37,7 @@ export default async function Overview({ searchParams }: { searchParams: Promise
         <div><h1>Good day, {user.name.split(' ')[0]}</h1><p>Right Space Development · all amounts in EGP</p></div>
         <div className="row"><Link className="btn pri" href="/entries/new?type=expense">Record expense</Link><Link className="btn" href="/entries/new?type=collection">Collection</Link></div>
       </div>
+      <PushButton publicKey={publicKey} compact />
       <div className="tiles">
         <div className="tile"><div className="k">Cash &amp; bank</div><div className="v mono">{fmt(cash)}</div></div>
         <div className="tile"><div className="k">Revenue this year</div><div className="v mono">{fmt(pl.rev)}</div></div>

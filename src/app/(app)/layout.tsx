@@ -4,6 +4,8 @@ import { openForUser } from '@/lib/tasks';
 import { hasRole } from '@/lib/roles';
 import { sql } from '@/lib/db';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
+import { notifyPending } from '@/lib/push';
 import { Nav, type NavItem } from '@/components/Nav';
 
 async function signOut() {
@@ -14,6 +16,8 @@ async function signOut() {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  // after the page is sent: push to the phones whatever has started waiting for someone (at most every 20 seconds)
+  after(() => notifyPending().catch(e => console.error('notify', e)));
   const [waiting, myTasks] = await Promise.all([waitingForUser(user), openForUser(user.id)]);
   const n = waiting.length;
   // The menu follows the department: Finance holds the books; everyone else raises requests and sees their projects.

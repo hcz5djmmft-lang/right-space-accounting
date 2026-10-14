@@ -6,7 +6,7 @@ import { today } from '@/lib/dates';
 import { hasRole } from '@/lib/roles';
 import { getSettings } from '@/lib/books';
 import { listPartners, partnerStatement, profitFor, profitShares } from '@/lib/partners';
-import { depositAction, shareAction, withdrawalAction } from './actions';
+import { depositAction, shareAction, summaryLoginsAction, withdrawalAction } from './actions';
 
 const ACTION_LABEL: Record<string, string> = { deposit: 'Money put in', withdrawal: 'Withdrawal', profit: 'Profit share' };
 const nextDay = (d: string) => new Date(Date.parse(d + 'T00:00:00Z') + 864e5).toISOString().slice(0, 10);
@@ -19,12 +19,15 @@ export default async function Partners({ searchParams }: { searchParams: Promise
   const s = await getSettings();
   const m = s.fy_start_month || 1, y = Number(now.slice(0, 4)) - (Number(now.slice(5, 7)) < m ? 1 : 0);
   const yearStart = `${y}-${String(m).padStart(2, '0')}-01`;
-  const [partners, shares, banks, ytd, capital] = await Promise.all([
+  const [partners, shares, banks, ytd, capital, logins, users] = await Promise.all([
     listPartners(), profitShares(),
     sql<{ code: string; name: string }[]>`select code, name from accounts where is_bank and postable order by code`,
     profitFor(yearStart, now),
     sql<{ balance: number }[]>`select coalesce(sum(l.cr - l.dr), 0) balance from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.account = 'Q110'`,
+    sql<{ id: string; user_id: string | null }[]>`select id, user_id from partners where active`,
+    sql<{ id: string; name: string }[]>`select id, name from users where active order by name`,
   ]);
+  const loginOf = new Map(logins.map(l => [l.id, l.user_id]));
   const last = shares.find(x => !x.reversed);
   const shareFrom = last ? nextDay(last.date_to) : yearStart;
   const cur = partners.find(p => p.id === partner);
@@ -102,6 +105,16 @@ export default async function Partners({ searchParams }: { searchParams: Promise
             <tbody>{shares.map(x => <tr key={x.id}><td className="mono">{x.date_from} to {x.date_to}</td><td className="mono"><Link href={`/entries/${x.entry_id}`}>{x.entry_no}</Link></td>
               <td className="num">{fmt(x.profit)}</td><td className="muted">{x.reversed ? 'reversed' : ''}</td></tr>)}</tbody>
           </table></div>)}
+      </div>
+
+      <div className="card">
+        <h2>Morning summary</h2>
+        <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>Every day at 08:00 each partner&apos;s phone gets cash in bank and petty cash, collections due this week and the approvals waiting. Pick each partner&apos;s login; the partner turns notifications on under My account on their phone.</p>
+        <form action={summaryLoginsAction} className="grid g2" style={{ alignItems: 'end' }}>
+          {partners.map(p => <label key={p.id} className="f"><span>{p.name}</span>
+            <select className="inp" name={'user_' + p.id} defaultValue={loginOf.get(p.id) ?? ''} disabled={!hasRole(user, 'management')}><option value="">No login yet</option>{users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}</select></label>)}
+          {hasRole(user, 'management') && <div><button className="btn">Save</button></div>}
+        </form>
       </div>
 
       {cur && (
