@@ -3,7 +3,8 @@ import { requireUser } from '@/lib/auth';
 import { fmt } from '@/lib/money';
 import { today } from '@/lib/dates';
 import { KIND_LABEL, bankAccounts, bankActivity, bankSummary, cardFigures, reconcile, type BankAccount } from '@/lib/banks';
-import { chargeAction, clearedAction, interestAction, statementAction } from './actions';
+import { chargeAction, clearedAction, ignoreLineAction, importStatementAction, interestAction, matchAgainAction, recordLineAction, statementAction, unmatchLineAction } from './actions';
+import { lastImport, statementCounts, statementLines } from '@/lib/statements';
 
 /** The second line of an account's tile: what kind of account it is and the detail that tells it apart. */
 function describe(a: BankAccount) {
@@ -19,6 +20,8 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
   const cur = accounts.find(a => a.code === account) ?? accounts.find(a => a.kind === 'bank') ?? accounts[0]; // the bank account first
   const [lines, sum] = cur ? await Promise.all([bankActivity(cur.code, from, to), bankSummary(cur.code, from, to)]) : [[], null];
   const rec = cur ? reconcile(cur) : null;
+  const [stLines, stCounts, stLast] = cur && cur.kind !== 'cash' ? await Promise.all([statementLines(cur.code, { from, to }), statementCounts(cur.code), lastImport(cur.code)]) : [[], null, null];
+  const openLines = stLines.filter(l => l.status === 'open'), doneLines = stLines.filter(l => l.status !== 'open');
   let run = 0;
   const q = (code: string) => `/banks?account=${code}${from ? `&from=${from}` : ''}${to ? `&to=${to}` : ''}`;
   const period = from || to ? `${from || 'start'} to ${to || 'today'}` : 'all dates';
@@ -116,6 +119,41 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
           </form>
           <p className="muted" style={{ margin: '10px 0 0', fontSize: 13 }}>Balance in books {fmt(cur.balance)} · cleared {fmt(cur.cleared)} · not yet on a statement {fmt(rec.uncleared)}.
             Tick each line that appears on the bank statement and save; when the difference is zero, the account is reconciled.</p>
+        </div>)}
+
+      {cur && stCounts && (
+        <div className="card" id="statement-import">
+          <h2>Import the {cur.kind === 'card' ? 'card' : 'bank'} statement</h2>
+          <form action={importStatementAction} className="row" style={{ alignItems: 'end', flexWrap: 'wrap' }}>
+            {hidden}
+            <label className="f"><span>Statement file (Excel .xlsx or CSV, as downloaded from CIB online)</span><input className="inp" type="file" name="file" accept=".xlsx,.csv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required /></label>
+            <button className="btn pri">Import statement</button>
+            {stCounts.open > 0 && <button className="btn" formAction={matchAgainAction} formNoValidate>Match again</button>}
+          </form>
+          <p className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>Each line is matched to the book line of the same amount within 7 days and ticked as on the statement; the last balance on the file becomes the statement balance. A statement imported twice adds nothing.
+            {stLast ? ` Last import ${stLast.at}${stLast.who ? ` by ${stLast.who}` : ''}: ${stLast.file_name} (${stLast.lines} new lines).` : ''} Matched {stCounts.matched} · open {stCounts.open} · set aside {stCounts.ignored}.</p>
+          {openLines.length > 0 && <>
+            <h3 style={{ fontSize: 14, marginBottom: 4 }}>Statement lines with no book entry ({openLines.length})</h3>
+            <div className="tw"><table>
+              <thead><tr><th>Date</th><th>Description</th><th className="num">In</th><th className="num">Out</th><th></th></tr></thead>
+              <tbody>{openLines.map(l => (
+                <tr key={l.id}><td className="mono">{l.date}</td><td dir="auto">{l.description}{l.ref ? <span className="muted mono"> · {l.ref}</span> : ''}</td>
+                  <td className="num">{l.amount > 0 ? fmt(l.amount) : ''}</td><td className="num">{l.amount < 0 ? fmt(-l.amount) : ''}</td>
+                  <td><form className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>{hidden}
+                    {cur.kind === 'bank' && <button className="btn sm" formAction={recordLineAction.bind(null, l.id)}>{l.amount < 0 ? 'Record as bank charges' : 'Record as interest'}</button>}
+                    <Link className="btn sm" href={`/entries/new?type=${l.amount < 0 ? 'expense' : 'collection'}`}>New entry</Link>
+                    <button className="btn sm" formAction={ignoreLineAction.bind(null, l.id, true)}>Set aside</button></form></td></tr>))}</tbody>
+            </table></div>
+            <p className="muted" style={{ fontSize: 12 }}>After recording a payment or receipt with New entry, press Match again.</p>
+          </>}
+          {doneLines.length > 0 && <details style={{ marginTop: 8 }}><summary>Matched and set-aside lines ({doneLines.length})</summary>
+            <div className="tw"><table>
+              <thead><tr><th>Date</th><th>Description</th><th className="num">Amount</th><th>Book entry</th><th></th></tr></thead>
+              <tbody>{doneLines.map(l => (
+                <tr key={l.id}><td className="mono">{l.date}</td><td dir="auto">{l.description}</td><td className="num">{fmt(l.amount)}</td>
+                  <td className="mono">{l.entry_id ? <Link href={`/entries/${l.entry_id}`}>{l.entry_no}</Link> : <span className="muted">set aside</span>}{l.entry_date && l.entry_date !== l.date ? <span className="muted"> · {l.entry_date}</span> : ''}</td>
+                  <td><form>{hidden}{l.status === 'matched' ? <button className="btn sm" formAction={unmatchLineAction.bind(null, l.id)}>Undo match</button> : <button className="btn sm" formAction={ignoreLineAction.bind(null, l.id, false)}>Bring back</button>}</form></td></tr>))}</tbody>
+            </table></div></details>}
         </div>)}
 
       {cur && (
