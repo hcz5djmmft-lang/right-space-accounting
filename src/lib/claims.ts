@@ -499,19 +499,31 @@ export async function sendVariation(user: User, id: string) {
 }
 /** The client's answer. Approved: the lines join the project's BOQ (as its budget for the client claims) and the contract grows by their value. */
 export async function decideVariation(user: User, id: string, approved: boolean, note = '', clientRef = '') {
+  if (!canEngineer(user) && !hasRole(user, 'finance')) throw new RuleError("Only the engineers or Finance record the client's answer.");
+  await sql.begin(tx => applyVariation(tx, user, id, approved, note, clientRef));
+}
+/** The client's own answer from their link (improvement 2): only a variation order sent to them; `name` is who answered. */
+export async function decideVariationByClient(projectId: string, id: string, approved: boolean, note: string, name: string) {
   await sql.begin(async tx => {
+    const v = await getVariation(id, tx);
+    if (!v || v.project_id !== projectId || v.status !== 'sent') throw new RuleError('This variation order is not waiting for your answer.');
+    if (!approved && !note.trim()) throw new RuleError('Write why, so the team can revise it.');
+    await applyVariation(tx, null, id, approved, `${note.trim() ? note.trim() + ' · ' : ''}${approved ? 'Approved' : 'Declined'} by the client on the client link${name.trim() ? ` (${name.trim()})` : ''}`, '');
+  });
+}
+async function applyVariation(tx: Tx, user: User | null, id: string, approved: boolean, note: string, clientRef: string) {
+  {
     const v = await getVariation(id, tx);
     if (!v) throw new RuleError('Variation order not found.');
     if (!['sent', 'draft'].includes(v.status)) throw new RuleError('This variation order was already decided.');
-    if (!canEngineer(user) && !hasRole(user, 'finance')) throw new RuleError("Only the engineers or Finance record the client's answer.");
     if (!approved) {
-      await tx`update variation_orders set status = 'rejected', decided_by = ${user.id}, decided_at = now(), notes = case when ${note.trim()} = '' then notes else ${note.trim()} end where id = ${id}`;
+      await tx`update variation_orders set status = 'rejected', decided_by = ${user?.id ?? null}, decided_at = now(), notes = case when ${note.trim()} = '' then notes else ${note.trim()} end where id = ${id}`;
       await audit(tx, user, 'variation', id, 'Declined by the client', note.trim());
       return;
     }
     const lines = await getVariationLines(id, tx);
     let [boq] = await tx<{ id: string }[]>`select id from boqs where project_id = ${v.project_id}`;
-    if (!boq) [boq] = await tx<{ id: string }[]>`insert into boqs (project_id, file_name, uploaded_by) values (${v.project_id}, 'Variation orders', ${user.id}) returning id`;
+    if (!boq) [boq] = await tx<{ id: string }[]>`insert into boqs (project_id, file_name, uploaded_by) values (${v.project_id}, 'Variation orders', ${user?.id ?? null}) returning id`;
     const [{ n }] = await tx<{ n: number }[]>`select coalesce(max(line_no), 0)::int n from boq_lines where boq_id = ${boq.id}`;
     for (const [k, l] of lines.entries()) {
       const [b] = await tx<{ id: string }[]>`insert into boq_lines (boq_id, line_no, item_no, description, unit, qty, rate, amount, account, vo_id)
@@ -519,11 +531,11 @@ export async function decideVariation(user: User, id: string, approved: boolean,
       await tx`update variation_lines set boq_line_id = ${b.id} where id = ${l.id}`;
     }
     await tx`update projects set contract = coalesce(contract, 0) + ${v.total} where id = ${v.project_id}`;
-    await tx`update variation_orders set status = 'approved', decided_by = ${user.id}, decided_at = now(), client_ref = case when ${clientRef.trim()} = '' then client_ref else ${clientRef.trim()} end,
+    await tx`update variation_orders set status = 'approved', decided_by = ${user?.id ?? null}, decided_at = now(), client_ref = case when ${clientRef.trim()} = '' then client_ref else ${clientRef.trim()} end,
       notes = case when ${note.trim()} = '' then notes else ${note.trim()} end where id = ${id}`;
     await audit(tx, user, 'variation', id, 'Approved by the client', `${fmt(v.total)} added to the BOQ and the contract`);
     await audit(tx, user, 'boq', v.project_id, `Variation order ${v.no} added`, `${lines.length} lines · ${fmt(v.total)}`);
-  });
+  }
 }
 export async function cancelVariation(user: User, id: string) {
   await sql.begin(async tx => {

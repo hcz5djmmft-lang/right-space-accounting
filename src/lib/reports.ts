@@ -74,18 +74,22 @@ export async function budgetVsActual(opts: { from: string; to: string }): Promis
   });
 }
 
-// ---- Aging of open receivables (sales invoices) or payables (payment requests) ----
+// ---- Aging of open receivables (sales invoices) or payables (vendor invoices and payment requests) ----
+/** Vendor invoices with no due date fall due this many days after their date. */
+export const PAY_DAYS = 30;
 export const BUCKETS = ['Current', '1–30', '31–60', '61–90', '90+'] as const;
 export type AgingDoc = { id: string; no: string; date: string; due: string | null; party_id: string; party: string; balance: number; days: number; bucket: number };
 export type AgingRow = { party_id: string; party: string; buckets: number[]; total: number };
 export async function aging(opts: { side: 'sales' | 'purchase'; asOf: string }): Promise<{ docs: AgingDoc[]; parties: AgingRow[]; totals: number[] }> {
   const rows = await sql<{ id: string; no: string; date: string; due: string | null; party_id: string; party: string; balance: number }[]>`
-    select i.id, i.no, to_char(i.date, 'YYYY-MM-DD') date, to_char(i.due_date, 'YYYY-MM-DD') due, i.party_id, pt.name party,
+    select i.id, i.no, to_char(i.date, 'YYYY-MM-DD') date,
+      to_char(case when i.kind = 'purchase' then coalesce(i.due_date, i.date + ${PAY_DAYS}::int) else i.due_date end, 'YYYY-MM-DD') due, i.party_id, pt.name party,
       (case when i.kind = 'sales' then i.total else i.net end)
         - coalesce((select sum(al.amount) from payment_allocations al join payments pm on pm.id = al.payment_id and pm.status = 'posted' and pm.date <= ${opts.asOf}::date
                     where al.invoice_id = i.id), 0) balance
     from invoices i join parties pt on pt.id = i.party_id
     where i.kind = ${opts.side} and i.status = 'posted' and i.date <= ${opts.asOf}::date
+      and not exists (select 1 from payment_request_bills b where b.request_id = i.id) -- a request paying vendor invoices: the invoices carry the balance
     order by pt.name, i.date, i.no`;
   const docs: AgingDoc[] = rows.filter(r => r.balance > 0.004).map(r => {
     const days = r.due ? daysBetween(r.due, opts.asOf) : 0;
@@ -211,6 +215,20 @@ export async function reportCsv(kind: string, q: CsvQuery, settings: Settings): 
     return { name: `VAT and WHT ${from} to ${to}`, rows: [['Account', 'GL code', 'Opening (Dr−Cr)', 'Debits', 'Credits', 'Closing (Dr−Cr)'],
       ...t.accounts.map(a => [a.label, a.code, a.opening, a.dr, a.cr, a.closing]), [],
       ['Request', 'Date', 'Vendor', 'Tax ID', 'Base', 'WHT %', 'WHT', 'SI %', 'SI'], ...t.deductions.map(d => [d.no, d.date, d.vendor, d.tax_id ?? '', d.subtotal, d.wht_rate, d.wht, d.si_rate, d.si])] };
+  }
+  if (kind === 'vat-return') {
+    const { vatReturn } = await import('./tax-returns');
+    const v = await vatReturn(q.m && /^\d{4}-\d{2}$/.test(q.m) ? q.m : today().slice(0, 7));
+    const rows = (label: string, xs: Awaited<ReturnType<typeof vatReturn>>['sales']) => xs.map(d => [label, d.no, d.date, d.party, d.tax_id ?? '', d.base ?? '', d.vat]);
+    return { name: `VAT return ${v.period}`, rows: [['Section', 'Document', 'Date', 'Party', 'Tax ID', 'Base', 'VAT'],
+      ...rows('Output: sales invoices', v.sales), ...rows('Output: other entries', v.otherOut), ...rows('Input: vendor invoices and payment requests', v.purchases), ...rows('Input: expenses and other entries', v.otherIn), [],
+      ['Output VAT', '', '', '', '', '', v.outputVat], ['Input VAT', '', '', '', '', '', v.inputVat], [v.netVat >= 0 ? 'Net VAT to pay' : 'VAT credit to carry forward', '', '', '', '', '', Math.abs(v.netVat)]] };
+  }
+  if (kind === 'wht') {
+    const { quarterOf, whtSuppliers } = await import('./tax-returns');
+    const qt = quarterOf(today()), from = q.from || qt.from, to = q.to || qt.to;
+    const rows = await whtSuppliers(from, to);
+    return { name: `WHT by supplier ${from} to ${to}`, rows: [['Supplier', 'Tax ID', 'Documents', 'Base', 'WHT'], ...rows.map(r => [r.full_name || r.party, r.tax_id ?? '', r.docs, r.base, r.wht])] };
   }
   return null;
 }

@@ -4,3 +4,9 @@ const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', mo
 
 /** Today's date as YYYY-MM-DD in the company's time zone (APP_TZ, default Africa/Cairo). */
 export const today = (now = new Date()) => fmt.format(now);
+
+/** The last day of a month (YYYY-MM) as YYYY-MM-DD. */
+export const lastDay = (period: string) => {
+  const [y, m] = period.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+};

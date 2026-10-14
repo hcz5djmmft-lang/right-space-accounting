@@ -45,6 +45,7 @@ export default async function HandoverPage({ params, searchParams }: { params: P
             <label className="f" style={{ gridColumn: 'span 2' }}><span>Outstanding works accepted by the client (if any)</span><textarea className="inp" name="outstanding" rows={2} dir="auto" defaultValue={h?.outstanding ?? ''} placeholder="Leave empty when every snag is verified" disabled={!edit} /></label>
             <label className="f" style={{ gridColumn: 'span 3' }}><span>Notes (keys handed, meter readings, manuals…)</span><textarea className="inp" name="notes" rows={2} dir="auto" defaultValue={h?.notes ?? ''} disabled={!edit} /></label>
           </div>
+          {h?.client_signed_at && <p style={{ margin: '8px 0 0' }}><span className="pill posted">Client signed</span> {h.client_signed_name} on {h.client_signed_at}, on the client link.</p>}
           {h?.status === 'signed' && <p className="muted" style={{ margin: '8px 0 0' }}>Signed by {h.signed_by_name ?? '—'} on {h.signed_at}{h.snags_open ? ` with ${h.snags_open} outstanding snag${h.snags_open === 1 ? '' : 's'} accepted by the client` : ''}. Finance closes the project from its page once the final claim and the retention are settled.</p>}
           {edit && <div className="row" style={{ justifyContent: 'flex-end', marginTop: 10 }}><button className="btn pri">{h ? 'Save certificate' : 'Draft the certificate'}</button></div>}
         </form>)}

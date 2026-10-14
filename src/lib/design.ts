@@ -204,23 +204,36 @@ export async function sendToClient(user: User, setId: string) {
 }
 export async function clientDecision(user: User, setId: string, approve: boolean, clientNote = '') {
   needDesign(user, "record the client's answer");
+  await sql.begin(tx => applyClientDecision(tx, user, setId, approve, clientNote));
+}
+/** The client's own answer from their link (improvement 2): only a concept of their project that was sent to them. */
+export async function clientDecisionByClient(projectId: string, setId: string, approve: boolean, clientNote: string, name: string) {
   await sql.begin(async tx => {
+    const s = await getSet(setId, tx);
+    if (!s || s.project_id !== projectId || s.status !== 'client') throw new RuleError('This design is not waiting for your answer.');
+    if (!approve && !clientNote.trim()) throw new RuleError('Write the changes you would like.');
+    const who = `on the client link${name.trim() ? ` by ${name.trim()}` : ''}`;
+    await applyClientDecision(tx, null, setId, approve, approve ? `${clientNote.trim() ? clientNote.trim() + ' · ' : ''}Approved ${who}` : `${clientNote.trim()} (${who})`);
+  });
+}
+async function applyClientDecision(tx: Tx, user: User | null, setId: string, approve: boolean, clientNote: string) {
+  {
     const s = await getSet(setId, tx);
     if (!s) throw new RuleError('Drawing set not found.');
     if (s.status !== 'client') throw new RuleError('The set is not with the client.');
     if (approve) {
-      await tx`update drawing_sets set status = 'client_approved', client_at = now(), client_by = ${user.id}, client_note = ${clientNote.trim()}, step_at = now() where id = ${setId}`;
+      await tx`update drawing_sets set status = 'client_approved', client_at = now(), client_by = ${user?.id ?? null}, client_note = ${clientNote.trim()}, step_at = now() where id = ${setId}`;
       await audit(tx, user, 'drawing_set', setId, 'Client approved', clientNote.trim());
       await audit(tx, user, 'project', s.project_id, 'Client approved the concept', `${s.kind_label} v${s.version}`);
       await note(tx, user, setId, `The client approved${clientNote.trim() ? `: ${clientNote.trim()}` : ''}.`);
     } else {
       if (!clientNote.trim()) throw new RuleError("Write the client's comments.");
-      await tx`update drawing_sets set status = 'draft', version = version + 1, client_note = ${clientNote.trim()}, client_at = now(), client_by = ${user.id}, step_at = now(), submitted_at = null, client_sent_at = null,
+      await tx`update drawing_sets set status = 'draft', version = version + 1, client_note = ${clientNote.trim()}, client_at = now(), client_by = ${user?.id ?? null}, step_at = now(), submitted_at = null, client_sent_at = null,
         design_head_by = null, design_head_at = null, to_head_by = null, to_head_at = null, director_by = null, director_at = null where id = ${setId}`;
       await audit(tx, user, 'drawing_set', setId, `Client asked for changes; reopened as v${s.version + 1}`, clientNote.trim());
       await note(tx, user, setId, `The client asked for changes: ${clientNote.trim()}`);
     }
-  });
+  }
 }
 
 /** The IFC stamp on an approved Shop drawings set: the site sees these revisions, and a project still in design moves on to QS and pricing. */
@@ -244,8 +257,8 @@ export async function issueForConstruction(user: User, setId: string) {
 export type Message = { id: number; who: string | null; user_id: string | null; at: string; text: string };
 export const listMessages = (setId: string) => sql<Message[]>`
   select m.id, u.name who, m.user_id, to_char(m.at at time zone ${TZ},'YYYY-MM-DD HH24:MI') at, m.text from set_messages m left join users u on u.id = m.user_id where m.set_id = ${setId} order by m.at`;
-async function note(tx: Tx, user: User, setId: string, text: string) {
-  await tx`insert into set_messages (set_id, user_id, text) values (${setId}, ${user.id}, ${text})`;
+async function note(tx: Tx, user: User | null, setId: string, text: string) {
+  await tx`insert into set_messages (set_id, user_id, text) values (${setId}, ${user?.id ?? null}, ${text})`;
 }
 export async function canChat(user: User, set: Pick<DrawingSet, 'designer_id'>, tx: Tx = sql) {
   if (hasRole(user, 'management') || set.designer_id === user.id) return true;

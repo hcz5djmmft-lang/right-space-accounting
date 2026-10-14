@@ -4,6 +4,8 @@ import { openForUser } from '@/lib/tasks';
 import { hasRole } from '@/lib/roles';
 import { sql } from '@/lib/db';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
+import { notifyPending } from '@/lib/push';
 import { Nav, type NavItem } from '@/components/Nav';
 
 async function signOut() {
@@ -14,6 +16,8 @@ async function signOut() {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  // after the page is sent: push to the phones whatever has started waiting for someone (at most every 20 seconds)
+  after(() => notifyPending().catch(e => console.error('notify', e)));
   const [waiting, myTasks] = await Promise.all([waitingForUser(user), openForUser(user.id)]);
   const n = waiting.length;
   // The menu follows the department: Finance holds the books; everyone else raises requests and sees their projects.
@@ -26,14 +30,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: '/leave', label: 'Leave' },
     { href: '/approvals', label: 'Approvals', badge: n },
     { href: '/tasks', label: 'Tasks', badge: myTasks },
+    { href: '/expenses', label: 'Expenses' },
     ...(site ? [{ href: '/site', label: 'Site' }] : []),
     ...(finance ? ['Finance',
+      { href: '/dashboard', label: "Partners' dashboard" },
       { href: '/entries', label: 'Entries' },
       { href: '/accounts', label: 'Chart of accounts' },
+      { href: '/opening-balances', label: 'Opening balances' },
+      { href: '/close', label: 'Month-end close' },
+      { href: '/budgets', label: 'Budgets' },
+      { href: '/fixed-assets', label: 'Fixed assets' },
       { href: '/banks', label: 'Banks & cash' },
+      { href: '/petty-cash', label: 'Petty cash' },
       { href: '/partners', label: 'Partners' },
       { href: '/payment-requests', label: 'Payment requests' },
+      { href: '/payables', label: 'Payables' },
       { href: '/collections', label: 'Collections' },
+      { href: '/collections/follow-up', label: 'Collections follow-up' },
       { href: '/sales-invoices', label: 'Sales invoices' },
       { href: '/parties', label: 'Customers & vendors' },
       { href: '/payroll', label: 'Payroll' }] as NavItem[]
@@ -44,7 +57,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ...(projects ? [{ href: '/cost-centers', label: 'Cost centers' }, { href: '/design', label: 'Design' }, { href: '/qs', label: 'QS and pricing' }, { href: '/planning', label: 'Planning' }, { href: '/variations', label: 'Variation orders' }, { href: '/samples', label: 'Samples' }, { href: '/cost-control', label: 'Cost control' }, { href: '/site', label: 'Site execution' }] : []),
       ...(tenders ? [{ href: '/tenders', label: 'Tenders' }] : [])] as NavItem[] : []),
     ...(finance ? ['Insight', { href: '/reports', label: 'Reports' }] as NavItem[] : []),
-    ...(hasRole(user, 'management') ? ['Admin', { href: '/settings', label: 'Settings' }] as NavItem[] : []),
+    ...(hasRole(user, 'management') ? ['Admin', { href: '/settings', label: 'Settings' }, { href: '/settings/audit', label: 'Audit log' }] as NavItem[] : []),
     { href: '/account', label: 'My account' },
   ];
   return (

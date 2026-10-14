@@ -45,3 +45,15 @@ export async function shareAction(f: FormData) {
   catch (e) { back('', { error: err(e) }); }
   back('', { ok: `Profit shared out (${await posted(id)}).` });
 }
+
+/** Which login gets the morning summary for each partner (Management). */
+export async function summaryLoginsAction(f: FormData) {
+  await requireUser('management');
+  const ids = await sql<{ id: string }[]>`select id from partners`;
+  for (const { id } of ids) {
+    if (!f.has('user_' + id)) continue;
+    const v = String(f.get('user_' + id) ?? '');
+    await sql`update partners set user_id = ${v || null} where id = ${id}`;
+  }
+  back('', { ok: 'Morning summary logins saved.' });
+}

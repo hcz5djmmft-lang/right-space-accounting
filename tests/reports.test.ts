@@ -73,7 +73,7 @@ describe('reports', () => {
     const earlier = await rep.aging({ side: 'sales', asOf: '2026-08-31' });
     expect(earlier.docs.find(d => d.no === 'INV-T1')).toMatchObject({ balance: 1000, days: 30, bucket: 1 });
     const ap = await rep.aging({ side: 'purchase', asOf: '2026-10-09' });
-    expect(ap.docs.find(d => d.no === 'C-T1')).toMatchObject({ balance: 480, days: 0, bucket: 0 });
+    expect(ap.docs.find(d => d.no === 'C-T1')).toMatchObject({ balance: 480, days: -6, bucket: 0 }); // no due date: due 30 days after its date
     expect(ap.docs.some(d => d.no === 'C-T2')).toBe(false); // pending, not posted
     expect(ap.totals[0]).toBeGreaterThanOrEqual(480);
   });

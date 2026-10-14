@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 
 const REPORTS = [
+  ['/reports/pack', 'Statements pack', 'Profit and loss, balance sheet, cash flow and trial balance for a month and the year to date, in Excel or PDF.'],
   ['/reports/trial-balance', 'Trial balance', 'Debit and credit totals per GL code; must agree.'],
   ['/reports/income-statement', 'Income statement', 'Revenue less expenses for a period, company-wide or per cost center.'],
   ['/reports/balance-sheet', 'Balance sheet', 'Assets, liabilities and equity on a date.'],
@@ -10,6 +11,8 @@ const REPORTS = [
   ['/reports/budget', 'Budget vs actual', 'Budget, actual and committed payment requests per GL code.'],
   ['/reports/aging', 'Aging', 'Open payables and receivables by days past due.'],
   ['/reports/tax', 'VAT, WHT and deductions', 'VAT in and out, withholding tax and social insurance for the returns.'],
+  ['/reports/vat-return', 'VAT return', 'The monthly VAT 14% return: output and input VAT by document, and the net to pay.'],
+  ['/reports/wht', 'WHT certificates', 'Tax withheld from each supplier for a quarter, with a certificate to print as PDF.'],
 ];
 
 export default async function Reports() {

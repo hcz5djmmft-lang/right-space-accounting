@@ -9,9 +9,11 @@ export type Settings = {
   lock_date: string | null; pr_prefix: string; fy_start_month: number; cats: Record<string, string[]>; account_map: AccountMap;
   payroll: Record<string, unknown>;
   hr: Record<string, unknown>;      // attendance settings, see attendance-calc.ts
+  opening_date: string;             // the day the books start (opening balances)
+  company_tax_id: string;           // tax registration number, on the WHT certificates
 };
 export async function getSettings(tx: Tx = sql): Promise<Settings> {
-  const [s] = await tx<Settings[]>`select *, to_char(lock_date, 'YYYY-MM-DD') lock_date from settings where id = 1`;
+  const [s] = await tx<Settings[]>`select *, to_char(lock_date, 'YYYY-MM-DD') lock_date, to_char(opening_date, 'YYYY-MM-DD') opening_date from settings where id = 1`;
   return s;
 }
 

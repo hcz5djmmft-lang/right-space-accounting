@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
+import { projectForToken } from '@/lib/client-link';
 import { fmt, r2 } from '@/lib/money';
 import { amountInWords } from '@/lib/ledger';
 import { getSettings } from '@/lib/books';
@@ -7,11 +8,14 @@ import { today } from '@/lib/dates';
 import { clientClaimFull } from '@/lib/claims';
 
 // The client's progress claim (statement of work done against the BOQ) with the Right Space logo. Browser Print / Save as PDF.
-export default async function PrintClientClaim({ params }: { params: Promise<{ id: string }> }) {
-  await requireUser('finance', 'engineering', 'projects');
+export default async function PrintClientClaim({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ c?: string }> }) {
+  // the client opens it from their client link (?c=<link>), for their own project's certified claims only
+  const { c: link } = await searchParams;
+  const client = link ? await projectForToken(link) : null;
+  if (!client) await requireUser('finance', 'engineering', 'projects');
   const { id } = await params;
   const full = await clientClaimFull(id);
-  if (!full) notFound();
+  if (!full || (client && (full.c.project_id !== client || !['certified', 'invoiced'].includes(full.c.status)))) notFound();
   const { c, lines, fig } = full;
   const s = await getSettings();
   const shown = lines.filter(l => l.pct > 0 || l.prev_pct > 0);

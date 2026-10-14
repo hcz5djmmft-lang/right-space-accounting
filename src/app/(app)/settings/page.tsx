@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { requireUser } from '@/lib/auth';
 import { ROLES, type Role } from '@/lib/roles';
@@ -29,7 +30,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
       <option value="">No department</option>{depts.filter(d => d.active).map(d => <option key={d.id} value={d.id}>{d.parent_name ? `${d.parent_name} › ${d.name}` : d.name}</option>)}</select>);
   return (
     <>
-      <div className="head"><div><h1>Settings</h1><p>Only Management sees this page. Every change here is recorded with who made it.</p></div></div>
+      <div className="head"><div><h1>Settings</h1><p>Only Management sees this page. Every change here is recorded with who made it.</p></div><Link className="btn" href="/settings/audit">Audit log</Link></div>
       {flash && <div className="msg good">{flash}</div>}
       {saved && <div className="msg good">{saved}</div>}
       {error && <div className="msg bad">{error}</div>}
@@ -120,9 +121,10 @@ export default async function Settings({ searchParams }: { searchParams: Promise
         <h2>Company rules</h2>
         <div className="grid g3">
           <label className="f"><span>Company name</span><input className="inp" name="company_name" defaultValue={s.company_name} /></label>
+          <label className="f"><span>Tax registration no. (on WHT certificates)</span><input className="inp mono" name="company_tax_id" defaultValue={s.company_tax_id} /></label>
           <label className="f"><span>Standard VAT %</span><input className="inp mono" name="vat_rate" defaultValue={s.vat_rate} inputMode="decimal" /></label>
           <label className="f"><span>Payment request prefix</span><input className="inp mono" name="pr_prefix" defaultValue={s.pr_prefix} /></label>
-          <label className="f"><span>Books locked up to (no posting on or before)</span><input className="inp" type="date" name="lock_date" defaultValue={s.lock_date ?? ''} /></label>
+          <label className="f"><span>Books locked up to (no posting on or before) · <a href="/close">Month-end close</a></span><input className="inp" type="date" name="lock_date" defaultValue={s.lock_date ?? ''} /></label>
           <label className="row" style={{ fontSize: 14 }}><input type="checkbox" name="require_approval" defaultChecked={s.require_approval} /> Entries by non-Finance staff need approval</label>
           <label className="row" style={{ fontSize: 14 }}><input type="checkbox" name="require_cc" defaultChecked={s.require_cc} /> Every expense must have a project or department</label>
         </div>

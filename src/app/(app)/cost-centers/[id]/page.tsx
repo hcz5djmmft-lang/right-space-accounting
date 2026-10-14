@@ -21,6 +21,7 @@ import { ProjectSiteCard } from '../../site/ProjectSiteCard';
 import { SitePinCard } from './SitePinCard';
 import { setPhaseAction } from './form/actions';
 import { createSetAction } from '../../design/actions';
+import { ClientLinkCard } from './ClientLinkCard';
 
 export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; moved?: string; error?: string }> }) {
   const user = await requireUser();
@@ -105,7 +106,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         </div>)}
       {!p.is_office && <ProjectQsCard id={id} user={user} />}
       {!p.is_office && <><ProjectPlanCard id={id} user={user} phase={p.phase} /><ProjectProcurementCard id={id} /><ProjectClaimsCard id={id} /><ProjectSiteCard id={id} phase={p.phase} />
-        <SitePinCard id={id} code={p.code} lat={p.site_lat === null ? null : +p.site_lat} lng={p.site_lng === null ? null : +p.site_lng} radius={+p.site_radius_m} user={user} /></>}
+        <SitePinCard id={id} code={p.code} lat={p.site_lat === null ? null : +p.site_lat} lng={p.site_lng === null ? null : +p.site_lng} radius={+p.site_radius_m} user={user} />
+        <ClientLinkCard id={id} user={user} /></>}
       {hasRole(user, 'finance') && (
         <form action={updateProject.bind(null, id)} className="card">
           <h2>Project details</h2>

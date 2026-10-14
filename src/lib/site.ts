@@ -289,10 +289,12 @@ export async function setSnagStatus(user: User, id: string, status: string, note
 export type Handover = {
   project_id: string; no: string; date: string; status: string; client_rep: string; company_rep_id: string | null; company_rep: string | null; defects_months: number; outstanding: string; notes: string; snags_open: number;
   signed_by_name: string | null; signed_at: string | null; created_by_name: string | null; created_at: string;
+  client_signature: string | null; client_signed_name: string | null; client_signed_at: string | null;
 };
 export const getHandover = async (projectId: string, tx: Tx = sql) => (await tx<Handover[]>`
   select h.project_id, h.no, to_char(h.date,'YYYY-MM-DD') date, h.status, h.client_rep, h.company_rep_id, cu.name company_rep, h.defects_months, h.outstanding, h.notes, h.snags_open,
-    su.name signed_by_name, to_char(h.signed_at at time zone ${TZ},'YYYY-MM-DD HH24:MI') signed_at, bu.name created_by_name, to_char(h.created_at at time zone ${TZ},'YYYY-MM-DD') created_at
+    su.name signed_by_name, to_char(h.signed_at at time zone ${TZ},'YYYY-MM-DD HH24:MI') signed_at, bu.name created_by_name, to_char(h.created_at at time zone ${TZ},'YYYY-MM-DD') created_at,
+    h.client_signature, h.client_signed_name, to_char(h.client_signed_at at time zone ${TZ},'YYYY-MM-DD HH24:MI') client_signed_at
   from handovers h left join users cu on cu.id = h.company_rep_id left join users su on su.id = h.signed_by left join users bu on bu.id = h.created_by where h.project_id = ${projectId}`)[0] ?? null;
 
 export const canHandover = (u: User) => canPlan(u) || hasRole(u, 'finance');

@@ -6,8 +6,11 @@ export type NavItem = { href: string; label: string; badge?: number } | string;
 
 export function Nav({ items, user, logout }: { items: NavItem[]; user: string; logout: () => Promise<void> }) {
   const path = usePathname();
-  const on = (href: string) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
   const links = items.filter((i): i is Exclude<NavItem, string> => typeof i !== 'string');
+  const match = (href: string) => (href === '/' ? path === '/' : path === href || path.startsWith(href + '/'));
+  // the most specific menu item lights up (Collections follow-up, not also Collections)
+  const best = links.filter(i => match(i.href)).sort((a, b) => b.href.length - a.href.length)[0]?.href;
+  const on = (href: string) => href === best;
   return (
     <>
       <aside className="side">
