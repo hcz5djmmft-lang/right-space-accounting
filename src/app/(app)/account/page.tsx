@@ -6,6 +6,9 @@ import { sql } from '@/lib/db';
 import { audit } from '@/lib/books';
 import { pushKeys } from '@/lib/push';
 import { PushButton } from '@/components/PushButton';
+import { setLangAction } from '@/app/lang-actions';
+import { tr } from '@/lib/i18n';
+import { getLang } from '@/lib/lang';
 
 async function changePassword(f: FormData) {
   'use server';
@@ -24,9 +27,10 @@ export default async function Account({ searchParams }: { searchParams: Promise<
   const u = await requireUser();
   const { saved, error } = await searchParams;
   const { publicKey } = await pushKeys();
+  const lang = await getLang();
   return (
     <>
-      <div className="head"><div><h1>My account</h1><p>{u.name} · {u.email} · {u.roles.map(r => ROLES[r]).join(', ') || 'no role yet'}</p></div></div>
+      <div className="head"><div><h1>{tr(lang, 'My account')}</h1><p>{u.name} · {u.email} · {u.roles.map(r => ROLES[r]).join(', ') || 'no role yet'}</p></div></div>
       {saved && <div className="msg good">Password changed.</div>}
       {error && <div className="msg bad">{error}</div>}
       <form action={changePassword} className="card grid g3" style={{ alignItems: 'end', maxWidth: 760 }}>
@@ -39,6 +43,16 @@ export default async function Account({ searchParams }: { searchParams: Promise<
         <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>A notification when an approval, a task or a progress claim waits for you{'; partners also get the morning summary at 08:00 (cash, collections due this week, approvals waiting)'}. Turn it on once on each phone you use.</p>
         <PushButton publicKey={publicKey} />
       </div>
+      <form action={setLangAction} className="card" style={{ maxWidth: 760 }}>
+        <h2 style={{ marginTop: 0 }}>{tr(lang, 'Language')}</h2>
+        <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>{tr(lang, 'The menus and the phone pages (Clock in, Tasks, Approvals, Site execution) show in the language you pick. Amounts and dates keep Western digits.')}</p>
+        <input type="hidden" name="back" value="/account" />
+        <div className="row">
+          <label className="row" style={{ gap: 6 }}><input type="radio" name="lang" value="en" defaultChecked={lang === 'en'} /> English</label>
+          <label className="row" style={{ gap: 6 }} lang="ar"><input type="radio" name="lang" value="ar" defaultChecked={lang === 'ar'} /> العربية</label>
+          <button className="btn pri">{tr(lang, 'Save language')}</button>
+        </div>
+      </form>
     </>
   );
 }

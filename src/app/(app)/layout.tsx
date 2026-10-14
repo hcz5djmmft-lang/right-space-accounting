@@ -7,6 +7,8 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { notifyPending } from '@/lib/push';
 import { Nav, type NavItem } from '@/components/Nav';
+import { tr } from '@/lib/i18n';
+import { getLang } from '@/lib/lang';
 
 async function signOut() {
   'use server';
@@ -60,9 +62,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ...(hasRole(user, 'management') ? ['Admin', { href: '/settings', label: 'Settings' }, { href: '/settings/audit', label: 'Audit log' }] as NavItem[] : []),
     { href: '/account', label: 'My account' },
   ];
+  const lang = await getLang();
+  const shown = items.map(i => (typeof i === 'string' ? tr(lang, i) : { ...i, label: tr(lang, i.label) }));
   return (
     <div className="shell">
-      <Nav items={items} user={user.dept_name ? `${user.name} · ${user.dept_name}` : user.name} logout={signOut} />
+      <Nav items={shown} user={user.dept_name ? `${user.name} · ${user.dept_name}` : user.name} logout={signOut} lang={lang} signOutLabel={tr(lang, 'Sign out')} />
       <main>{children}</main>
     </div>
   );
