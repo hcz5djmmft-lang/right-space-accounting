@@ -67,7 +67,7 @@ export default async function PrintPR({ params }: { params: Promise<{ id: string
         <div className="box"><h3>Status</h3>{r.status === 'posted' ? (r.entry_no ? `Approved and posted (${r.entry_no})` : 'Approved for payment') : r.status === 'pending' ? `Waiting for ${steps[approvals.length] ? stepLabel(steps[approvals.length], r) : 'approval'}` : r.status}</div>
       </div>
       <div className="sigs">{sigs.map(g => <div className="sig" key={g.key}><b>{g.name}</b><div>{g.who}</div><div className="sd">{g.at}</div></div>)}</div>
-      <div className="foot">Printed from Right Space Accounting · {today()}</div>
+      <div className="foot">Printed from Right Space · {today()}</div>
     </div>
   );
 }

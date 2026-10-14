@@ -31,7 +31,7 @@ const phaseOf = async (id: string) => (await sql<{ phase: string }[]>`select pha
 beforeAll(async () => {
   const ctx = { window: {} as Record<string, unknown> };
   vm.runInNewContext(fs.readFileSync(process.env.OLD_SNAPSHOT ?? '/home/claude/sample-data.js', 'utf8'), ctx);
-  await sql`truncate sessions, users, drawing_sets, set_messages, finishes, user_positions, attachments, project_phases, project_info, design_sessions cascade`;
+  await sql`truncate sessions, users, drawing_sets, set_messages, finishes, user_positions, attachments, project_phases, project_info, work_sessions cascade`;
   await importOld(sql, ctx.window.__SEED, { replace: true });
   await sql`update settings set lock_date = null`;
   await sql`insert into departments (id, code, name, parent_id, roles) values ('to', 'TO', 'Technical Office', 'eng', '{engineering,projects}'), ('site', 'SITE', 'Site execution', 'eng', '{engineering,projects}') on conflict (id) do nothing`;

@@ -1,4 +1,4 @@
-# Right Space Accounting (web app)
+# Right Space (web app)
 
 The new accounting and operations system for Right Space Development: books, cost centers, payment requests
 with approvals, payroll, tasks and tenders. English UI, EGP only. It replaces the single-page claude.ai artifact;
@@ -39,12 +39,16 @@ HR (the Admin & HR department, Finance and Management) keeps every employee's fi
 Office or Site, the Employment Documents checklist with photos or scans per document, and the login, created from the file
 (the employee gets the file's name and department). Tasks are assigned to employees, with or without a login. Salary figures stay under Payroll.
 
-Attendance: everyone with an employee file clocks in and out on the phone (Clock in): a selfie and the GPS position go with each tap.
-Office staff may clock in only within the office radius once HR has set the office location (HR → Attendance → Attendance settings);
-site staff clock in anywhere and HR sees where. HR → Attendance shows the month per employee, the selfies and places to check, lateness
-and overtime; "Fill overtime and lateness from timesheets" on a payroll run prices them from each person's hourly cost
-((basic + allowances) ÷ standard monthly hours). Designers start and stop design work on a project from the same page; the hours and
-their cost show on the project and under Attendance → Design hours per project.
+Attendance: everyone with an employee file clocks in and out on the phone (Clock in): a selfie and the GPS position go with each tap,
+and the person says what the day is for (lib/clock-categories.ts holds the list as data): Office, Site on a project, Design on a project,
+and for the Finance department Payments, Collections, Payroll, Bank and petty cash, Cost control, Reports, tax and closing. "Switch" on the
+same page moves to another category during the day; each stretch is a work session with its minutes, and design stretches carry their cost
+to the project. Office and design clock-ins must be within the office radius once HR has set the office location (HR → Attendance →
+Attendance settings); a site clock-in is checked against the project's own location pin (project page → Site location, set standing on
+the site or typed) and only recorded while the project has no pin. After every tap the phone says where the system saw the person, or
+why it could not compare (office or pin not set, or no location from the phone and how to allow it). HR → Attendance shows the month per
+employee, the selfies and places to check, lateness and overtime, design hours per project and hours by category; "Fill overtime and
+lateness from timesheets" on a payroll run prices them from each person's hourly cost ((basic + allowances) ÷ standard monthly hours).
 
 Leave: everyone asks from the phone (Leave → Ask for leave); the head of their department signs first, then HR (a head who is also HR
 signs both at once), and each request waits on the Approvals page. Annual leave is 21 working days a year, 30 after ten years of service

@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Right Space Accounting',
-  applicationName: 'Right Space Accounting',
+  title: 'Right Space',
+  applicationName: 'Right Space',
   // iPhone: Share > Add to Home Screen opens the system full screen with this name and icon
   appleWebApp: { capable: true, title: 'Right Space', statusBarStyle: 'default' },
   // Next writes only the newer mobile-web-app-capable tag; iPhones before iOS 17.4 look for the apple- one

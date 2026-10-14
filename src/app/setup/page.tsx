@@ -29,7 +29,7 @@ export default async function SetupPage({ searchParams }: { searchParams: Promis
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, background: 'var(--sand)' }}>
       <form action={createFirst} className="card" style={{ width: '100%', maxWidth: 400, display: 'grid', gap: 12 }}>
-        <div className="brand" style={{ padding: 0 }}>RIGHT <b style={{ color: 'var(--gold-ink)' }}>SPACE</b> <span className="muted" style={{ fontWeight: 400 }}>Accounting</span></div>
+        <div className="brand" style={{ padding: 0 }}>RIGHT <b style={{ color: 'var(--gold-ink)' }}>SPACE</b></div>
         <h1 style={{ fontSize: 18, margin: 0 }}>Welcome. Create the first login.</h1>
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>This person gets the Management role and can add everyone else in Settings. This page disappears once a login exists.</p>
         {error && <div className="msg bad">{error === 'code' ? 'The setup code is wrong.' : 'Enter a name, a valid email and a password of at least 8 characters.'}</div>}

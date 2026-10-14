@@ -4,7 +4,7 @@ import type { MetadataRoute } from 'next';
 // so every open loads the latest deployment
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Right Space Accounting',
+    name: 'Right Space',
     short_name: 'Right Space',
     description: 'Right Space Development accounting',
     id: '/',

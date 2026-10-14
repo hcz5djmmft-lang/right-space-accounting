@@ -5,6 +5,8 @@ import { requireUser } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { audit, createProjectCodes } from '@/lib/books';
 import { parseAmount } from '@/lib/money';
+import { savePin } from '@/lib/attendance';
+import { RuleError } from '@/lib/ledger';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const optNum = (f: FormData, k: string) => (s(f, k) ? parseAmount(s(f, k)) : null);
@@ -57,4 +59,17 @@ export async function createDepartment(form: FormData) {
   }
   revalidatePath('/', 'layout');
   redirect('/cost-centers');
+}
+
+/** The project's location pin for site clock-ins: engineers, HR or Finance set it from a phone on the site or type the coordinates. */
+export async function savePinAction(id: string, form: FormData) {
+  const user = await requireUser('finance', 'engineering', 'projects', 'hr');
+  const num = (k: string) => (s(form, k) === '' ? null : Number(s(form, k)));
+  try {
+    await savePin(user, id, num('site_lat'), num('site_lng'), num('site_radius_m') ?? 200);
+  } catch (e) {
+    redirect(`/cost-centers/${id}?error=${encodeURIComponent(e instanceof RuleError ? e.message : (console.error(e), 'Something went wrong. Nothing was changed.'))}`);
+  }
+  revalidatePath(`/cost-centers/${id}`); revalidatePath('/clock');
+  redirect(`/cost-centers/${id}?saved=1`);
 }

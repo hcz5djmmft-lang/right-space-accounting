@@ -64,7 +64,7 @@ export default async function PrintBoq({ params }: { params: Promise<{ id: strin
         <div className="sig"><b>For {s.company_name}</b><div> </div><div className="sd">Signature / date</div></div>
         <div className="sig"><b>Client acceptance</b><div> </div><div className="sd">Signature / date</div></div>
       </div>
-      <div className="foot">Printed from Right Space Accounting · {today()}</div>
+      <div className="foot">Printed from Right Space · {today()}</div>
     </div>
   );
 }

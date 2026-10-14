@@ -73,13 +73,39 @@ export function workedAndOvertime(inAt: Date, outAt: Date, tz: string, s: HrSett
   return { worked, overtime };
 }
 
-/** Where a clock-in happened for an Office person: inside the office radius or away; a Site person is always "site"; no GPS is "unknown". */
-export function placeOf(workLocation: 'office' | 'site', pos: { lat: number; lng: number } | null, s: HrSettings): { place: 'office' | 'site' | 'away' | 'unknown'; distance: number | null } {
+export type Place = 'office' | 'site' | 'away' | 'unknown';
+/** A project's location pin with its allowed distance, or null when the project has none yet. */
+export type Pin = { lat: number; lng: number; radius_m: number } | null;
+
+/** Where a clock-in happened. Rule 'site' (Site on a project): inside the project's pin is "site", outside is "away". Rule 'office' (Office, Design…):
+ *  inside the office radius is "office", outside "away". Nothing to compare with (no pin on the project, no office set) or no GPS at all is "unknown": recorded, not checked. */
+export function placeOf(rule: 'office' | 'site', pos: { lat: number; lng: number } | null, s: HrSettings, pin: Pin = null): { place: Place; distance: number | null } {
   if (!pos) return { place: 'unknown', distance: null };
-  if (workLocation === 'site') return { place: 'site', distance: officeSet(s) ? distanceM(pos.lat, pos.lng, s.office_lat!, s.office_lng!) : null };
+  if (rule === 'site') {
+    if (!pin) return { place: 'unknown', distance: null };
+    const d = distanceM(pos.lat, pos.lng, pin.lat, pin.lng);
+    return { place: d <= pin.radius_m ? 'site' : 'away', distance: d };
+  }
   if (!officeSet(s)) return { place: 'unknown', distance: null };
   const d = distanceM(pos.lat, pos.lng, s.office_lat!, s.office_lng!);
   return { place: d <= s.office_radius_m ? 'office' : 'away', distance: d };
+}
+
+/** The place as a short pill: "at the office", "on site", "away", or why there is nothing to say. */
+export const placeLabel = (place: string | null, hasPos: boolean) =>
+  place === 'office' ? 'at the office' : place === 'site' ? 'on site' : place === 'away' ? 'away' : hasPos ? 'position recorded' : 'no location';
+
+export const LOCATION_HELP = 'Allow the location for this site: in Safari tap aA next to the address, then Website Settings, Location, Allow.';
+export type Where = { place: Place; distance: number | null; acc: number | null; hasPos: boolean; rule: 'office' | 'site'; compared: boolean };
+/** The sentence the phone shows after a clock-in or clock-out: where the system saw the person, or why it could not compare. */
+export function whereText(kind: 'in' | 'out', what: string, w: Where): string {
+  const head = `${kind === 'in' ? 'Clocked in' : 'Clocked out'}${what ? ` ${what}` : ''}`;
+  if (!w.hasPos) return `${head} without a location: your phone did not give one. ${LOCATION_HELP}`;
+  const acc = w.acc ? ` (accurate to about ${w.acc} m)` : '';
+  if (!w.compared) return `${head}. Your position was recorded${acc}; ${w.rule === 'site' ? 'this project has no location pin yet' : 'the office location is not set yet'}, so it was not compared.`;
+  const target = w.rule === 'site' ? 'the project pin' : 'the office';
+  if (w.place === 'away') return `${head} about ${w.distance} m from ${target}, outside the allowed distance; HR will see it.`;
+  return w.rule === 'site' ? `${head}, ${w.distance} m from ${target}${acc}.` : `${head} at the office, ${w.distance} m from its pin${acc}.`;
 }
 
 /** What an hour of a person costs: the monthly pay over the standard monthly hours (HR sets hours a day and days a month). */

@@ -65,7 +65,7 @@ export default async function PrintReceipt({ params }: { params: Promise<{ id: s
         <div className="box"><h3>Issued by</h3><div>{settings.company_name}</div>{r.created_by_name && <div>{r.created_by_name} · Finance</div>}<div>Entry {r.entry_no ?? '—'}</div></div>
       </div>
       <div className="sigs"><div className="sig"><b>Received by</b><div className="sd">Signature / date</div></div><div className="sig"><b>Client</b><div className="sd">Signature / date</div></div></div>
-      <div className="foot">Printed from Right Space Accounting · {today()}</div>
+      <div className="foot">Printed from Right Space · {today()}</div>
     </div>
   );
 }

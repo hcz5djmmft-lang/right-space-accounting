@@ -29,7 +29,7 @@ let omarEmp = '', saraEmp = '', first = '';
 beforeAll(async () => {
   const ctx = { window: {} as Record<string, unknown> };
   vm.runInNewContext(fs.readFileSync(process.env.OLD_SNAPSHOT ?? '/home/claude/sample-data.js', 'utf8'), ctx);
-  await sql`truncate sessions, users, attendance, design_sessions, attachments, payroll_runs, leave_requests, loans, pay_items, tasks cascade`;
+  await sql`truncate sessions, users, attendance, work_sessions, attachments, payroll_runs, leave_requests, loans, pay_items, tasks cascade`;
   await importOld(sql, ctx.window.__SEED, { replace: true });
   await sql`update settings set lock_date = null, hr = '{}'`;
   await sql`delete from employees`;

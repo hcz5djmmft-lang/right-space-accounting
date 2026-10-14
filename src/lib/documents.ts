@@ -137,7 +137,7 @@ async function notifyStep(emails: string[], step: string, no: string, net: numbe
     to: emails,
     subject: `${no} is waiting for your ${step} approval`,
     text: `Payment request ${no} for EGP ${net.toLocaleString('en-US', { minimumFractionDigits: 2 })} is waiting for ${step} approval.\n` +
-      `Last action by ${by}.\n\nOpen it: ${appUrl('/payment-requests/' + id)}\n\nRight Space Accounting`,
+      `Last action by ${by}.\n\nOpen it: ${appUrl('/payment-requests/' + id)}\n\nRight Space`,
   });
 }
 

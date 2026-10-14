@@ -65,7 +65,7 @@ export default async function PrintInvoice({ params }: { params: Promise<{ id: s
           {r.received ? <div style={{ marginTop: 4 }}>Received so far: {fmt(r.received)} · open {fmt(r.total - r.received)}</div> : null}</div>
         <div className="box"><h3>Contact</h3><div>{c?.email || ''}</div><div>{c?.phone || ''}</div></div>
       </div>
-      <div className="foot">Printed from Right Space Accounting · {today()}</div>
+      <div className="foot">Printed from Right Space · {today()}</div>
     </div>
   );
 }

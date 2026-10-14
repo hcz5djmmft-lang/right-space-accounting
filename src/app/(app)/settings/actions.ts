@@ -66,8 +66,8 @@ export async function addUser(f: FormData) {
   if (!u) back(`${email} already has a login.`, true);
   await audit(sql, admin, 'user', u.id, 'Created login', rolesOf(f).join(', '));
   await sendMail({
-    to: [email], subject: 'Your Right Space Accounting login',
-    text: `Hello ${name},\n\n${admin.name} gave you access to Right Space Accounting.\n\nSign in: ${appUrl('/login')}\nEmail: ${email}\nTemporary password: ${password}\n\nPlease change it after signing in (top of the menu, "My account").`,
+    to: [email], subject: 'Your Right Space login',
+    text: `Hello ${name},\n\n${admin.name} gave you access to Right Space.\n\nSign in: ${appUrl('/login')}\nEmail: ${email}\nTemporary password: ${password}\n\nPlease change it after signing in (top of the menu, "My account").`,
   });
   revalidatePath('/settings');
   await flash(`Login created for ${email}. Temporary password: ${password} (also emailed when email is set up). Shown once; pass it on now.`);
@@ -92,7 +92,7 @@ export async function resetPassword(id: string) {
   const [u] = await sql<{ email: string }[]>`update users set password_hash = ${await hashPassword(password)} where id = ${id} returning email`;
   await sql`delete from sessions where user_id = ${id}`;
   await audit(sql, admin, 'user', id, 'Reset password');
-  await sendMail({ to: [u.email], subject: 'Your Right Space Accounting password was reset', text: `Temporary password: ${password}\nSign in: ${appUrl('/login')}` });
+  await sendMail({ to: [u.email], subject: 'Your Right Space password was reset', text: `Temporary password: ${password}\nSign in: ${appUrl('/login')}` });
   await flash(`New temporary password for ${u.email}: ${password}. Shown once; pass it on now.`);
 }
 

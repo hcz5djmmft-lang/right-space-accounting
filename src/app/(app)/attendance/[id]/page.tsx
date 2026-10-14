@@ -5,7 +5,8 @@ import { hasRole } from '@/lib/roles';
 import { sql } from '@/lib/db';
 import { today } from '@/lib/dates';
 import { listRecords, listSessions } from '@/lib/attendance';
-import { fmtMin } from '@/lib/attendance-calc';
+import { fmtMin, placeLabel } from '@/lib/attendance-calc';
+import { categoryOf, whatLabel } from '@/lib/clock-categories';
 import { fmt } from '@/lib/money';
 import { checkAction, closeAction } from '../actions';
 
@@ -35,6 +36,7 @@ export default async function EmployeeAttendance({ params, searchParams }: { par
         <div key={r.id} className="card">
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <div><b className="mono">{r.day}</b> · in <b className="mono">{r.in_time}</b> · out <b className="mono">{r.out_time ?? '— still open'}</b>
+              <span className="pill nocap" style={{ marginLeft: 6 }}>{whatLabel(categoryOf(r.category), r.project_code)}</span>
               {r.late_min ? <span className="pill rejected" style={{ marginLeft: 6 }}>late {fmtMin(r.late_min)}</span> : null}
               {r.overtime_min ? <span className="pill posted" style={{ marginLeft: 6 }}>overtime {fmtMin(r.overtime_min)}</span> : null}
               {r.worked_min ? <span className="muted" style={{ marginLeft: 6 }}>worked {fmtMin(r.worked_min)}</span> : null}</div>
@@ -47,8 +49,8 @@ export default async function EmployeeAttendance({ params, searchParams }: { par
               return (
                 <figure key={tag} className="thumb" style={{ width: 150 }}>
                   {p ? <a href={`/files/${p.id}`} target="_blank" rel="noopener"><img src={`/files/${p.id}`} alt={`${tag} selfie`} loading="lazy" /></a> : <div className="thumb-doc">no selfie</div>}
-                  <figcaption><span>{tag === 'in' ? 'Clock in' : 'Clock out'} · <span className={place === 'away' ? 'pill rejected' : 'pill'}>{place ?? '—'}</span></span>
-                    <small>{maps(lat, lng) ? <a href={maps(lat, lng)!} target="_blank" rel="noopener">Open in Maps</a> : <span className="muted">no location</span>}</small></figcaption>
+                  <figcaption><span>{tag === 'in' ? 'Clock in' : 'Clock out'} · <span className={place === 'away' ? 'pill nocap rejected' : 'pill nocap'}>{placeLabel(place, lat !== null)}</span></span>
+                    {maps(lat, lng) && <small><a href={maps(lat, lng)!} target="_blank" rel="noopener">Open in Maps</a></small>}</figcaption>
                 </figure>);
             })}
             {canCheck && (
@@ -60,9 +62,10 @@ export default async function EmployeeAttendance({ params, searchParams }: { par
           </div>
         </div>))}
       {sessions.length > 0 && (
-        <div className="card"><h2 style={{ marginTop: 0 }}>Design work in {month}</h2>
-          <div className="tw"><table><thead><tr><th>Day</th><th>Project</th><th>From</th><th>To</th><th className="num">Hours</th><th className="num">Cost</th><th className="hide-sm">Note</th></tr></thead>
-            <tbody>{sessions.map(x => <tr key={x.id}><td className="mono">{x.day}</td><td className="mono"><Link href={`/cost-centers/${x.project_id}`}>{x.project_code}</Link></td><td className="mono">{x.start_time}</td><td className="mono">{x.end_time ?? '…'}</td><td className="num mono">{fmtMin(x.minutes)}</td><td className="num mono">{fmt(x.cost)}</td><td className="hide-sm" dir="auto">{x.note}</td></tr>)}</tbody></table></div>
+        <div className="card"><h2 style={{ marginTop: 0 }}>Work stretches in {month}</h2>
+          <p className="muted" style={{ marginTop: 0 }}>What the person was on during each day, as clocked in or switched to: Office, Site or Design on a project, or a Finance category. Design stretches carry their cost to the project.</p>
+          <div className="tw"><table><thead><tr><th>Day</th><th>What</th><th>From</th><th>To</th><th className="num">Hours</th><th className="num">Cost</th><th className="hide-sm">Note</th></tr></thead>
+            <tbody>{sessions.map(x => <tr key={x.id}><td className="mono">{x.day}</td><td>{x.project_id ? <Link href={`/cost-centers/${x.project_id}`}>{whatLabel(categoryOf(x.category), x.project_code)}</Link> : whatLabel(categoryOf(x.category), null)}</td><td className="mono">{x.start_time}</td><td className="mono">{x.end_time ?? '…'}</td><td className="num mono">{fmtMin(x.minutes)}</td><td className="num mono">{fmt(x.cost)}</td><td className="hide-sm" dir="auto">{x.note}</td></tr>)}</tbody></table></div>
         </div>)}
     </>
   );

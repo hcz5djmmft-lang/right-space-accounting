@@ -56,7 +56,7 @@ export default async function PrintHandover({ params }: { params: Promise<{ proj
         <div className="sig"><b>Client (العميل)</b><div dir="auto">{h.client_rep || ' '}</div><div className="sd">Signature / date</div></div>
         <div className="sig"><b>{s.company_name}</b><div>{h.company_rep ?? ' '}</div><div className="sd">{h.status === 'signed' ? `Signed ${h.signed_at} by ${h.signed_by_name ?? ''}` : 'Signature / stamp / date'}</div></div>
       </div>
-      <div className="foot">{h.no} · drafted {h.created_at}{h.created_by_name ? ` by ${h.created_by_name}` : ''} · Right Space Accounting</div>
+      <div className="foot">{h.no} · drafted {h.created_at}{h.created_by_name ? ` by ${h.created_by_name}` : ''} · Right Space</div>
     </div>
   );
 }

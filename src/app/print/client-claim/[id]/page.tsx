@@ -55,7 +55,7 @@ export default async function PrintClientClaim({ params }: { params: Promise<{ i
         <div className="sig"><b>For {s.company_name}</b><div>{c.certified_by_name ?? ' '}</div><div className="sd">{c.certified_at ? `Certified ${c.certified_at}` : 'Signature / date'}</div></div>
         <div className="sig"><b>Client</b><div> </div><div className="sd">Signature / date</div></div>
       </div>
-      <div className="foot">Printed from Right Space Accounting · {today()}</div>
+      <div className="foot">Printed from Right Space · {today()}</div>
     </div>
   );
 }
