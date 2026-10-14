@@ -4,7 +4,7 @@ import { r2 } from './money';
 import { natural, RuleError, type AccountType } from './ledger';
 import { getSettings, type Settings } from './books';
 import { fiscalYearStart } from './reports';
-import { monthEnd } from './close';
+import { lastDay as monthEnd } from './dates';
 import type { Sheet } from './xlsx-write';
 
 // Statements pack (improvement 13): for a month, the profit and loss, the balance sheet, the cash flow and the trial

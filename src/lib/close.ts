@@ -4,7 +4,8 @@ import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
 import { audit, getSettings } from './books';
 import { reconcile } from './banks';
-import { TZ } from './dates';
+import { TZ, lastDay } from './dates';
+import { depreciationFor, depreciationRun } from './assets';
 
 // Month-end close (improvement 9). For each month a checklist: the bank and the credit card reconciled through the
 // month end, petty cash counted, payroll posted, the VAT return marked prepared, and nothing left waiting in the month.
@@ -18,10 +19,7 @@ const MANUAL = { petty: 'Petty cash counted' } as const;
 export type ManualKey = keyof typeof MANUAL;
 export const isManual = (k: string): k is ManualKey => k in MANUAL;
 
-export const monthEnd = (period: string) => {
-  const [y, m] = period.split('-').map(Number);
-  return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
-};
+export const monthEnd = lastDay;
 const prevEnd = (period: string) => new Date(Date.parse(period + '-01T00:00:00Z') - 864e5).toISOString().slice(0, 10);
 const checkPeriod = (p: string) => { if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(p)) throw new RuleError('Pick a month.'); };
 const monthName = (p: string) => new Date(p + '-01T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
@@ -37,7 +35,7 @@ async function ticksOf(period: string) {
 export async function closeChecklist(period: string) {
   checkPeriod(period);
   const start = period + '-01', end = monthEnd(period);
-  const [banks, openLines, [run], [staff], [waiting], [vat], saved, s] = await Promise.all([
+  const [banks, openLines, [run], [staff], [waiting], [vat], dep, depRun, saved, s] = await Promise.all([
     sql<{ code: string; name: string; kind: string; balance: number; cleared: number; stmt_date: string | null; stmt_balance: number | null }[]>`
       select a.code, a.name, coalesce(b.kind, 'bank') kind, to_char(s.stmt_date,'YYYY-MM-DD') stmt_date, s.stmt_balance::float stmt_balance,
         coalesce((select sum(l.dr - l.cr) from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.account = a.code), 0)::float balance,
@@ -54,6 +52,8 @@ export async function closeChecklist(period: string) {
         (select count(*) from invoices where status = 'pending' and date between ${start}::date and ${end}::date)::int invoices,
         (select count(*) from expense_claims where status = 'pending' and date between ${start}::date and ${end}::date)::int expenses`,
     sql<{ by: string | null; at: string }[]>`select u.name by, to_char(v.prepared_at at time zone ${TZ},'YYYY-MM-DD') at from vat_returns v left join users u on u.id = v.prepared_by where v.period = ${period}`,
+    depreciationFor(period),
+    depreciationRun(period),
     ticksOf(period),
     getSettings(),
   ]);
@@ -73,6 +73,8 @@ export async function closeChecklist(period: string) {
       detail: run?.status === 'posted' ? `${period} payroll is posted` : staff.n === 0 ? 'No staff this month' : run ? `${period} payroll is ${run.status === 'pending' ? 'waiting for approval' : run.status}` : `No ${period} payroll yet` },
     { key: 'vat', label: 'VAT return prepared', auto: true, done: !!vat, href: `/reports/vat-return?m=${period}`,
       detail: vat ? `Prepared by ${vat.by ?? 'Finance'} on ${vat.at}` : 'Open the VAT return and press "Mark as prepared"' },
+    { key: 'depreciation', label: 'Depreciation posted', auto: true, done: !!depRun || dep.length === 0, href: '/fixed-assets',
+      detail: depRun ? `Posted as ${depRun.no}` : dep.length === 0 ? 'No assets to depreciate this month' : `${dep.length} assets to depreciate: press "Post depreciation" on the Fixed assets page` },
     { key: 'waiting', label: 'Nothing left waiting in the month', auto: true, done: waitN === 0, href: '/approvals',
       detail: waitN === 0 ? 'No drafts or approvals dated in the month' : [waiting.entries && `${waiting.entries} entries`, waiting.invoices && `${waiting.invoices} invoices or payment requests`, waiting.expenses && `${waiting.expenses} expenses`].filter(Boolean).join(', ') + ' still draft or waiting' },
   ];

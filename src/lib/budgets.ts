@@ -4,8 +4,7 @@ import { fmt, r2 } from './money';
 import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
 import { audit } from './books';
-import { today } from './dates';
-import { monthEnd } from './close';
+import { today, lastDay as monthEnd } from './dates';
 import { readSpreadsheet } from './xlsx';
 import { parseMoney } from './statements';
 

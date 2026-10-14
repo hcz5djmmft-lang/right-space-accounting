@@ -4,8 +4,7 @@ import { r2 } from './money';
 import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
 import { audit, getSettings } from './books';
-import { TZ } from './dates';
-import { monthEnd } from './close';
+import { TZ, lastDay as monthEnd } from './dates';
 
 // VAT return and WHT certificates (improvement 10). The monthly VAT 14% return: output VAT on the sales invoices posted
 // in the month, input VAT on the vendor invoices and payment requests, any other VAT posted by typed entries or
