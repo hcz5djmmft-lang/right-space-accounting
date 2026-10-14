@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 
 const REPORTS = [
+  ['/reports/pack', 'Statements pack', 'Profit and loss, balance sheet, cash flow and trial balance for a month and the year to date, in Excel or PDF.'],
   ['/reports/trial-balance', 'Trial balance', 'Debit and credit totals per GL code; must agree.'],
   ['/reports/income-statement', 'Income statement', 'Revenue less expenses for a period, company-wide or per cost center.'],
   ['/reports/balance-sheet', 'Balance sheet', 'Assets, liabilities and equity on a date.'],
