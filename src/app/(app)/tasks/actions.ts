@@ -15,8 +15,8 @@ export async function saveTaskAction(f: FormData) {
   let next = '';
   try {
     const saved = await tasks.saveTask(user, {
-      id, title: str(f, 'title'), details: str(f, 'details'), status: str(f, 'status') as tasks.Status, priority: str(f, 'priority') as tasks.Priority,
-      due: str(f, 'due') || null, ...(await resolveAssignee(str(f, 'assignee'))),
+      id, title: str(f, 'title'), details: str(f, 'details'), priority: str(f, 'priority') as tasks.Priority,
+      due: str(f, 'due') || null, ...(await resolveAssignee(str(f, 'assignee'))), project_id: str(f, 'project') || null,
       link_type: str(f, 'link_type') || null, link_id: str(f, 'link_id') || null, link_label: str(f, 'link_label') || null,
     });
     next = `/tasks/${saved}`;
@@ -27,11 +27,25 @@ export async function saveTaskAction(f: FormData) {
   revalidatePath('/', 'layout');
   redirect(next);
 }
-export async function statusAction(id: string, status: string) {
-  const user = await requireUser();
-  try { await tasks.setStatus(user, id, status as tasks.Status); } catch (e) { redirect(`/tasks/${id}?error=${encodeURIComponent(msg(e))}`); }
+
+/** Start (a task with no project), Submit for review, Approve and Send back: the only ways a task changes column by hand. */
+async function step(id: string, fn: () => Promise<void>, back: string, ok: string) {
+  let err = '';
+  try { await fn(); } catch (e) { err = msg(e); }
   revalidatePath('/', 'layout');
-  redirect('/tasks');
+  redirect(err ? `/tasks/${id}?error=${encodeURIComponent(err)}` : `${back}${back.includes('?') ? '&' : '?'}ok=${encodeURIComponent(ok)}`);
+}
+export async function startAction(id: string, back: string) {
+  const user = await requireUser();
+  await step(id, () => tasks.startTask(user, id), back, 'Started: the task is In progress.');
+}
+export async function submitAction(id: string, f: FormData) {
+  const user = await requireUser();
+  await step(id, () => tasks.submitTask(user, id, str(f, 'note')), `/tasks/${id}`, 'Submitted: the task is in Review until it is approved.');
+}
+export async function reviewAction(id: string, approve: boolean, f: FormData) {
+  const user = await requireUser();
+  await step(id, () => tasks.reviewTask(user, id, approve, str(f, 'note')), `/tasks/${id}`, approve ? 'Approved: the task is Done.' : 'Sent back: the task is In progress again.');
 }
 export async function commentAction(id: string, f: FormData) {
   const user = await requireUser();

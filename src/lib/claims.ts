@@ -574,7 +574,7 @@ export async function raiseBudgetAlerts(user: User) {
       if (had) { await sql`update budget_alerts set over_by = ${overBy} where project_id = ${p.id} and code = ${r.code!}`; continue; }
       const taskId = await saveTask(user, {
         title: `Over budget: ${r.code} ${r.name} on ${p.code} by EGP ${fmt(overBy)}`, details: `Budget ${fmt(r.budget)} · committed on POs and work orders ${fmt(r.committed)} · posted ${fmt(r.actual)}. Review the commitments or raise a variation order.`,
-        status: 'todo', priority: 'high', assignee_id: owners[0] ?? null, link_type: 'cost-center', link_id: p.id, link_label: p.code,
+        priority: 'high', assignee_id: owners[0] ?? null, project_id: p.id, link_type: 'cost-center', link_id: p.id, link_label: p.code,
       });
       await sql`insert into budget_alerts (project_id, code, over_by, task_id) values (${p.id}, ${r.code!}, ${overBy}, ${taskId})`;
       raised++;
