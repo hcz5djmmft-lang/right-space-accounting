@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { clockAction } from '@/app/(app)/clock/actions';
 import { CategoryPicker, type Office, type PickerCategory, type PickerProject } from './CategoryPicker';
 import { shrink } from './shrink';
+import { tr, type Lang } from '@/lib/i18n';
 
 type Pos = { lat: number; lng: number; acc: number | null } | null;
 /** Where the phone is, or null when the person refuses, the phone cannot tell within ten seconds, or a permission prompt is left unanswered for fifteen. */
@@ -19,7 +20,8 @@ function locate(): Promise<Pos> {
 
 export type OpenRec = { in_time: string; what: string; where: string };
 /** The clock-in / clock-out card: what the day is for, then the button that opens the front camera; the selfie, the position and the pick go up together. */
-export function ClockCard({ open, categories, projects, pick, office }: { open: OpenRec | null; categories: PickerCategory[]; projects: PickerProject[]; pick: { category: string; project: string | null }; office: Office }) {
+export function ClockCard({ open, categories, projects, pick, office, lang = 'en' }: { open: OpenRec | null; categories: PickerCategory[]; projects: PickerProject[]; pick: { category: string; project: string | null }; office: Office; lang?: Lang }) {
+  const t = (x: string) => tr(lang, x);
   const cam = useRef<HTMLInputElement>(null);
   const form = useRef<HTMLFormElement>(null);
   const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
@@ -29,7 +31,7 @@ export function ClockCard({ open, categories, projects, pick, office }: { open: 
     if (!open && form.current) {
       const fd = new FormData(form.current);
       const c = categories.find(x => x.key === fd.get('category'));
-      if (c?.project && !fd.get('project')) return setMsg({ text: 'Choose the project.', bad: true });
+      if (c?.project && !fd.get('project')) return setMsg({ text: t('Choose the project.'), bad: true });
     }
     setMsg(null);
     cam.current?.click();
@@ -40,29 +42,29 @@ export function ClockCard({ open, categories, projects, pick, office }: { open: 
     if (!f) return;
     start(async () => {
       const fd = form.current ? new FormData(form.current) : new FormData();
-      setMsg({ text: 'Finding your location…', bad: false });
+      setMsg({ text: t('Finding your location…'), bad: false });
       const [pos, photo] = await Promise.all([locate(), shrink(f)]);
       fd.append('photo', photo, 'selfie.jpg');
       if (pos) { fd.append('lat', String(pos.lat)); fd.append('lng', String(pos.lng)); if (pos.acc) fd.append('acc', String(pos.acc)); }
-      setMsg({ text: 'Sending…', bad: false });
+      setMsg({ text: t('Sending…'), bad: false });
       try {
         const r = await clockAction(open ? 'out' : 'in', fd);
         if (r.error) setMsg({ text: r.error, bad: true });
-        else { setMsg({ text: r.ok ?? 'Done.', bad: false }); router.refresh(); }
-      } catch { setMsg({ text: 'The photo could not be sent. Check the connection and try again.', bad: true }); }
+        else { setMsg({ text: r.ok ?? t('Done.'), bad: false }); router.refresh(); }
+      } catch { setMsg({ text: t('The photo could not be sent. Check the connection and try again.'), bad: true }); }
     });
   };
   return (
     <form ref={form} className="card" style={{ textAlign: 'center' }} onSubmit={e => e.preventDefault()}>
-      <div className="muted" style={{ fontSize: 13 }}>{open ? <>Clocked in at <b className="mono">{open.in_time}</b> · <b>{open.what}</b> · {open.where}</> : 'Not clocked in'}</div>
-      {!open && <div style={{ textAlign: 'left', marginTop: 10 }}><CategoryPicker title="Clock in for" categories={categories} projects={projects} category={pick.category} project={pick.project} office={office} /></div>}
+      <div className="muted" style={{ fontSize: 13 }}>{open ? <>{t('Clocked in at')} <b className="mono">{open.in_time}</b> · <b>{open.what}</b> · {open.where}</> : t('Not clocked in')}</div>
+      {!open && <div style={{ textAlign: 'start', marginTop: 10 }}><CategoryPicker title={t('Clock in for')} categories={categories} projects={projects} category={pick.category} project={pick.project} office={office} lang={lang} /></div>}
       <input ref={cam} type="file" accept="image/*" capture="user" hidden onChange={e => send(e.currentTarget)} />
       <button type="button" className={'btn ' + (open ? '' : 'pri')} disabled={pending} onClick={tap}
         style={{ margin: '14px auto', fontSize: 18, padding: '16px 28px', minWidth: 220, justifyContent: 'center' }}>
-        {pending ? 'Working…' : open ? '📷 Clock out' : '📷 Clock in'}
+        {pending ? t('Working…') : open ? t('📷 Clock out') : t('📷 Clock in')}
       </button>
-      <div className="muted" style={{ fontSize: 12 }}>The camera opens for a selfie; your location is sent with it and the system tells you where it saw you.</div>
-      {msg && <div className={'msg ' + (msg.bad ? 'bad' : 'good')} style={{ marginTop: 10, textAlign: 'left' }}>{msg.text}</div>}
+      <div className="muted" style={{ fontSize: 12 }}>{t('The camera opens for a selfie; your location is sent with it and the system tells you where it saw you.')}</div>
+      {msg && <div className={'msg ' + (msg.bad ? 'bad' : 'good')} style={{ marginTop: 10, textAlign: 'start' }}>{msg.text}</div>}
     </form>
   );
 }

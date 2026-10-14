@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import * as att from '@/lib/attendance';
 import { RuleError } from '@/lib/ledger';
+import { trClockMessage } from '@/lib/i18n';
+import { getLang } from '@/lib/lang';
 
 const msg = (e: unknown) => (e instanceof RuleError ? e.message : (console.error(e), 'Something went wrong. Nothing was recorded.'));
 const num = (v: FormDataEntryValue | null) => (v === null || v === '' ? null : Number(v));
@@ -22,7 +24,7 @@ export async function clockAction(kind: 'in' | 'out', form: FormData): Promise<{
     message = (kind === 'in' ? await att.clockIn(user, pos, photo, new Date(), pickOf(form)) : await att.clockOut(user, pos, photo)).message;
   } catch (e) { return { error: msg(e) }; }
   revalidatePath('/clock'); revalidatePath('/attendance');
-  return { ok: message };
+  return { ok: trClockMessage(await getLang(), message) };
 }
 
 /** The person moves to something else during the day (Office to Design on a project…): the stretch so far is closed, a new one starts. */
