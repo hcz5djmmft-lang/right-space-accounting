@@ -10,6 +10,8 @@ const REPORTS = [
   ['/reports/budget', 'Budget vs actual', 'Budget, actual and committed payment requests per GL code.'],
   ['/reports/aging', 'Aging', 'Open payables and receivables by days past due.'],
   ['/reports/tax', 'VAT, WHT and deductions', 'VAT in and out, withholding tax and social insurance for the returns.'],
+  ['/reports/vat-return', 'VAT return', 'The monthly VAT 14% return: output and input VAT by document, and the net to pay.'],
+  ['/reports/wht', 'WHT certificates', 'Tax withheld from each supplier for a quarter, with a certificate to print as PDF.'],
 ];
 
 export default async function Reports() {

@@ -8,6 +8,7 @@ process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://postgres
 const { sql } = await import('@/lib/db');
 const books = await import('@/lib/books');
 const close = await import('@/lib/close');
+const tax = await import('@/lib/tax-returns');
 // @ts-expect-error plain JS script
 const { importOld } = await import('../scripts/import-old.mjs');
 
@@ -18,7 +19,7 @@ const item = async (key: string) => (await close.closeChecklist(P)).items.find(i
 beforeAll(async () => {
   const ctx = { window: {} as Record<string, unknown> };
   vm.runInNewContext(fs.readFileSync(process.env.OLD_SNAPSHOT ?? '/home/claude/sample-data.js', 'utf8'), ctx);
-  await sql`truncate sessions, users, month_closes, bank_statements, statement_lines cascade`;
+  await sql`truncate sessions, users, month_closes, vat_returns, bank_statements, statement_lines cascade`;
   await importOld(sql, ctx.window.__SEED, { replace: true });
   for (const u of [fin, mgmt]) u.id = (await sql`insert into users (email, name, password_hash, roles) values (${u.email}, ${u.name}, 'x', ${u.roles}) returning id`)[0].id;
   await sql`update settings set lock_date = null, opening_date = '2026-01-01' where id = 1`;
@@ -53,18 +54,20 @@ describe('month-end close', () => {
     await sql`delete from journal_entries where status = 'draft'`;
     expect((await item('waiting')).done).toBe(true);
   });
-  it('Finance ticks petty cash and the VAT return; the system items cannot be ticked by hand', async () => {
+  it('Finance ticks petty cash; the system items cannot be ticked by hand', async () => {
     await expect(close.tickItem(fin as never, P, 'bank', true)).rejects.toThrow(/by itself/);
+    await expect(close.tickItem(fin as never, P, 'vat', true)).rejects.toThrow(/by itself/);
     await close.tickItem(fin as never, P, 'petty', true);
-    await close.tickItem(fin as never, P, 'vat', true);
-    await close.tickItem(fin as never, P, 'vat', false);
+    await close.tickItem(fin as never, P, 'petty', false);
+    expect((await item('petty')).done).toBe(false);
+    await close.tickItem(fin as never, P, 'petty', true);
     expect((await item('petty')).detail).toMatch(/^Ticked by Ziad/);
-    expect((await item('vat')).done).toBe(false);
   });
   it('only Management locks; open items stop it unless locked anyway; the lock refuses postings in the month', async () => {
     await expect(close.closeMonth(fin as never, P)).rejects.toThrow(/Only Management/);
     await expect(close.closeMonth(mgmt as never, P)).rejects.toThrow(/Still open: vat return prepared/);
-    await close.tickItem(fin as never, P, 'vat', true);
+    await tax.prepareVatReturn(fin as never, P);
+    expect((await item('vat')).detail).toMatch(/^Prepared by Ziad/);
     expect((await close.closeChecklist(P)).ready).toBe(true);
     await close.closeMonth(mgmt as never, P);
     expect((await books.getSettings()).lock_date).toBe('2026-09-30');

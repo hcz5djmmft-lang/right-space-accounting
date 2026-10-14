@@ -7,14 +7,14 @@ import { reconcile } from './banks';
 import { TZ } from './dates';
 
 // Month-end close (improvement 9). For each month a checklist: the bank and the credit card reconciled through the
-// month end, petty cash counted, payroll posted, the VAT return prepared, and nothing left waiting in the month.
+// month end, petty cash counted, payroll posted, the VAT return marked prepared, and nothing left waiting in the month.
 // The system ticks what it can tell from the books; Finance ticks the rest. Management then locks the books to the
 // month end: the lock date in Settings, which stops any entry being posted or changed on or before it.
 
 export type CloseItem = { key: string; label: string; auto: boolean; done: boolean; detail: string; href: string };
 export type Ticks = Record<string, { by: string; at: string }>;
 
-const MANUAL = { petty: 'Petty cash counted', vat: 'VAT return prepared' } as const;
+const MANUAL = { petty: 'Petty cash counted' } as const;
 export type ManualKey = keyof typeof MANUAL;
 export const isManual = (k: string): k is ManualKey => k in MANUAL;
 
@@ -37,7 +37,7 @@ async function ticksOf(period: string) {
 export async function closeChecklist(period: string) {
   checkPeriod(period);
   const start = period + '-01', end = monthEnd(period);
-  const [banks, openLines, [run], [staff], [waiting], saved, s] = await Promise.all([
+  const [banks, openLines, [run], [staff], [waiting], [vat], saved, s] = await Promise.all([
     sql<{ code: string; name: string; kind: string; balance: number; cleared: number; stmt_date: string | null; stmt_balance: number | null }[]>`
       select a.code, a.name, coalesce(b.kind, 'bank') kind, to_char(s.stmt_date,'YYYY-MM-DD') stmt_date, s.stmt_balance::float stmt_balance,
         coalesce((select sum(l.dr - l.cr) from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.account = a.code), 0)::float balance,
@@ -53,6 +53,7 @@ export async function closeChecklist(period: string) {
       select (select count(*) from journal_entries where status in ('draft', 'pending') and date between ${start}::date and ${end}::date)::int entries,
         (select count(*) from invoices where status = 'pending' and date between ${start}::date and ${end}::date)::int invoices,
         (select count(*) from expense_claims where status = 'pending' and date between ${start}::date and ${end}::date)::int expenses`,
+    sql<{ by: string | null; at: string }[]>`select u.name by, to_char(v.prepared_at at time zone ${TZ},'YYYY-MM-DD') at from vat_returns v left join users u on u.id = v.prepared_by where v.period = ${period}`,
     ticksOf(period),
     getSettings(),
   ]);
@@ -70,7 +71,8 @@ export async function closeChecklist(period: string) {
     manual('petty', '/banks'),
     { key: 'payroll', label: 'Payroll posted', auto: true, done: run?.status === 'posted' || staff.n === 0, href: `/payroll`,
       detail: run?.status === 'posted' ? `${period} payroll is posted` : staff.n === 0 ? 'No staff this month' : run ? `${period} payroll is ${run.status === 'pending' ? 'waiting for approval' : run.status}` : `No ${period} payroll yet` },
-    manual('vat', '/reports/tax'),
+    { key: 'vat', label: 'VAT return prepared', auto: true, done: !!vat, href: `/reports/vat-return?m=${period}`,
+      detail: vat ? `Prepared by ${vat.by ?? 'Finance'} on ${vat.at}` : 'Open the VAT return and press "Mark as prepared"' },
     { key: 'waiting', label: 'Nothing left waiting in the month', auto: true, done: waitN === 0, href: '/approvals',
       detail: waitN === 0 ? 'No drafts or approvals dated in the month' : [waiting.entries && `${waiting.entries} entries`, waiting.invoices && `${waiting.invoices} invoices or payment requests`, waiting.expenses && `${waiting.expenses} expenses`].filter(Boolean).join(', ') + ' still draft or waiting' },
   ];

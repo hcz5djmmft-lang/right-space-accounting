@@ -212,5 +212,19 @@ export async function reportCsv(kind: string, q: CsvQuery, settings: Settings): 
       ...t.accounts.map(a => [a.label, a.code, a.opening, a.dr, a.cr, a.closing]), [],
       ['Request', 'Date', 'Vendor', 'Tax ID', 'Base', 'WHT %', 'WHT', 'SI %', 'SI'], ...t.deductions.map(d => [d.no, d.date, d.vendor, d.tax_id ?? '', d.subtotal, d.wht_rate, d.wht, d.si_rate, d.si])] };
   }
+  if (kind === 'vat-return') {
+    const { vatReturn } = await import('./tax-returns');
+    const v = await vatReturn(q.m && /^\d{4}-\d{2}$/.test(q.m) ? q.m : today().slice(0, 7));
+    const rows = (label: string, xs: Awaited<ReturnType<typeof vatReturn>>['sales']) => xs.map(d => [label, d.no, d.date, d.party, d.tax_id ?? '', d.base ?? '', d.vat]);
+    return { name: `VAT return ${v.period}`, rows: [['Section', 'Document', 'Date', 'Party', 'Tax ID', 'Base', 'VAT'],
+      ...rows('Output: sales invoices', v.sales), ...rows('Output: other entries', v.otherOut), ...rows('Input: vendor invoices and payment requests', v.purchases), ...rows('Input: expenses and other entries', v.otherIn), [],
+      ['Output VAT', '', '', '', '', '', v.outputVat], ['Input VAT', '', '', '', '', '', v.inputVat], [v.netVat >= 0 ? 'Net VAT to pay' : 'VAT credit to carry forward', '', '', '', '', '', Math.abs(v.netVat)]] };
+  }
+  if (kind === 'wht') {
+    const { quarterOf, whtSuppliers } = await import('./tax-returns');
+    const qt = quarterOf(today()), from = q.from || qt.from, to = q.to || qt.to;
+    const rows = await whtSuppliers(from, to);
+    return { name: `WHT by supplier ${from} to ${to}`, rows: [['Supplier', 'Tax ID', 'Documents', 'Base', 'WHT'], ...rows.map(r => [r.full_name || r.party, r.tax_id ?? '', r.docs, r.base, r.wht])] };
+  }
   return null;
 }
