@@ -65,7 +65,7 @@ export async function cashView(now = today()): Promise<CashView> {
   const [[cash], ins, outs, [pending]] = await Promise.all([
     sql<{ bank: number; petty: number; card: number }[]>`
       select coalesce(sum(case when coalesce(b.kind, 'bank') = 'bank' and a.type = 'asset' then l.dr - l.cr end), 0)::float bank,
-        coalesce(sum(case when b.kind = 'cash' then l.dr - l.cr end), 0)::float petty, coalesce(sum(case when b.kind = 'card' then l.cr - l.dr end), 0)::float card
+        coalesce(sum(case when b.kind = 'cash' and not coalesce(b.hidden, false) then l.dr - l.cr end), 0)::float petty, coalesce(sum(case when b.kind = 'card' then l.cr - l.dr end), 0)::float card
       from accounts a left join bank_accounts b on b.account = a.code join journal_lines l on l.account = a.code join journal_entries e on e.id = l.entry_id and e.status = 'posted'
       where a.is_bank`,
     sql<{ id: string; no: string; party: string; due: string; amount: number }[]>`

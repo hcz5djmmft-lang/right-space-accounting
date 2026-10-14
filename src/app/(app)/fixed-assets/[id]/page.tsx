@@ -42,7 +42,7 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
           <label className="f"><span>Sold or written off on</span><input className="inp" type="date" name="date" defaultValue={today()} /></label>
           <label className="f"><span>What happened</span><input className="inp" name="note" dir="auto" placeholder="Sold to …, stolen, broken" /></label>
           <button className="btn bad">Stop depreciating</button>
-          <p className="muted" style={{ fontSize: 13, gridColumn: '1 / -1', margin: 0 }}>Record the sale or write-off itself as an entry (Entries, New entry).</p>
+          <p className="muted" style={{ fontSize: 13, gridColumn: '1 / -1', margin: 0 }}>This only stops the depreciation; the sale or write-off itself is posted by Finance in the books.</p>
         </form>)}
     </>
   );

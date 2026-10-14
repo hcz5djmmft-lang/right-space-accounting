@@ -145,7 +145,7 @@ describe('vendors, subcontractors and customers', () => {
     expect(await parties.vendorTypes()).toEqual(expect.arrayContaining(['Plumbing', 'Electricity', 'Marble']));
     await parties.addParty(fin as never, 'vendor', { name: 'Another', new_type: 'marble' });
     expect((await parties.vendorTypes()).filter(t => t.toLowerCase() === 'marble')).toHaveLength(1);
-    expect(parties.payLabel(p as never)).toBe('InstaPay · 01001234567 · wallet');
+    expect(parties.payLabel(p as never, true)).toBe('InstaPay · 01001234567 · wallet');
   });
   it('a vendor paid to a bank keeps the bank boxes; it moves to Subcontractors and back', async () => {
     const id = await parties.addParty(fin as never, 'vendor', { name: 'Volt', pay_method: 'bank', bank_name: 'CIB', vendor_type: 'Electricity', instapay_no: '0100' });
@@ -168,5 +168,56 @@ describe('collections', () => {
     for (const r of rows) { expect(r.open).toBeGreaterThan(0); expect(r.days_overdue).toBeGreaterThanOrEqual(0); }
     const [{ n }] = await sql<{ n: number }[]>`select count(*)::int n from invoices i where i.kind = 'sales' and i.status = 'posted' and i.total - invoice_paid(i.id) > 0.004`;
     expect(rows).toHaveLength(n);
+  });
+});
+
+// What the review of PR #37 found: linked tasks that no document closes must still be handed in; tasks the system raises
+// carry their project so the clock-in moves them; the hidden cash box stays out of Money received; the InstaPay number
+// is for Finance and Procurement; a refused form leaves no stray vendor type; the Arabic clock-in keeps the task sentence.
+describe('fixes after the review of update 18', () => {
+  const eng: U = { id: '', email: 'eng@x.test', name: 'Youssef Engineering', roles: ['engineering'] };
+  it('a task linked to a payment request is handed in with Submit and approved like any other', async () => {
+    const id = await tasks.saveTask(fin as never, { title: 'Chase the missing invoice', details: '', priority: 'normal', assignee_emp_id: saraEmp, assignee_id: sara.id, link_type: 'payment-request', link_id: 'pr-test', link_label: 'PR-00009' });
+    await tasks.startTask(sara as never, id);
+    await tasks.submitTask(sara as never, id, 'sent twice');
+    expect(await tasks.getTask(id)).toMatchObject({ status: 'review' });
+    await tasks.reviewTask(fin as never, id, true, '');
+    expect(await tasks.getTask(id)).toMatchObject({ status: 'done' });
+  });
+  it('a task its document closes is not submitted by hand', async () => {
+    const id = await tasks.saveTask(fin as never, { title: 'Collect INV-1', details: '', priority: 'normal', assignee_id: sara.id, assignee_emp_id: saraEmp, link_type: 'sales-invoice', link_id: 'inv-test', link_label: 'INV-1' });
+    await expect(tasks.submitTask(sara as never, id)).rejects.toThrow(/closes by itself/);
+  });
+  it('an inspection the system raises carries its project, so the inspector\'s clock-in moves it', async () => {
+    eng.id = (await sql`insert into users (email, name, password_hash, roles) values (${eng.email}, ${eng.name}, 'x', ${eng.roles}) returning id`)[0].id;
+    const site = await import('@/lib/site');
+    const ir = await site.raiseInspection(eng as never, { project: 'ph-b1302', title: 'Tiles before grouting', requested_for: '2026-10-20', inspector: sara.id });
+    const [t] = await sql<{ id: string; project_id: string | null; status: string }[]>`select id, project_id, status from tasks where link_type = 'inspection' and link_id = ${ir}`;
+    expect(t).toMatchObject({ project_id: 'ph-b1302', status: 'todo' });
+    expect(await tasks.startOnClockIn(sql, saraEmp, sara.id, 'ph-b1302')).toBeGreaterThanOrEqual(1);
+    expect((await tasks.getTask(t.id)).status).toBe('doing');
+  });
+  it('Money received refuses the hidden cash box', async () => {
+    const sales = await import('@/lib/sales');
+    const customer = await parties.addParty(fin as never, 'customer', { name: 'Test client' } as never);
+    await expect(sales.postCustomerReceipt(fin as never, { date: '2026-10-14', party: customer, bank: 'A115', received: 100, wht: 0, memo: '', ref: '', alloc: [] })).rejects.toThrow(/no longer in use/);
+  });
+  it('the InstaPay number shows only to Finance and Procurement', () => {
+    const p = { pay_method: 'instapay', bank_name: null, instapay_no: '01001234567', instapay_to: 'wallet' };
+    expect(parties.payLabel(p)).toBe('InstaPay · wallet');
+    expect(parties.payLabel(p, true)).toBe('InstaPay · 01001234567 · wallet');
+  });
+  it('a refused form leaves no stray vendor type', async () => {
+    await expect(parties.addParty(fin as never, 'sub', { name: 'Fountain works', pay_method: 'instapay', new_type: 'Fountains', instapay_no: '' } as never)).rejects.toThrow(/InstaPay number/);
+    expect(await parties.vendorTypes()).not.toContain('Fountains');
+    await parties.addParty(fin as never, 'sub', { name: 'Fountain works', pay_method: 'instapay', new_type: 'Fountains', instapay_no: '01000000000', instapay_to: 'wallet' } as never);
+    expect(await parties.vendorTypes()).toContain('Fountains');
+  });
+  it('the Arabic clock-in keeps the sentence about the task', async () => {
+    const { trClockMessage } = await import('@/lib/i18n');
+    const ar = trClockMessage('ar', 'Clocked in, 15 m from the project pin (accurate to about 10 m). Your task on this project is now In progress.');
+    expect(ar).toMatch(/^تم تسجيل الحضور، على بعد 15 متر/);
+    expect(ar).toMatch(/قيد التنفيذ\.$/);
+    expect(trClockMessage('ar', 'Clocked in, 15 m from the project pin (accurate to about 10 m). 2 of your tasks on this project are now In progress.')).toMatch(/2 من مهامك/);
   });
 });

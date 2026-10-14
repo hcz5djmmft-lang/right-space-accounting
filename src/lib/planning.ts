@@ -133,8 +133,8 @@ export async function raiseDelayTasks(tx: Tx, user: User, projectId: string, now
     if (open) continue;
     const late = overdueDays(a, now);
     const details = late ? `${a.name} was due ${a.end_date} and is ${late} day${late === 1 ? '' : 's'} late at ${a.progress} %.` : `${a.name} is at ${a.progress} % against ${plannedPct(a, now)} % planned by ${now} (ends ${a.end_date}).`;
-    await tx`insert into tasks (title, details, status, priority, due, assignee_id, assignee_emp_id, link_type, link_id, link_label, activity_id, created_by)
-      values (${`Delay: ${a.name} · ${code}`}, ${details}, 'todo', 'high', ${a.end_date}, ${who}, ${emp}, 'planning', ${projectId}, ${code}, ${a.id}, ${user.id})`;
+    await tx`insert into tasks (title, details, status, priority, due, assignee_id, assignee_emp_id, link_type, link_id, link_label, activity_id, project_id, created_by)
+      values (${`Delay: ${a.name} · ${code}`}, ${details}, 'todo', 'high', ${a.end_date}, ${who}, ${emp}, 'planning', ${projectId}, ${code}, ${a.id}, ${projectId}, ${user.id})`;
     raised++;
   }
   return raised;

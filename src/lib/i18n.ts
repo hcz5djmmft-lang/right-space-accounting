@@ -100,8 +100,11 @@ export const trParts = (lang: Lang, s: string) => s.split(' · ').map(p => tr(la
 export const hasArabic = (s: string) => s in AR;
 
 /** The sentence after a clock-in or clock-out (whereText) in Arabic. */
-export function trClockMessage(lang: Lang, s: string) {
+export function trClockMessage(lang: Lang, s: string): string {
   if (lang !== 'ar') return s;
+  // update 18: the clock-in may end with the sentence about the tasks it moved; translate it apart and keep it
+  const moved = /^(.*?) (Your task on this project is|(\d+) of your tasks on this project are) now In progress\.$/.exec(s);
+  if (moved) return `${trClockMessage(lang, moved[1])} ${moved[3] ? `${moved[3]} من مهامك على هذا المشروع أصبحت الآن قيد التنفيذ.` : 'مهمتك على هذا المشروع أصبحت الآن قيد التنفيذ.'}`;
   const m = /^(Clocked in|Clocked out)(.*?)( without a location| about \d+ m from| at the office|, \d+ m from|\. Your position was recorded)(.*)$/.exec(s);
   if (!m) return s;
   const head = m[1] === 'Clocked in' ? 'تم تسجيل الحضور' : 'تم تسجيل الانصراف';

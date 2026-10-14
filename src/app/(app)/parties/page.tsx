@@ -49,7 +49,7 @@ export default async function Parties({ searchParams }: { searchParams: Promise<
         <thead><tr><th>Code</th><th>Name</th>{customer ? null : <th>Vendor type</th>}<th className="hide-sm">Phone</th>
           {customer ? <th className="hide-sm">ID number</th> : <th className="hide-sm">Paid by</th>}<th className="num hide-sm">WHT %</th><th className="num">{customer ? 'They owe us' : 'We owe them'}</th></tr></thead>
         <tbody>{rows.map(r => <tr key={r.id}><td className="mono">{r.code}</td><td dir="auto"><Link href={`/parties/${r.id}`}>{r.name}</Link></td>{customer ? null : <td dir="auto">{r.vendor_type ?? <span className="muted">—</span>}</td>}
-          <td className="hide-sm">{r.phone}</td><td className="hide-sm">{customer ? r.tax_id : payLabel(r)}</td>
+          <td className="hide-sm">{r.phone}</td><td className="hide-sm">{customer ? r.tax_id : payLabel(r, may)}</td>
           <td className="num hide-sm">{r.wht_rate || ''}</td><td className="num">{fmt(sign * r.bal)}</td></tr>)}
           {rows.length === 0 && <tr><td colSpan={7} className="muted">No {KIND_NAME[tab]} yet.</td></tr>}</tbody>
       </table></div>

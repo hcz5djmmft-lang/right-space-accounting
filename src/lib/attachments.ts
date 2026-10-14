@@ -52,7 +52,7 @@ async function docStatus(entity: Entity, id: string): Promise<string> {
     : entity === 'expense'
       ? await sql<{ status: string }[]>`select status from expense_claims where id = ${id}`
     : entity === 'task'
-      ? await sql<{ status: string }[]>`select 'open' status from tasks where id = ${id}`
+      ? await sql<{ status: string }[]>`select case when status = 'done' then 'posted' else 'open' end status from tasks where id = ${id}`
     : entity === 'claim'
       ? await sql<{ status: string }[]>`select 'open' status from sub_claims where id = ${id}`
     : SITE[entity]
@@ -113,7 +113,7 @@ export async function removeAttachment(user: User, attachmentId: string) {
     select entity, entity_id, file_name, storage_key, uploaded_by from attachments where id = ${attachmentId}`;
   if (!a) return;
   if (a.uploaded_by !== user.id && !hasRole(user, 'finance') && !(a.entity === 'employee' && hasRole(user, 'hr')) && !((a.entity === 'project' || a.entity === 'drawing' || !!SITE[a.entity]) && hasRole(user, 'engineering', 'projects'))) throw new RuleError('Only the person who attached it, or Finance, can remove this file.');
-  if ((await docStatus(a.entity, a.entity_id)) === 'posted') throw new RuleError('This document is posted, so its files are kept.');
+  if ((await docStatus(a.entity, a.entity_id)) === 'posted') throw new RuleError(a.entity === 'task' ? 'This task is done, so its files are kept.' : 'This document is posted, so its files are kept.');
   await sql.begin(async tx => {
     await tx`delete from attachments where id = ${attachmentId}`;
     await audit(tx, user, a.entity, a.entity_id, 'Removed file', a.file_name);

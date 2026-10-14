@@ -47,7 +47,7 @@ export default async function PrintInvoice({ params, searchParams }: { params: P
       <div className="meta">
         <div><b>Invoice no.</b>{r.no}</div><div><b>Date</b>{r.date}</div>
         <div><b>Bill to</b><span dir="auto">{c?.full_name || r.customer}</span></div><div><b>Due</b>{r.due ?? '—'}</div>
-        <div><b>Customer tax ID</b>{c?.tax_id || '—'}</div><div><b>Project</b>{r.project_code ? (r.project_name && r.project_name !== r.project_code ? `${r.project_code} · ${r.project_name}` : r.project_code) : '—'}</div>
+        <div><b>Customer ID number</b>{c?.tax_id || '—'}</div><div><b>Project</b>{r.project_code ? (r.project_name && r.project_name !== r.project_code ? `${r.project_code} · ${r.project_name}` : r.project_code) : '—'}</div>
         <div><b>Reference</b>{r.ref || '—'}</div><div><b>From</b>{settings.company_name}</div>
         <div><b>Type</b>{r.category_name ?? '—'}</div><div />
       </div>

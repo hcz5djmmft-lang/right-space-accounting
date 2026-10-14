@@ -142,7 +142,7 @@ export async function summaryFigures(user: User, now = today()): Promise<Summary
   const { waitingForUser } = await import('./documents');
   const [[cash], [due], mine, [all]] = await Promise.all([
     sql<{ bank: number; cash: number }[]>`
-      select coalesce(sum(case when coalesce(b.kind, 'bank') = 'bank' then l.dr - l.cr end), 0) bank, coalesce(sum(case when b.kind = 'cash' then l.dr - l.cr end), 0) cash
+      select coalesce(sum(case when coalesce(b.kind, 'bank') = 'bank' then l.dr - l.cr end), 0) bank, coalesce(sum(case when b.kind = 'cash' and not coalesce(b.hidden, false) then l.dr - l.cr end), 0) cash
       from accounts a left join bank_accounts b on b.account = a.code
       join journal_lines l on l.account = a.code join journal_entries e on e.id = l.entry_id and e.status = 'posted'
       where a.is_bank and a.type = 'asset'`,

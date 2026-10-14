@@ -15,6 +15,9 @@ export const PRIORITIES = ['low', 'normal', 'high'] as const;
 export type Priority = typeof PRIORITIES[number];
 export const LINKS: Record<string, string> = { entry: '/entries/', 'payment-request': '/payment-requests/', 'sales-invoice': '/sales-invoices/', 'cost-center': '/cost-centers/', planning: '/planning/', design: '/design/', estimate: '/qs/', purchase: '/purchasing/', workorder: '/purchasing/work-orders/', claim: '/claims/', 'client-claim': '/claims/client/', variation: '/variations/', inspection: '/site/inspections/', 'site-report': '/site/reports/', snags: '/site/snags?project=', handover: '/site/handover/', budget: '/budgets?m=' };
 
+/** Link types whose document closes the task by itself (site.ts inspections, followup.ts collections, procurement.ts late deliveries); every other task is handed in with Submit for review. */
+export const SELF_CLOSING = ['inspection', 'sales-invoice', 'purchase'];
+
 export type Task = {
   id: string; title: string; details: string; status: Status; priority: Priority; due: string | null;
   assignee_id: string | null; assignee_emp_id: string | null; assignee: string | null; assignee_key: string | null; link_type: string | null; link_id: string | null; link_label: string | null;
@@ -94,6 +97,7 @@ export async function submitTask(user: User, id: string, note = '') {
   if (!t.mine) throw new RuleError('Only the person the task is assigned to submits it.');
   if (t.status === 'review') throw new RuleError('This task is already waiting for review.');
   if (t.status === 'done') throw new RuleError('This task is already done.');
+  if (t.link_type && SELF_CLOSING.includes(t.link_type)) throw new RuleError('This task is handed in by finishing its document; it closes by itself.');
   const reviewer = t.created_by && t.created_by !== user.id ? t.created_by : null;
   await sql.begin(async tx => {
     await tx`update tasks set status = 'review', submitted_at = now(), submit_note = ${note.trim()}, reviewer_id = ${reviewer}, updated_at = now() where id = ${id}`;
