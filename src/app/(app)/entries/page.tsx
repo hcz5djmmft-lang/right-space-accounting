@@ -5,7 +5,7 @@ import { fmt } from '@/lib/money';
 
 const KIND: Record<string, string> = {
   expense: 'Expense', collection: 'Collection', transfer: 'Transfer', adjustment: 'Adjustment', payment_request: 'Payment request',
-  sales_invoice: 'Sales invoice', payment: 'Vendor payment', receipt: 'Receipt', payroll: 'Payroll', reversal: 'Reversal', partner: 'Partners',
+  sales_invoice: 'Sales invoice', payment: 'Vendor payment', receipt: 'Receipt', payroll: 'Payroll', reversal: 'Reversal', partner: 'Partners', petty_cash: 'Petty cash',
 };
 const STATUSES = ['all', 'draft', 'pending', 'posted', 'rejected'];
 
@@ -21,12 +21,7 @@ export default async function Entries({ searchParams }: { searchParams: Promise<
   return (
     <>
       <div className="head">
-        <div><h1>Entries</h1><p>Every expense, collection, transfer and posted document, newest first.</p></div>
-        <div className="row">
-          <Link className="btn pri" href="/entries/new?type=expense">Record expense</Link>
-          <Link className="btn" href="/entries/new?type=collection">Collection</Link>
-          <Link className="btn" href="/entries/new?type=transfer">Transfer</Link>
-        </div>
+        <div><h1>Entries</h1><p>Every posted document, newest first. Nothing is typed here: expenses come from vendor and subcontractor invoices, collections from the Collections page, transfers from payment requests, cash from Petty cash.</p></div>
       </div>
       <div className="tabs">
         {STATUSES.map(s => <Link key={s} href={`/entries?status=${s}`} className={s === status ? 'on' : ''}>{s[0].toUpperCase() + s.slice(1)}</Link>)}

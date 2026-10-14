@@ -37,7 +37,7 @@ export default async function NewPayment({ searchParams }: { searchParams: Promi
   const [paid] = done ? await sql<{ no: string; reference: string | null }[]>`select no, reference from payments where id = ${done}` : [];
   return (
     <>
-      <div className="head"><div><h1>Pay a vendor</h1><p>A bank transfer against approved requests; anything not allocated is recorded as a down payment (90000). Petty cash and the card are used from Record expense.</p></div>
+      <div className="head"><div><h1>Pay a vendor</h1><p>A bank transfer against approved requests; anything not allocated is recorded as a down payment (90000). Cash out of the office goes through Petty cash.</p></div>
         <Link className="btn" href="/payment-requests?tab=open">Approved, not paid</Link></div>
       {error && <div className="msg bad">{error}</div>}
       {paid && <div className="msg good">Payment {paid.no} posted{paid.reference ? ` · reference ${paid.reference}` : ''}.</div>}
