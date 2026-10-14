@@ -32,6 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: '/tasks', label: 'Tasks', badge: myTasks },
     ...(site ? [{ href: '/site', label: 'Site' }] : []),
     ...(finance ? ['Finance',
+      { href: '/dashboard', label: "Partners' dashboard" },
       { href: '/entries', label: 'Entries' },
       { href: '/accounts', label: 'Chart of accounts' },
       { href: '/banks', label: 'Banks & cash' },
