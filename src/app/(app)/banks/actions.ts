@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { parseAmount } from '@/lib/money';
 import { RuleError } from '@/lib/ledger';
-import { postBankCharge, postInterest, saveStatement, setCleared } from '@/lib/banks';
+import { payCard, postBankCharge, postInterest, saveStatement, setCleared } from '@/lib/banks';
 import { sql } from '@/lib/db';
 import { ignoreLine, importStatement, matchStatement, recordFromLine, unmatchLine } from '@/lib/statements';
 
@@ -95,4 +95,12 @@ export async function unmatchLineAction(lineId: string, f: FormData) {
   const { code, from, to } = where(f);
   try { await unmatchLine(user, lineId); } catch (e) { back(code, from, to, { error: err(e) }); }
   back(code, from, to, { ok: 'Match undone.' });
+}
+
+export async function payCardAction(f: FormData) {
+  const user = await requireUser('finance');
+  const code = String(f.get('account') ?? ''), from = String(f.get('from') ?? ''), to = String(f.get('to') ?? '');
+  try { await payCard(user, { card: code, bank: String(f.get('bank') ?? ''), date: String(f.get('date') ?? ''), amount: parseAmount(f.get('amount')) }); }
+  catch (e) { back(code, from, to, { error: err(e) }); }
+  back(code, from, to, { ok: 'The card payment is posted.' });
 }

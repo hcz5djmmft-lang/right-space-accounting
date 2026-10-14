@@ -59,13 +59,15 @@ const AR: Record<string, string> = {
   "Every step in the system that waits for your input: approvals, forms, drawings, estimates, schedules and the week's progress. Each clears by itself once it is done.": 'كل خطوة في النظام تنتظر منك إجراءً: موافقات ونماذج ورسومات وتسعيرات وجداول وتقدم الأسبوع. تختفي كل خطوة تلقائياً عند إنجازها.',
   'All tasks': 'كل المهام', 'Assigned to me': 'المسندة إليّ', 'No tasks': 'لا توجد مهام', 'Unassigned': 'غير مسندة', 'high': 'عاجلة',
   'To do': 'للتنفيذ', 'In progress': 'قيد التنفيذ', 'Review': 'مراجعة', 'Done': 'تم',
+  'A task moves by itself: clocking in on its project (or Start) puts it In progress, Submit for review puts it in Review, the approval marks it Done.': 'المهمة تتحرك تلقائياً: تسجيل الحضور على مشروعها (أو ابدأ) ينقلها إلى قيد التنفيذ، وإرسالها للمراجعة ينقلها إلى مراجعة، والموافقة تجعلها تم.',
+  'Start': 'ابدأ', 'Starts at your clock-in on': 'تبدأ عند تسجيل حضورك على', 'Waiting for': 'بانتظار',
 
   // approvals
   'Everything waiting for your signature.': 'كل ما ينتظر توقيعك.', 'Nothing is waiting for you.': 'لا يوجد شيء بانتظارك.',
   'No.': 'رقم', 'Type': 'النوع', 'Date': 'التاريخ', 'Vendor / description': 'المورد / البيان', 'Raised by': 'مقدم الطلب', 'Amount': 'المبلغ',
   'Payment request': 'طلب صرف', 'Purchase request': 'طلب شراء', 'Entry': 'قيد', 'Expense': 'مصروف', 'Drawing set': 'مجموعة رسومات', 'Progress claim': 'مستخلص',
   'Petty cash top-up': 'تعزيز العهدة', 'Management': 'الإدارة', 'Department head': 'رئيس القسم', 'Procurement pricing': 'تسعير المشتريات',
-  'Finance payment request': 'طلب صرف المالية', 'Engineering head': 'رئيس الهندسة', 'Finance head': 'رئيس المالية',
+  'Task': 'مهمة', 'review': 'مراجعة', 'Finance payment request': 'طلب صرف المالية', 'Engineering head': 'رئيس الهندسة', 'Finance head': 'رئيس المالية',
 
   // site execution
   'My sites': 'مواقعي', 'Daily reports': 'التقارير اليومية', 'Inspections': 'الاستلامات', 'Snag list': 'قائمة الملاحظات', 'Summary': 'الملخص',

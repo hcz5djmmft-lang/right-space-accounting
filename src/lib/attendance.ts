@@ -5,6 +5,7 @@ import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
 import { TZ } from './dates';
 import { addAttachment } from './attachments';
+import { startOnClockIn } from './tasks';
 import { type HrSettings, type Pin, LOCATION_HELP, hourlyRate, hrSettings, lateMinutes, localParts, officeSet, placeOf, timesheetAmounts, whereText, workedAndOvertime } from './attendance-calc';
 import { CATEGORIES, type Category, type Pick, categoryOf, defaultPick, offeredCategories, whatLabel, whatPhrase } from './clock-categories';
 
@@ -101,6 +102,7 @@ export async function clockIn(user: User, pos: Pos, photo: { name: string; body:
     if (!pos) throw new RuleError(`Your phone gave no location, so the system cannot see you are at ${at}. ${LOCATION_HELP} Then try again.`);
     if (place === 'away') throw new RuleError(`You are about ${distance} m from ${at} (allowed ${cat.rule === 'site' ? pin!.radius_m : s.office_radius_m} m). Clock in at ${at}.`);
   }
+  let moved = 0;
   const id = await sql.begin(async tx => {
     const open = await openRecord(me.id, tx);
     if (open) throw new RuleError(`You are already clocked in since ${open.in_time}. Clock out first.`);
@@ -108,11 +110,12 @@ export async function clockIn(user: User, pos: Pos, photo: { name: string; body:
       values (${me.id}, ${localParts(now, TZ).day}, ${now}, ${pos?.lat ?? null}, ${pos?.lng ?? null}, ${pos?.acc ?? null}, ${place}, ${lateMinutes(now, TZ, s)}, ${cat.key}, ${project?.id ?? null}) returning id`;
     await closeStale(tx, me.id);            // a design clock left running from before this update: closed unfinished, not charged until now
     await openNewSession(tx, me, cat, project, note, r.id, now);
+    if (project) moved = await startOnClockIn(tx, me.id, user.id, project.id);   // update 18: the project's tasks start
     await audit(tx, user, 'attendance', r.id, 'Clocked in', `${whatLabel(cat, project?.code)} · ${place}${distance !== null ? ` · ${distance} m` : ''}`);
     return r.id;
   });
   await addAttachment(user, 'attendance', id, photo.name, photo.body, 'in');
-  return { id, message: whereText('in', whatPhrase(cat, project?.code), { place, distance, acc: pos?.acc ?? null, hasPos: !!pos, rule: cat.rule, compared }) };
+  return { id, message: whereText('in', whatPhrase(cat, project?.code), { place, distance, acc: pos?.acc ?? null, hasPos: !!pos, rule: cat.rule, compared }) + movedText(moved) };
 }
 
 /** The person clocks out: the same selfie and position, the open stretch is closed, then the day's worked and overtime minutes are fixed. */
@@ -156,6 +159,7 @@ export async function switchTo(user: User, pick: Pick, now = new Date()) {
     if (cur && cur.category === cat.key && (cur.project_id ?? null) === (project?.id ?? null)) throw new RuleError(`You are already on ${whatLabel(cat, project?.code)} since ${cur.start_time}.`);
     await endOpenSession(tx, me, now, s);
     const id = await openNewSession(tx, me, cat, project, note, open.id, now);
+    if (project) await startOnClockIn(tx, me.id, user.id, project.id);
     await audit(tx, user, 'attendance', open.id, 'Switched', whatLabel(cat, project?.code));
     if (project) await audit(tx, user, 'project', project.id, `${cat.short} work started`, me.name);
     return id;
@@ -244,6 +248,8 @@ async function closeStale(tx: Tx, employeeId: string) {
   await tx`update work_sessions set end_at = start_at, minutes = 0, cost = 0, note = trim(both ' ·' from note || ' · left running, closed unfinished at the next clock-in')
     where employee_id = ${employeeId} and end_at is null`;
 }
+const movedText = (n: number) => n ? ` ${n === 1 ? 'Your task on this project is' : `${n} of your tasks on this project are`} now In progress.` : '';
+
 async function openNewSession(tx: Tx, me: { id: string }, cat: Category, project: ProjectPin | null, note: string, attendanceId: string, now: Date) {
   const [r] = await tx<{ id: string }[]>`insert into work_sessions (employee_id, project_id, category, start_at, note, attendance_id)
     values (${me.id}, ${project?.id ?? null}, ${cat.key}, ${now}, ${note}, ${attendanceId}) returning id`;

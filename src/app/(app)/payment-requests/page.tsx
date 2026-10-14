@@ -30,11 +30,11 @@ export default async function PaymentRequests({ searchParams }: { searchParams: 
   return (
     <>
       <div className="head"><div><h1>Payment requests</h1><p>إذن صرف · approval goes {steps.map(s => s.name).join(' → ')}; a project&apos;s request goes to the head of Engineering</p></div>
-        <div className="row"><Link className="btn pri" href="/payment-requests/new">New payment request</Link><Link className="btn" href="/payments/new">Pay a vendor</Link></div></div>
+        <div className="row"><Link className="btn pri" href="/payment-requests/new">Pay a vendor or subcontractor</Link></div></div>
       <div className="tabs">{TABS.map(([k, l]) => <Link key={k} href={`/payment-requests?tab=${k}`} className={tab === k ? 'on' : ''}>{l}</Link>)}</div>
       {shown.length === 0 ? <div className="empty card">Nothing here.</div> : (
         <div className="tw"><table>
-          <thead><tr><th>No.</th><th>Date</th><th>Vendor</th><th className="hide-sm">Cost center</th><th>Status</th><th className="num">Net (EGP)</th></tr></thead>
+          <thead><tr><th>No.</th><th>Date</th><th>Vendor / subcontractor</th><th className="hide-sm">Cost center</th><th>Status</th><th className="num">Net (EGP)</th></tr></thead>
           <tbody>{shown.map(r => (
             <tr key={r.id}><td className="mono"><Link href={`/payment-requests/${r.id}`}>{r.no}</Link></td><td className="mono">{r.date}</td>
               <td dir="auto">{r.vendor}</td><td className="hide-sm">{r.cc ?? 'Per line'}</td>

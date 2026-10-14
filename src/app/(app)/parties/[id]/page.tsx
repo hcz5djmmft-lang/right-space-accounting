@@ -4,17 +4,26 @@ import { requireUser } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { getSettings } from '@/lib/books';
-import { unpaidBills } from '@/lib/purchasing';
+import { isProcurement, unpaidBills } from '@/lib/purchasing';
+import { hasRole } from '@/lib/roles';
+import { payLabel, vendorTypes } from '@/lib/parties';
+import { PartyFields } from '@/components/PartyFields';
+import { subAction, updatePartyAction } from './actions';
 
 /** A vendor's or customer's account: what is unpaid, and every posted movement on payables (or receivables). */
-export default async function PartyAccount({ params }: { params: Promise<{ id: string }> }) {
-  await requireUser();
+export default async function PartyAccount({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; ok?: string }> }) {
+  const user = await requireUser();
   const { id } = await params;
-  const [p] = await sql<{ id: string; code: string | null; type: 'customer' | 'vendor'; name: string; full_name: string | null; phone: string | null; email: string | null; bank_name: string | null; iban: string | null }[]>`
-    select id, code, type, name, full_name, phone, email, bank_name, iban from parties where id = ${id}`;
+  const q = await searchParams;
+  const [p] = await sql<{ id: string; code: string | null; type: 'customer' | 'vendor'; name: string; full_name: string | null; phone: string | null; email: string | null; bank_name: string | null; account_no: string | null; iban: string | null;
+    tax_id: string | null; wht_rate: number; is_sub: boolean; vendor_type: string | null; pay_method: string | null; instapay_no: string | null; instapay_to: string | null }[]>`
+    select id, code, type, name, full_name, phone, email, bank_name, account_no, iban, tax_id, wht_rate::float wht_rate, is_sub, vendor_type, pay_method, instapay_no, instapay_to from parties where id = ${id}`;
   if (!p) notFound();
   const s = await getSettings();
   const vendor = p.type === 'vendor';
+  const kind = vendor ? (p.is_sub ? 'sub' : 'vendor') : 'customer';
+  const may = hasRole(user, 'finance') || (vendor && await isProcurement(user));
+  const types = vendor ? await vendorTypes() : [];
   const ctrl = vendor ? s.account_map.ap : s.account_map.ar;
   const [lines, bills, requests] = await Promise.all([
     sql<{ entry_id: string; no: string; date: string; memo: string; payment_ref: string | null; dr: number; cr: number }[]>`
@@ -32,8 +41,10 @@ export default async function PartyAccount({ params }: { params: Promise<{ id: s
   return (
     <>
       <div className="head"><div><h1>{p.name} <span className="muted mono" style={{ fontSize: 16 }}>{p.code}</span></h1>
-        <p dir="auto">{[p.full_name !== p.name ? p.full_name : null, p.phone, p.email, p.bank_name, p.iban ? 'IBAN on file' : null].filter(Boolean).join(' · ') || (vendor ? 'Vendor' : 'Customer')}</p></div>
-        <div className="row">{vendor && <Link className="btn pri" href="/payment-requests/new">New payment request</Link>}<Link className="btn" href={`/parties?tab=${p.type}`}>All {vendor ? 'vendors' : 'customers'}</Link></div></div>
+        <p dir="auto">{[vendor ? (p.is_sub ? 'Subcontractor' : 'Vendor') : 'Customer', p.vendor_type, p.full_name !== p.name ? p.full_name : null, p.phone, p.email, vendor ? payLabel(p) : p.tax_id ? `ID ${p.tax_id}` : null].filter(Boolean).join(' · ')}</p></div>
+        <div className="row">{vendor && <Link className="btn pri" href="/payment-requests/new">Pay a vendor or subcontractor</Link>}<Link className="btn" href={`/parties?tab=${kind}`}>All {vendor ? (p.is_sub ? 'subcontractors' : 'vendors') : 'customers'}</Link></div></div>
+      {q.error && <div className="msg bad">{q.error}</div>}
+      {q.ok && <div className="msg good">{q.ok}</div>}
       <div className="tiles"><div className="tile"><div className="k">{vendor ? 'We owe them' : 'They owe us'}</div><div className="v mono">{fmt(balance)}</div></div></div>
 
       {vendor && (
@@ -60,6 +71,13 @@ export default async function PartyAccount({ params }: { params: Promise<{ id: s
                 <td className="num">{l.dr ? fmt(l.dr) : ''}</td><td className="num">{l.cr ? fmt(l.cr) : ''}</td><td className="num">{fmt(run)}</td></tr>); })}</tbody>
           </table></div>)}
       </div>
+      {may && <details className="card"><summary style={{ cursor: 'pointer', fontWeight: 600 }}>Edit details</summary>
+        <form action={updatePartyAction.bind(null, id)} style={{ marginTop: 10 }}>
+          <PartyFields kind={kind} types={types} p={p} />
+          <div className="row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
+            {vendor ? <button className="btn" formAction={subAction.bind(null, id, !p.is_sub)} formNoValidate>{p.is_sub ? 'Move to Vendors' : 'Move to Subcontractors'}</button> : <span />}
+            <button className="btn pri">Save</button></div>
+        </form></details>}
     </>
   );
 }

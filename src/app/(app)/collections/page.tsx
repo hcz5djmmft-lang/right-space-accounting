@@ -2,15 +2,15 @@ import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
-import { METHOD_LABEL, collectionsByProject, moneyReceived, receivedByType } from '@/lib/collections';
+import { METHOD_LABEL, collectionsByProject, moneyReceived, receivedByType, uncollectedInvoices } from '@/lib/collections';
 
 /** Collections by project: what each client was invoiced and paid (design, fit-out, furniture), and every receipt. */
 export default async function Collections({ searchParams }: { searchParams: Promise<{ project?: string; from?: string; to?: string }> }) {
   await requireUser('finance');
   const { project = '', from = '', to = '' } = await searchParams;
-  const [byType, byProject, rows, projects] = await Promise.all([
+  const [byType, byProject, rows, projects, uncollected] = await Promise.all([
     receivedByType(from, to), collectionsByProject(), moneyReceived({ project, from, to }),
-    sql<{ id: string; code: string }[]>`select id, code from projects where not is_office order by code`,
+    sql<{ id: string; code: string }[]>`select id, code from projects where not is_office order by code`, uncollectedInvoices(project),
   ]);
   const period = from || to ? `${from || 'start'} to ${to || 'today'}` : 'all dates';
   const shownProjects = project ? byProject.filter(p => p.id === project) : byProject;
@@ -18,7 +18,7 @@ export default async function Collections({ searchParams }: { searchParams: Prom
   return (
     <>
       <div className="head"><div><h1>Collections</h1><p>Money collected from clients by project: design, fit-out and furniture, in cash or by bank transfer, each with a printed receipt.</p></div>
-        <div className="row"><Link className="btn pri" href="/receipts/new">Money received</Link><Link className="btn" href="/sales-invoices/new">New invoice</Link><Link className="btn" href="/sales-invoices?tab=open">Not yet received</Link><Link className="btn" href="/collections/follow-up">Follow-up</Link></div></div>
+        <div className="row"><Link className="btn pri" href="/receipts/new">Money received</Link><Link className="btn" href="/sales-invoices?tab=open">Not yet received</Link><Link className="btn" href="/collections/follow-up">Follow-up</Link></div></div>
       <form className="row card" style={{ alignItems: 'end', flexWrap: 'wrap' }}>
         <label className="f"><span>Project</span><select className="inp" name="project" defaultValue={project}><option value="">All projects</option>{projects.map(p => <option key={p.id} value={p.id}>{p.code}</option>)}</select></label>
         <label className="f"><span>From</span><input className="inp" type="date" name="from" defaultValue={from} /></label>
@@ -28,6 +28,19 @@ export default async function Collections({ searchParams }: { searchParams: Prom
       <div className="tiles">
         {byType.types.map(t => <div className="tile" key={t.id}><div className="k">{t.name} · {period}</div><div className="v mono">{fmt(t.amount)}</div></div>)}
         <div className="tile"><div className="k">Total collected · {period}</div><div className="v mono">{fmt(byType.total)}</div></div>
+      </div>
+
+      <div className="card">
+        <h2>Invoices not yet collected <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>· {uncollected.length} · {fmt(uncollected.reduce((s, r) => s + r.open, 0))} EGP</span></h2>
+        {uncollected.length === 0 ? <p className="muted" style={{ margin: 0 }}>Every invoice{project ? ' of this project' : ''} is collected.</p> : (
+          <div className="tw"><table>
+            <thead><tr><th>Invoice</th><th>Project</th><th>Customer</th><th className="hide-sm">Due</th><th className="num hide-sm">Invoice total</th><th className="num">Amount due</th><th className="num">Days overdue</th></tr></thead>
+            <tbody>{uncollected.map(r => (
+              <tr key={r.id}><td className="mono"><Link href={`/sales-invoices/${r.id}`}>{r.no}</Link></td><td>{r.project_code ?? '—'}</td><td dir="auto">{r.customer}</td>
+                <td className="mono hide-sm">{r.due ?? r.date}</td><td className="num hide-sm">{fmt(r.total)}</td><td className="num">{fmt(r.open)}</td>
+                <td className="num" style={r.days_overdue > 0 ? { color: 'var(--bad)' } : undefined}>{r.days_overdue || '—'}</td></tr>))}</tbody>
+          </table></div>)}
+        <p className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>Invoices are made only from Sales invoices; collect one with Money received.</p>
       </div>
 
       <div className="card">

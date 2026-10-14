@@ -68,7 +68,7 @@ export function ExpenseForm({ initial, accounts, projects, departments, paidFrom
       <label className="f"><span>Paid from</span>
         <select className="inp" name="paid_from" defaultValue={initial.paid_from} required>
           <option value="">Choose…</option>
-          {paidFrom.map(o => <option key={o.code} value={o.code}>{o.kind === 'card' ? 'Credit card' : 'Petty cash'} · {o.name}</option>)}
+          {paidFrom.map(o => <option key={o.code} value={o.code}>{o.kind === 'card' ? 'Credit card' : 'Office cash'} · {o.name}</option>)}
           <option value="own">My own money (Finance reimburses me)</option>
         </select></label>
       {err && <div className="msg bad">{err}</div>}

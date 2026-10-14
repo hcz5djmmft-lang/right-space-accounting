@@ -3,20 +3,20 @@ import { requireUser } from '@/lib/auth';
 import { fmt } from '@/lib/money';
 import { today } from '@/lib/dates';
 import { KIND_LABEL, bankAccounts, bankActivity, bankSummary, cardFigures, reconcile, type BankAccount } from '@/lib/banks';
-import { chargeAction, clearedAction, ignoreLineAction, importStatementAction, interestAction, matchAgainAction, recordLineAction, statementAction, unmatchLineAction } from './actions';
+import { payCardAction, chargeAction, clearedAction, ignoreLineAction, importStatementAction, interestAction, matchAgainAction, recordLineAction, statementAction, unmatchLineAction } from './actions';
 import { lastImport, statementCounts, statementLines } from '@/lib/statements';
 
 /** The second line of an account's tile: what kind of account it is and the detail that tells it apart. */
 function describe(a: BankAccount) {
   if (a.kind === 'card') { const c = cardFigures(a); return `Credit card · limit ${fmt(a.credit_limit ?? 0)}${c.available === null ? '' : ` · available ${fmt(c.available)}`}`; }
-  if (a.kind === 'cash') return `Petty cash${a.holder ? ` · ${a.holder}` : ''}`;
+  if (a.kind === 'cash') return 'Office cash · petty cash is paid from here';
   return `Bank account${a.branch ? ` · ${a.branch}` : ''}${a.account_no ? ` · ···${a.account_no.slice(-4)}` : ''}`;
 }
 
 export default async function Banks({ searchParams }: { searchParams: Promise<{ account?: string; from?: string; to?: string; error?: string; ok?: string }> }) {
   await requireUser('finance');
   const { account, from = '', to = '', error, ok } = await searchParams;
-  const accounts = await bankAccounts();
+  const accounts = (await bankAccounts()).filter(a => !a.hidden);   // the accountant's box (A115) stays in the books, off this page
   const cur = accounts.find(a => a.code === account) ?? accounts.find(a => a.kind === 'bank') ?? accounts[0]; // the bank account first
   const [lines, sum] = cur ? await Promise.all([bankActivity(cur.code, from, to), bankSummary(cur.code, from, to)]) : [[], null];
   const rec = cur ? reconcile(cur) : null;
@@ -28,8 +28,7 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
   const hidden = cur && <><input type="hidden" name="account" value={cur.code} /><input type="hidden" name="from" value={from} /><input type="hidden" name="to" value={to} /></>;
   return (
     <>
-      <div className="head"><div><h1>Banks &amp; cash</h1><p>The bank account, the credit card and petty cash: balances, activity and reconciliation. Every payment out of them gets its own reference number.</p></div>
-        <div className="row"><Link className="btn" href="/entries/new?type=collection">Record collection</Link><Link className="btn" href="/entries/new?type=expense">Record expense</Link><Link className="btn" href="/entries/new?type=transfer">Transfer</Link></div></div>
+      <div className="head"><div><h1>Banks &amp; cash</h1><p>The cash flow of the office cash, the CIB current account and the credit card: balances, activity and reconciliation. Money moves through payment requests, collections and petty cash, never typed here.</p></div></div>
       {error && <div className="msg bad">{error}</div>}
       {ok && <div className="msg good">{ok}</div>}
       {accounts.length === 0 && <div className="empty card">No bank or cash accounts. Tick &quot;Bank or cash account&quot; on an account in the chart of accounts.</div>}
@@ -54,8 +53,16 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
               {cur.holder && <tr><td>{cur.kind === 'bank' ? 'Account name' : 'Held by'}</td><td>{cur.holder}</td></tr>}
               <tr><td>Payments numbered</td><td className="mono">{cur.ref_prefix ? cur.ref_prefix + '00001, ' + cur.ref_prefix + '00002 …' : '—'}</td></tr>
             </tbody></table>
-            {cur.kind === 'card' && <p className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>Pay with the card from Record expense (paid from {cur.code}); settle it with a Transfer from the bank to {cur.code}.</p>}
-            {cur.kind === 'cash' && <p className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>Top it up with a Transfer from the bank; spend it from Record expense (paid from {cur.code}).</p>}
+            {cur.kind === 'card' && <p className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>Card purchases come from New expense (paid by the credit card).</p>}
+            {cur.kind === 'card' && (
+              <form action={payCardAction} className="row" style={{ alignItems: 'end', flexWrap: 'wrap', marginTop: 10 }}>
+                {hidden}
+                <label className="f"><span>Pay the card from</span><select className="inp" name="bank">{accounts.filter(a => a.kind === 'bank').map(a => <option key={a.code} value={a.code}>{a.code} · {a.name}</option>)}</select></label>
+                <label className="f"><span>Date</span><input className="inp" type="date" name="date" defaultValue={today()} /></label>
+                <label className="f"><span>Amount (EGP)</span><input className="inp mono" name="amount" inputMode="decimal" defaultValue={cardFigures(cur).owed > 0 ? cardFigures(cur).owed.toFixed(2) : ''} required /></label>
+                <button className="btn pri">Pay the card</button>
+              </form>)}
+            {cur.kind === 'cash' && <p className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>Spent only through Petty cash; topped up from Petty cash &gt; Ask for a top-up.</p>}
           </div>
           {cur.kind === 'bank' && (
             <div className="card">
@@ -144,7 +151,7 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
                     {cur.kind === 'bank' && <button className="btn sm" formAction={recordLineAction.bind(null, l.id)}>{l.amount < 0 ? 'Record as bank charges' : 'Record as interest'}</button>}
                     <button className="btn sm" formAction={ignoreLineAction.bind(null, l.id, true)}>Set aside</button></form></td></tr>))}</tbody>
             </table></div>
-            <p className="muted" style={{ fontSize: 12 }}>When the payment or receipt behind a line is recorded in the system, press Match again.</p>
+            <p className="muted" style={{ fontSize: 12 }}>After the payment or receipt is recorded where it belongs (payment request, Money received, petty cash), press Match again.</p>
           </>}
           {doneLines.length > 0 && <details style={{ marginTop: 8 }}><summary>Matched and set-aside lines ({doneLines.length})</summary>
             <div className="tw"><table>

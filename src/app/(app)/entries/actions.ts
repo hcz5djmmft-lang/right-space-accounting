@@ -31,6 +31,8 @@ export async function saveEntryAction(raw: unknown): Promise<SaveResult> {
   const parsed = Input.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Check the form.' };
   const { action, ...input } = parsed.data;
+  // no manual entries (update 18): only a draft or returned entry typed before can still be corrected and sent
+  if (!input.id) return { error: 'Entries are no longer typed by hand. Use Payment requests, Collections or Petty cash.' };
   try {
     const id = await books.saveEntry(user, input, action);
     revalidatePath('/', 'layout');

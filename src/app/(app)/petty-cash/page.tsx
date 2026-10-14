@@ -6,25 +6,43 @@ import { bankAccounts } from '@/lib/banks';
 import { CashCount } from '@/components/CashCount';
 import { DENOMINATIONS, canApproveTopup, cashCounts, pettyBoxes, topups } from '@/lib/petty';
 import { approveTopupAction, countAction, floatAction, rejectTopupAction, topupAction } from './actions';
+import { formLists } from '@/lib/form-data';
+import { listAssignees } from '@/lib/hr';
+import { listVouchers, officeCash } from '@/lib/petty-vouchers';
+import { PettyCashForm } from '@/components/PettyCashForm';
+import { voidVoucherAction, voucherAction } from './voucher-actions';
 
-/** Petty cash (improvement 15): count sheet, top-up requests and their approval. */
+/** Petty cash: a new petty cash paid from the office cash (update 18), the vouchers paid, the count sheet, top-up requests and their approval (improvement 15). */
 export default async function PettyCash({ searchParams }: { searchParams: Promise<{ box?: string; ok?: string; error?: string }> }) {
   const user = await requireUser('finance');
   const q = await searchParams;
   const boxes = await pettyBoxes();
   if (!boxes.length) return <><div className="head"><div><h1>Petty cash</h1></div></div><p className="muted">No petty cash account is set up under Banks &amp; cash.</p></>;
   const b = boxes.find(x => x.code === q.box) ?? boxes[0];
-  const [counts, all, banks] = await Promise.all([cashCounts(b.code), topups(), bankAccounts()]);
+  const [counts, all, banks, lists, people, vouchers, cash] = await Promise.all([cashCounts(b.code), topups(), bankAccounts(), formLists(), listAssignees(), listVouchers(), officeCash()]);
   const pending = all.filter(t => t.account === b.code && t.status === 'pending');
   const past = all.filter(t => t.account === b.code && t.status !== 'pending').slice(0, 10);
   const suggest = b.float !== null ? Math.max(0, Math.round((b.float - b.balance) * 100) / 100) : 0;
   const fromBanks = banks.filter(a => a.kind === 'bank' && a.type === 'asset');
   return (
     <>
-      <div className="head"><div><h1>Petty cash</h1><p>Count the box, see the difference against the books, and ask Finance for a top-up.</p></div>
+      <div className="head"><div><h1>Petty cash</h1><p>A petty cash is a cash payment out of the office cash, never from the bank. Pay one here, count the box, and ask Finance for a top-up.</p></div>
         <Link className="btn" href={`/banks?account=${b.code}`}>Activity</Link></div>
       {q.ok && <div className="msg good">{q.ok}</div>}
       {q.error && <div className="msg bad">{q.error}</div>}
+      <PettyCashForm accounts={lists.accounts} projects={lists.projects} departments={lists.departments} cash={{ code: cash.code, name: cash.name, balance: fmt(cash.balance) }} date={today()} action={voucherAction}
+        people={people.filter(p => p.employee_id).map(p => ({ id: p.employee_id!, name: p.name, detail: p.detail }))} />
+      {vouchers.length > 0 && <div className="card">
+        <h2 style={{ marginTop: 0 }}>Petty cash paid</h2>
+        <div className="tw"><table>
+          <thead><tr><th>No.</th><th>Date</th><th>Paid to</th><th className="hide-sm">Purpose</th><th className="hide-sm">Project / dept.</th><th className="num">EGP</th><th></th></tr></thead>
+          <tbody>{vouchers.map(v => <tr key={v.id} style={v.voided ? { opacity: .55, textDecoration: 'line-through' } : undefined}>
+            <td className="mono"><Link href={`/entries/${v.id}`}>{v.ref ?? v.no}</Link></td><td className="mono">{v.date}</td><td dir="auto">{v.paid_to}</td>
+            <td className="hide-sm" dir="auto">{v.purpose}</td><td className="hide-sm">{v.cc}<div className="muted mono" style={{ fontSize: 12 }}>{v.account}</div></td><td className="num">{fmt(v.amount)}</td>
+            <td style={{ whiteSpace: 'nowrap' }}><Link className="btn sm" href={`/print/petty-cash/${v.id}`} target="_blank">Print</Link>
+              {!v.voided && <details style={{ display: 'inline-block', marginInlineStart: 4 }}><summary className="btn sm">Void</summary>
+                <form action={voidVoucherAction.bind(null, v.id)} className="row" style={{ marginTop: 6 }}><input className="inp" name="reason" placeholder="Why" required /><button className="btn sm bad">Void</button></form></details>}</td></tr>)}</tbody>
+        </table></div></div>}
       {boxes.length > 1 && <div className="row" style={{ gap: 6, marginBottom: 12 }}>{boxes.map(x => <Link key={x.code} className={`btn sm${x.code === b.code ? ' pri' : ''}`} href={`/petty-cash?box=${x.code}`}>{x.name}</Link>)}</div>}
       <div className="tiles">
         <div className="tile"><div className="k">{b.name}{b.holder ? ` · ${b.holder}` : ''}</div><div className="v mono">{fmt(b.balance)}</div></div>

@@ -1,24 +1,18 @@
+import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
-import { canPostDirect, getSettings } from '@/lib/books';
-import { listAccounts, listDepartments, listParties, listProjects } from '@/lib/queries';
-import { EntryForm } from '@/components/EntryForm';
-import { saveEntryAction } from '../actions';
-import { today } from '@/lib/dates';
 
-export default async function NewEntry({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
-  const user = await requireUser();
-  const { type } = await searchParams;
-  const [settings, accounts, projects, departments, parties] = await Promise.all([getSettings(), listAccounts(), listProjects(), listDepartments(), listParties()]);
-  const kind = type === 'collection' || type === 'transfer' ? type : 'expense';
-  const bank = accounts.find(a => a.is_bank && a.postable)?.code ?? '';
+/** Manual entries are gone (update 18): every entry comes from a document. This page only says where each one is made. */
+export default async function NewEntry() {
+  await requireUser();
   return (
     <>
-      <div className="head"><div><h1>New entry</h1><p>Pick the project or department on each line; the debit and credit lines are built for you.</p></div></div>
-      <EntryForm
-        initial={{ date: today(), ref: '', memo: '', type: kind, bank, toBank: '', party: '', vatRate: '0', amount: '',
-          items: [{ assign: '', acc: kind === 'collection' ? 'R110' : '', desc: '', amount: '' }] }}
-        accounts={accounts} projects={projects} departments={departments} parties={parties}
-        arCode={settings.account_map.ar ?? 'A130'} canPost={canPostDirect(user, settings)} save={saveEntryAction} />
+      <div className="head"><div><h1>No manual entries</h1><p>Every entry comes from the system.</p></div></div>
+      <div className="card" style={{ display: 'grid', gap: 8 }}>
+        <div>An expense: from a vendor&apos;s or subcontractor&apos;s invoice, through <Link href="/payment-requests">Payment requests</Link>.</div>
+        <div>A collection: <Link href="/collections">Collections</Link> &gt; Money received.</div>
+        <div>A transfer: from an approved payment request (Pay).</div>
+        <div>Cash out of the office: <Link href="/petty-cash">Petty cash</Link>.</div>
+      </div>
     </>
   );
 }
