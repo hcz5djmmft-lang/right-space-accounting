@@ -2,71 +2,62 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { hasRole } from '@/lib/roles';
-import { audit, getSettings } from '@/lib/books';
+import { getSettings } from '@/lib/books';
 import { sql } from '@/lib/db';
-import { fmt, parseAmount } from '@/lib/money';
+import { fmt } from '@/lib/money';
+import { RuleError } from '@/lib/ledger';
 import Link from 'next/link';
 import { isProcurement } from '@/lib/purchasing';
+import { KIND_NAME, type PartyKind, addParty, partyFromForm, payLabel, vendorTypes } from '@/lib/parties';
+import { PartyFields } from '@/components/PartyFields';
 
-async function addParty(form: FormData) {
+async function add(form: FormData) {
   'use server';
   const user = await requireUser();
-  const v = (k: string) => String(form.get(k) ?? '').trim() || null;
-  const type = v('type') === 'customer' ? 'customer' : 'vendor';
-  // Finance adds anyone; Procurement keeps the vendor list
-  if (!hasRole(user, 'finance') && !(type === 'vendor' && await isProcurement(user))) redirect('/parties?error=' + encodeURIComponent('Only Finance, or Procurement for vendors, can add to this list.'));
-  const name = v('name');
-  if (!name) redirect('/parties?error=' + encodeURIComponent('Enter a name.'));
-  await sql.begin(async tx => {
-    const [{ n }] = await tx<{ n: number }[]>`select count(*)::int + 1 n from parties where type = ${type}`;
-    const code = (type === 'customer' ? 'CU' : 'VC') + String(n).padStart(4, '0');
-    const [p] = await tx<{ id: string }[]>`insert into parties (code, type, name, phone, email, tax_id, bank_name, account_no, iban, wht_rate)
-      values (${code}, ${type}, ${name}, ${v('phone')}, ${v('email')}, ${v('tax_id')}, ${v('bank_name')}, ${v('account_no')}, ${v('iban')}, ${parseAmount(v('wht_rate'))})
-      on conflict (code) do nothing returning id`;
-    if (p) await audit(tx, user, 'party', p.id, 'Created');
-  });
+  const kind = (['customer', 'vendor', 'sub'].includes(String(form.get('kind'))) ? String(form.get('kind')) : 'vendor') as PartyKind;
+  try { await addParty(user, kind, partyFromForm(form)); }
+  catch (e) { redirect(`/parties?tab=${kind}&error=${encodeURIComponent(e instanceof RuleError ? e.message : (console.error(e), 'Something went wrong. Nothing was added.'))}`); }
   revalidatePath('/parties');
-  redirect('/parties?tab=' + type);
+  redirect('/parties?tab=' + kind);
 }
+
+const TABS: [PartyKind, string][] = [['vendor', 'Vendors'], ['sub', 'Subcontractors'], ['customer', 'Customers']];
 
 export default async function Parties({ searchParams }: { searchParams: Promise<{ tab?: string; error?: string }> }) {
   const user = await requireUser();
-  const { tab = 'vendor', error } = await searchParams;
+  const q = await searchParams;
+  const tab: PartyKind = q.tab === 'customer' || q.tab === 'sub' ? q.tab : 'vendor';
   const s = await getSettings();
-  const ctrl = tab === 'customer' ? s.account_map.ar : s.account_map.ap;
-  const rows = await sql<{ id: string; code: string | null; name: string; phone: string | null; tax_id: string | null; wht_rate: number; bal: number }[]>`
-    select p.id, p.code, p.name, p.phone, p.tax_id, p.wht_rate,
-      coalesce((select sum(l.dr - l.cr) from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted'
-        where l.party_id = p.id and l.account = ${ctrl}),0) bal
-    from parties p where p.type = ${tab} order by p.name`;
-  const sign = tab === 'customer' ? 1 : -1;
+  const customer = tab === 'customer';
+  const ctrl = customer ? s.account_map.ar : s.account_map.ap;
+  const [rows, types] = await Promise.all([
+    sql<{ id: string; code: string | null; name: string; phone: string | null; tax_id: string | null; wht_rate: number; vendor_type: string | null; pay_method: string | null; bank_name: string | null; instapay_no: string | null; instapay_to: string | null; bal: number }[]>`
+      select p.id, p.code, p.name, p.phone, p.tax_id, p.wht_rate, p.vendor_type, p.pay_method, p.bank_name, p.instapay_no, p.instapay_to,
+        coalesce((select sum(l.dr - l.cr) from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted'
+          where l.party_id = p.id and l.account = ${ctrl}),0) bal
+      from parties p where p.type = ${customer ? 'customer' : 'vendor'} and (${customer} or p.is_sub = ${tab === 'sub'}) order by p.name`,
+    vendorTypes(),
+  ]);
+  const sign = customer ? 1 : -1;
+  const may = hasRole(user, 'finance') || (!customer && await isProcurement(user));
   return (
     <>
-      <div className="head"><div><h1>Customers &amp; vendors</h1><p>Balances come from posted receivables and payables.</p></div></div>
-      <div className="tabs">
-        <a href="/parties?tab=vendor" className={tab === 'vendor' ? 'on' : ''}>Vendors</a>
-        <a href="/parties?tab=customer" className={tab === 'customer' ? 'on' : ''}>Customers</a>
-      </div>
-      {error && <div className="msg bad">{error}</div>}
+      <div className="head"><div><h1>Customers &amp; vendors</h1><p>Balances come from posted receivables and payables. Subcontractors are paid like vendors.</p></div></div>
+      <div className="tabs">{TABS.map(([k, l]) => <a key={k} href={`/parties?tab=${k}`} className={tab === k ? 'on' : ''}>{l}</a>)}</div>
+      {q.error && <div className="msg bad">{q.error}</div>}
       <div className="tw" style={{ marginBottom: 14 }}><table>
-        <thead><tr><th>Code</th><th>Name</th><th className="hide-sm">Phone</th><th className="hide-sm">Tax ID</th><th className="num hide-sm">WHT %</th><th className="num">{tab === 'customer' ? 'They owe us' : 'We owe them'}</th></tr></thead>
-        <tbody>{rows.map(r => <tr key={r.id}><td className="mono">{r.code}</td><td dir="auto"><Link href={`/parties/${r.id}`}>{r.name}</Link></td><td className="hide-sm">{r.phone}</td><td className="hide-sm">{r.tax_id}</td>
-          <td className="num hide-sm">{r.wht_rate || ''}</td><td className="num">{fmt(sign * r.bal)}</td></tr>)}</tbody>
+        <thead><tr><th>Code</th><th>Name</th>{customer ? null : <th>Vendor type</th>}<th className="hide-sm">Phone</th>
+          {customer ? <th className="hide-sm">ID number</th> : <th className="hide-sm">Paid by</th>}<th className="num hide-sm">WHT %</th><th className="num">{customer ? 'They owe us' : 'We owe them'}</th></tr></thead>
+        <tbody>{rows.map(r => <tr key={r.id}><td className="mono">{r.code}</td><td dir="auto"><Link href={`/parties/${r.id}`}>{r.name}</Link></td>{customer ? null : <td dir="auto">{r.vendor_type ?? <span className="muted">—</span>}</td>}
+          <td className="hide-sm">{r.phone}</td><td className="hide-sm">{customer ? r.tax_id : payLabel(r)}</td>
+          <td className="num hide-sm">{r.wht_rate || ''}</td><td className="num">{fmt(sign * r.bal)}</td></tr>)}
+          {rows.length === 0 && <tr><td colSpan={7} className="muted">No {KIND_NAME[tab]} yet.</td></tr>}</tbody>
       </table></div>
-      {(hasRole(user, 'finance') || (tab === 'vendor' && await isProcurement(user))) && (
-        <form action={addParty} className="card">
-          <h2>Add {tab === 'customer' ? 'customer' : 'vendor'}</h2>
-          <input type="hidden" name="type" value={tab} />
-          <div className="grid g4">
-            <label className="f"><span>Name</span><input className="inp" name="name" dir="auto" required /></label>
-            <label className="f"><span>Phone</span><input className="inp" name="phone" /></label>
-            <label className="f"><span>Email</span><input className="inp" name="email" type="email" /></label>
-            <label className="f"><span>Tax ID</span><input className="inp" name="tax_id" /></label>
-            <label className="f"><span>Bank</span><input className="inp" name="bank_name" /></label>
-            <label className="f"><span>Account no.</span><input className="inp" name="account_no" /></label>
-            <label className="f"><span>IBAN</span><input className="inp" name="iban" /></label>
-            <label className="f"><span>WHT %</span><select className="inp" name="wht_rate"><option>0</option><option>1</option><option>3</option><option>5</option></select></label>
-          </div>
+      {may && (
+        <form action={add} className="card">
+          <h2>Add {KIND_NAME[tab]}</h2>
+          <input type="hidden" name="kind" value={tab} />
+          <PartyFields kind={tab} types={types} />
           <div className="row" style={{ justifyContent: 'flex-end', marginTop: 12 }}><button className="btn pri">Add</button></div>
         </form>)}
     </>
