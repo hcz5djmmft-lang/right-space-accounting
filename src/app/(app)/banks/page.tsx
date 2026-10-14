@@ -143,7 +143,11 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
                     {cur.kind === 'bank' && <button className="btn sm" formAction={recordLineAction.bind(null, l.id)}>{l.amount < 0 ? 'Record as bank charges' : 'Record as interest'}</button>}
                     <button className="btn sm" formAction={ignoreLineAction.bind(null, l.id, true)}>Set aside</button></form></td></tr>))}</tbody>
             </table></div>
+<<<<<<< ours
             <p className="muted" style={{ fontSize: 12 }}>After the payment or receipt is recorded where it belongs (payment request, Money received, petty cash), press Match again.</p>
+=======
+            <p className="muted" style={{ fontSize: 12 }}>When the payment or receipt behind a line is recorded in the system, press Match again.</p>
+>>>>>>> theirs
           </>}
           {doneLines.length > 0 && <details style={{ marginTop: 8 }}><summary>Matched and set-aside lines ({doneLines.length})</summary>
             <div className="tw"><table>

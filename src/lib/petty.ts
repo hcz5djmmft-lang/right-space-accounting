@@ -10,26 +10,35 @@ import { pushTo } from './push';
 // Petty cash (improvement 15). The holder counts the box by denomination; the count is set against the book balance
 // on that day and any difference shows. When the box runs low the holder asks Finance for a top-up (by default up to
 // the float); Finance or Management approves it from a bank account, which posts the transfer to petty cash.
-// The month-end close ticks "Petty cash counted" from these counts.
+// The month-end close ticks "Petty cash counted" from these counts. Petty cash is the cash in the office safe (A110,
+// or the code set as pettyCash in the account map); the other cash accounts are left alone.
 
 /** Egyptian notes and coins, largest first. */
 export const DENOMINATIONS = [200, 100, 50, 20, 10, 5, 1, 0.5, 0.25] as const;
 
 export type PettyBox = { code: string; name: string; holder: string | null; float: number | null; balance: number; last_count: string | null; last_difference: number | null };
 
+/** The petty cash account: the office safe. */
+async function pettyCode() {
+  const [r] = await sql<{ code: string | null }[]>`
+    select coalesce((select a.code from accounts a join bank_accounts b on b.account = a.code and b.kind = 'cash' where a.code = coalesce(s.account_map->>'pettyCash', 'A110')),
+      (select min(b.account) from bank_accounts b where b.kind = 'cash')) code from settings s where s.id = 1`;
+  return r?.code ?? '';
+}
+
 export async function pettyBoxes(): Promise<PettyBox[]> {
+  const code = await pettyCode();
   return sql<PettyBox[]>`
     select a.code, a.name, b.holder, b.float_amount::float float,
       coalesce((select sum(l.dr - l.cr) from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.account = a.code), 0)::float balance,
       (select to_char(c.date,'YYYY-MM-DD') from cash_counts c where c.account = a.code order by c.date desc, c.at desc limit 1) last_count,
       (select c.difference::float from cash_counts c where c.account = a.code order by c.date desc, c.at desc limit 1) last_difference
-    from accounts a join bank_accounts b on b.account = a.code and b.kind = 'cash' and not b.hidden where a.postable order by a.code`;
+    from accounts a join bank_accounts b on b.account = a.code and b.kind = 'cash' where a.postable and a.code = ${code}`;
 }
 
 async function box(code: string) {
-  const [b] = await sql<{ code: string }[]>`select a.code from accounts a join bank_accounts b on b.account = a.code and b.kind = 'cash' where a.code = ${code}`;
-  if (!b) throw new RuleError('Choose a petty cash account.');
-  return b.code;
+  if (!code || code !== await pettyCode()) throw new RuleError('Petty cash is the office safe; choose it.');
+  return code;
 }
 const bookOn = async (code: string, date: string) => r2((await sql<{ n: number }[]>`
   select coalesce(sum(l.dr - l.cr), 0)::float n from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.account = ${code} and e.date <= ${date}::date`)[0].n);
@@ -65,7 +74,7 @@ export async function countedFor(period: string, monthEnd: string) {
   const rows = await sql<{ code: string; name: string; counted: boolean }[]>`
     select a.code, a.name, exists (select 1 from cash_counts c where c.account = a.code and c.date between ${period + '-01'}::date and ${late}::date) counted
     from accounts a join bank_accounts b on b.account = a.code and b.kind = 'cash'
-    where exists (select 1 from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.account = a.code and e.date <= ${monthEnd}::date)`;
+    where a.code = ${await pettyCode()} and exists (select 1 from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.account = a.code and e.date <= ${monthEnd}::date)`;
   return { boxes: rows.length, missing: rows.filter(r => !r.counted).map(r => r.name) };
 }
 
