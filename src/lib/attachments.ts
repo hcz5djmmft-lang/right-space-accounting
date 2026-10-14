@@ -8,7 +8,7 @@ import { storage } from './storage';
 import { TZ } from './dates';
 
 /** Documents that can carry files. The names match audit_log.entity so the history shows uploads. */
-export const ENTITIES = { invoice: 'invoices', journal: 'journal_entries', employee: 'employees', attendance: 'attendance', project: 'projects', drawing: 'drawings', vendor: 'parties', quotation: 'quotations', delivery: 'deliveries', workorder: 'work_orders', finish: 'finishes', claim: 'sub_claims', 'site-report': 'site_reports', inspection: 'inspection_requests', snag: 'snags' } as const;
+export const ENTITIES = { invoice: 'invoices', journal: 'journal_entries', employee: 'employees', attendance: 'attendance', project: 'projects', drawing: 'drawings', vendor: 'parties', quotation: 'quotations', delivery: 'deliveries', workorder: 'work_orders', finish: 'finishes', claim: 'sub_claims', 'site-report': 'site_reports', inspection: 'inspection_requests', snag: 'snags', expense: 'expense_claims' } as const;
 /** The site records carry a project: their photos are added by the project's site team as well as the engineers. */
 const SITE: Partial<Record<Entity, string>> = { 'site-report': 'site_reports', inspection: 'inspection_requests', snag: 'snags' };
 export type Entity = keyof typeof ENTITIES;
@@ -49,6 +49,8 @@ async function docStatus(entity: Entity, id: string): Promise<string> {
       ? await sql<{ status: string }[]>`select 'open' status from work_orders where id = ${id}`
     : entity === 'finish'
       ? await sql<{ status: string }[]>`select 'open' status from finishes where id = ${id}`
+    : entity === 'expense'
+      ? await sql<{ status: string }[]>`select status from expense_claims where id = ${id}`
     : entity === 'claim'
       ? await sql<{ status: string }[]>`select 'open' status from sub_claims where id = ${id}`
     : SITE[entity]

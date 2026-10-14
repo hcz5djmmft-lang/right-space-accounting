@@ -335,7 +335,8 @@ export async function waitingForUser(user: User) {
     sql<{ ok: boolean }[]>`select true ok from departments where code = 'PUR' and (head_user_id = ${user.id} or id = ${user.dept_id ?? ''})`,
   ]);
   const { claimsWaitingFor } = await import('./claims');
-  const [leave, design, claims] = await Promise.all([leaveWaitingFor(user), designWaitingFor(user), claimsWaitingFor(user)]);
+  const { expensesWaitingFor } = await import('./expenses');
+  const [leave, design, claims, expenses] = await Promise.all([leaveWaitingFor(user), designWaitingFor(user), claimsWaitingFor(user), expensesWaitingFor(user)]);
   const procurement = hasRole(user, 'management') || !!proc;
   const mine = purchases.filter(r => r.status === 'procurement' ? procurement : r.status === 'head' ? canSign(user, steps[0], r) : canSign(user, steps[steps.length - 1]));
   return [
@@ -344,6 +345,7 @@ export async function waitingForUser(user: User) {
     ...(hasRole(user, 'finance') ? entries.map(e => ({ ...e, href: `/entries/${e.id}`, type: 'Entry' })) : []),
     ...leave.map(l => ({ id: l.id, no: l.name, date: l.from_date, memo: `${l.type_label} ${l.from_date} to ${l.to_date} (${l.days} days)${l.reason ? ` · ${l.reason}` : ''}`, who: l.name, amount: 0, href: `/leave/${l.id}`, type: `Leave · ${l.status === 'head' ? 'Department head' : 'HR'}` })),
     ...design.map(s => ({ id: s.id, no: s.project_code, date: s.submitted_at?.slice(0, 10) ?? '', memo: `${s.kind_label} v${s.version} · ${s.drawings} drawings`, who: s.designer, amount: 0, href: `/design/${s.id}`, type: `Drawing set · ${s.status_label.replace('With the ', '')}` })),
+    ...expenses.map(x => ({ id: x.id, no: x.no, date: x.date, memo: `${x.description} · ${x.project_code ?? x.dept_name ?? ''} · ${x.paid_from_name}`, who: x.who, amount: x.amount, href: `/expenses/${x.id}`, type: `Expense · ${x.step}` })),
     ...claims.map(c => ({ id: c.id, no: c.no, date: c.date, memo: `${c.vendor} · ${c.code} · claim ${c.claim_no}${c.trade ? ` · ${c.trade}` : ''}`, who: c.certified_by_name, amount: c.gross, href: `/claims/${c.id}`, type: `Progress claim · ${c.status === 'pricing' ? 'Procurement pricing' : 'Finance payment request'}` })),
   ];
 }
