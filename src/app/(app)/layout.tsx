@@ -40,6 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       { href: '/partners', label: 'Partners' },
       { href: '/payment-requests', label: 'Payment requests' },
       { href: '/collections', label: 'Collections' },
+      { href: '/collections/follow-up', label: 'Collections follow-up' },
       { href: '/sales-invoices', label: 'Sales invoices' },
       { href: '/parties', label: 'Customers & vendors' },
       { href: '/payroll', label: 'Payroll' }] as NavItem[]

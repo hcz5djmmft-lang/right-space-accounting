@@ -1,5 +1,6 @@
 import 'server-only';
 import { morningSummary, notifyPending } from './push';
+import { raiseCollectionReminders } from './followup';
 
 // The daily run, called by the Vercel scheduler (vercel.json) at 05:00 and 06:00 UTC: 08:00 Cairo in summer and in
 // winter. The morning summary goes once a day, from 08:00 Cairo, so the other call (or a stray one) does nothing.
@@ -9,6 +10,8 @@ export async function dailyRun(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.get('authorization') !== `Bearer ${secret}`) return Response.json({ error: 'not allowed' }, { status: 401 });
   const morning = await morningSummary();
+  // collection reminders are raised before the pending check, so the new tasks ring on the phone in the same run
+  const reminders = await raiseCollectionReminders().catch(e => (console.error('reminders', e), -1));
   const pending = await notifyPending({ force: true });
-  return Response.json({ morning, pending });
+  return Response.json({ morning, reminders, pending });
 }

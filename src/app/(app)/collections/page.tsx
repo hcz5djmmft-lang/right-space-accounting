@@ -18,7 +18,7 @@ export default async function Collections({ searchParams }: { searchParams: Prom
   return (
     <>
       <div className="head"><div><h1>Collections</h1><p>Money collected from clients by project: design, fit-out and furniture, in cash or by bank transfer, each with a printed receipt.</p></div>
-        <div className="row"><Link className="btn pri" href="/receipts/new">Money received</Link><Link className="btn" href="/sales-invoices/new">New invoice</Link><Link className="btn" href="/sales-invoices?tab=open">Not yet received</Link></div></div>
+        <div className="row"><Link className="btn pri" href="/receipts/new">Money received</Link><Link className="btn" href="/sales-invoices/new">New invoice</Link><Link className="btn" href="/sales-invoices?tab=open">Not yet received</Link><Link className="btn" href="/collections/follow-up">Follow-up</Link></div></div>
       <form className="row card" style={{ alignItems: 'end', flexWrap: 'wrap' }}>
         <label className="f"><span>Project</span><select className="inp" name="project" defaultValue={project}><option value="">All projects</option>{projects.map(p => <option key={p.id} value={p.id}>{p.code}</option>)}</select></label>
         <label className="f"><span>From</span><input className="inp" type="date" name="from" defaultValue={from} /></label>
