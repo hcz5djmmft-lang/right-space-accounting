@@ -92,6 +92,17 @@ export async function postBankCharge(user: User, p: { bank: string; date: string
   return id;
 }
 
+/** Pay the card (update 18): with no manual Transfer, Finance pays the credit card off from a bank account here; posted at once as bank to card. */
+export async function payCard(user: User, p: { card: string; bank: string; date: string; amount: number }) {
+  if (!hasRole(user, 'finance')) throw new RuleError('Only Finance pays the credit card.');
+  await bankOfKind(p.card, 'card');
+  await bankOfKind(p.bank, 'bank');
+  if (!(p.amount > 0)) throw new RuleError('Enter the amount paid to the card.');
+  const id = await saveEntry(user, { date: p.date, ref: '', form: { type: 'transfer', memo: `Credit card payment ${p.card}`, bank: p.bank, toBank: p.card, amount: r2(p.amount), items: [] } }, 'post');
+  await audit(sql, user, 'bank', p.card, 'Card paid', `${r2(p.amount).toFixed(2)} from ${p.bank} on ${p.date}`);
+  return id;
+}
+
 /** Interest the bank paid: money into the bank against the interest income code (Finance). */
 export async function postInterest(user: User, p: { bank: string; date: string; amount: number; memo: string }) {
   if (!hasRole(user, 'finance')) throw new RuleError('Only Finance can record interest.');

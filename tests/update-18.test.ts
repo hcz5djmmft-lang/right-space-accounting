@@ -18,7 +18,7 @@ const petty = await import('@/lib/petty-vouchers');
 const parties = await import('@/lib/parties');
 const { uncollectedInvoices } = await import('@/lib/collections');
 const { waitingForUser } = await import('@/lib/documents');
-const { bankAccounts } = await import('@/lib/banks');
+const { bankAccounts, payCard } = await import('@/lib/banks');
 // @ts-expect-error plain JS script
 const { importOld } = await import('../scripts/import-old.mjs');
 
@@ -119,6 +119,18 @@ describe('petty cash from the office cash only', () => {
     expect(await petty.getVoucher(id)).toMatchObject({ voided: true });
     const [{ n }] = await sql<{ n: number }[]>`select coalesce(sum(l.dr - l.cr), 0)::float n from journal_lines l join journal_entries e on e.id = l.entry_id where l.account = 'A110' and (e.id = ${id} or e.reverses_id = ${id})`;
     expect(n).toBe(0);
+  });
+});
+
+describe('pay the card', () => {
+  it('Finance pays the credit card from the bank: Dr the card, Cr the bank', async () => {
+    await sql`insert into accounts (code, name, type, postable, is_bank) values ('L115', 'CIB credit card', 'liability', true, true), ('A120', 'CIB current account', 'asset', true, true) on conflict (code) do nothing`;
+    await sql`insert into bank_accounts (account, kind, ref_prefix, credit_limit) values ('L115', 'card', 'CC-12-', 90000), ('A120', 'bank', 'CIB-34-', null) on conflict (account) do nothing`;
+    await expect(payCard(sara as never, { card: 'L115', bank: 'A120', date: '2026-10-14', amount: 500 })).rejects.toThrow(/Only Finance/);
+    await expect(payCard(fin as never, { card: 'A120', bank: 'A120', date: '2026-10-14', amount: 500 })).rejects.toThrow(/not a credit card/);
+    const id = await payCard(fin as never, { card: 'L115', bank: 'A120', date: '2026-10-14', amount: 500 });
+    const lines = await sql<{ account: string; dr: number; cr: number }[]>`select account, dr::float dr, cr::float cr from journal_lines where entry_id = ${id} order by dr desc`;
+    expect(lines).toEqual([{ account: 'L115', dr: 500, cr: 0 }, { account: 'A120', dr: 0, cr: 500 }]);
   });
 });
 
