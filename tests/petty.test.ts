@@ -17,7 +17,7 @@ const { importOld } = await import('../scripts/import-old.mjs');
 
 const ziad = { id: '', email: 'ziad@x.test', name: 'Ziad', roles: ['finance'] };
 const adel = { id: '', email: 'adel@x.test', name: 'Adel', roles: ['management'] };
-const BOX = 'A115';
+const BOX = 'A110';
 beforeAll(async () => {
   const ctx = { window: {} as Record<string, unknown> };
   vm.runInNewContext(fs.readFileSync(process.env.OLD_SNAPSHOT ?? '/home/claude/sample-data.js', 'utf8'), ctx);
@@ -25,8 +25,8 @@ beforeAll(async () => {
   await importOld(sql, ctx.window.__SEED, { replace: true });
   for (const u of [ziad, adel]) u.id = (await sql`insert into users (email, name, password_hash, roles) values (${u.email}, ${u.name}, 'x', ${u.roles}) returning id`)[0].id;
   await sql`update settings set lock_date = null where id = 1`;
-  await sql`insert into accounts (code, name, type, parent, postable, is_bank) values ('A115', 'Petty cash – accountant', 'asset', 'A100', true, true), ('L115', 'CIB credit card', 'liability', 'L100', true, true) on conflict (code) do nothing`;
-  await sql`insert into bank_accounts (account, kind, ref_prefix, holder) values ('A115', 'cash', 'PT-', 'Ziad'), ('L115', 'card', 'CC-12-', null), ('A120', 'bank', 'CIB-34-', null) on conflict (account) do nothing`;
+  await sql`insert into accounts (code, name, type, parent, postable, is_bank) values ('L115', 'CIB credit card', 'liability', 'L100', true, true) on conflict (code) do nothing`;
+  await sql`insert into bank_accounts (account, kind, ref_prefix, holder) values ('A110', 'cash', 'PT-', 'Office'), ('L115', 'card', 'CC-12-', null), ('A120', 'bank', 'CIB-34-', null) on conflict (account) do nothing`;
   await books.saveEntry(ziad as never, { date: '2026-10-01', ref: '', form: { type: 'transfer', memo: 'Float', bank: 'A120', toBank: BOX, amount: 2000, items: [] } }, 'post');
   await books.saveEntry(ziad as never, { date: '2026-10-05', ref: '', form: { type: 'expense', memo: 'Taxi', bank: BOX, vatRate: 0, items: [{ project: 'ph-b1302', acc: '25001-1', amount: 350 }] } }, 'post');
 });

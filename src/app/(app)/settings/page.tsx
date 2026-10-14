@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { requireUser } from '@/lib/auth';
 import { ROLES, type Role } from '@/lib/roles';
@@ -29,7 +30,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
       <option value="">No department</option>{depts.filter(d => d.active).map(d => <option key={d.id} value={d.id}>{d.parent_name ? `${d.parent_name} › ${d.name}` : d.name}</option>)}</select>);
   return (
     <>
-      <div className="head"><div><h1>Settings</h1><p>Only Management sees this page. Every change here is recorded with who made it.</p></div></div>
+      <div className="head"><div><h1>Settings</h1><p>Only Management sees this page. Every change here is recorded with who made it.</p></div><Link className="btn" href="/settings/audit">Audit log</Link></div>
       {flash && <div className="msg good">{flash}</div>}
       {saved && <div className="msg good">{saved}</div>}
       {error && <div className="msg bad">{error}</div>}

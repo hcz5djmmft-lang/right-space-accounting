@@ -57,7 +57,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ...(projects ? [{ href: '/cost-centers', label: 'Cost centers' }, { href: '/design', label: 'Design' }, { href: '/qs', label: 'QS and pricing' }, { href: '/planning', label: 'Planning' }, { href: '/variations', label: 'Variation orders' }, { href: '/samples', label: 'Samples' }, { href: '/cost-control', label: 'Cost control' }, { href: '/site', label: 'Site execution' }] : []),
       ...(tenders ? [{ href: '/tenders', label: 'Tenders' }] : [])] as NavItem[] : []),
     ...(finance ? ['Insight', { href: '/reports', label: 'Reports' }] as NavItem[] : []),
-    ...(hasRole(user, 'management') ? ['Admin', { href: '/settings', label: 'Settings' }] as NavItem[] : []),
+    ...(hasRole(user, 'management') ? ['Admin', { href: '/settings', label: 'Settings' }, { href: '/settings/audit', label: 'Audit log' }] as NavItem[] : []),
     { href: '/account', label: 'My account' },
   ];
   return (

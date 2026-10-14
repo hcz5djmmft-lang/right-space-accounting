@@ -142,10 +142,9 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
                   <td className="num">{l.amount > 0 ? fmt(l.amount) : ''}</td><td className="num">{l.amount < 0 ? fmt(-l.amount) : ''}</td>
                   <td><form className="row" style={{ gap: 4, justifyContent: 'flex-end' }}>{hidden}
                     {cur.kind === 'bank' && <button className="btn sm" formAction={recordLineAction.bind(null, l.id)}>{l.amount < 0 ? 'Record as bank charges' : 'Record as interest'}</button>}
-                    <Link className="btn sm" href={`/entries/new?type=${l.amount < 0 ? 'expense' : 'collection'}`}>New entry</Link>
                     <button className="btn sm" formAction={ignoreLineAction.bind(null, l.id, true)}>Set aside</button></form></td></tr>))}</tbody>
             </table></div>
-            <p className="muted" style={{ fontSize: 12 }}>After recording a payment or receipt with New entry, press Match again.</p>
+            <p className="muted" style={{ fontSize: 12 }}>When the payment or receipt behind a line is recorded in the system, press Match again.</p>
           </>}
           {doneLines.length > 0 && <details style={{ marginTop: 8 }}><summary>Matched and set-aside lines ({doneLines.length})</summary>
             <div className="tw"><table>
