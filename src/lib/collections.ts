@@ -110,3 +110,13 @@ export const getReceiptAllocations = (id: string) => sql<{ invoice_id: string; n
   where a.payment_id = ${id} order by i.no`;
 
 export const METHOD_LABEL: Record<BankKind, string> = { bank: 'Bank transfer', cash: 'Cash', card: 'Card' };
+
+export type UncollectedRow = { id: string; no: string; date: string; due: string | null; project_id: string | null; project_code: string | null; customer: string; total: number; open: number; days_overdue: number };
+/** Posted sales invoices with money still to receive, oldest due first (update 18: the Collections dashboard). */
+export const uncollectedInvoices = (project = '') => sql<UncollectedRow[]>`
+  select * from (
+    select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, to_char(i.due_date,'YYYY-MM-DD') due, i.project_id, p.code project_code, pt.name customer, i.total::float total,
+      (i.total - invoice_paid(i.id))::float open, greatest(0, (current_date - coalesce(i.due_date, i.date)))::int days_overdue
+    from invoices i join parties pt on pt.id = i.party_id left join projects p on p.id = i.project_id
+    where i.kind = 'sales' and i.status = 'posted' and (${project} = '' or i.project_id = ${project || null})) x
+  where x.open > 0.004 order by coalesce(x.due, x.date), x.no`;
