@@ -23,7 +23,7 @@ export async function pettyBoxes(): Promise<PettyBox[]> {
       coalesce((select sum(l.dr - l.cr) from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted' where l.account = a.code), 0)::float balance,
       (select to_char(c.date,'YYYY-MM-DD') from cash_counts c where c.account = a.code order by c.date desc, c.at desc limit 1) last_count,
       (select c.difference::float from cash_counts c where c.account = a.code order by c.date desc, c.at desc limit 1) last_difference
-    from accounts a join bank_accounts b on b.account = a.code and b.kind = 'cash' where a.postable order by a.code`;
+    from accounts a join bank_accounts b on b.account = a.code and b.kind = 'cash' and not b.hidden where a.postable order by a.code`;
 }
 
 async function box(code: string) {

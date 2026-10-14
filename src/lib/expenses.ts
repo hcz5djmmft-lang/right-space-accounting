@@ -39,7 +39,7 @@ export const listExpenses = (user: User, status = '') => sql<Expense[]>`${select
 
 /** Petty cash and card accounts an expense can be paid from. */
 export const paidFromOptions = () => sql<{ code: string; name: string; kind: string }[]>`
-  select a.code, a.name, b.kind from accounts a join bank_accounts b on b.account = a.code where a.is_bank and a.postable and b.kind in ('cash', 'card') order by b.kind desc, a.code`;
+  select a.code, a.name, b.kind from accounts a join bank_accounts b on b.account = a.code where a.is_bank and a.postable and b.kind in ('cash', 'card') and not b.hidden order by b.kind desc, a.code`;
 
 async function lines(tx: Tx, x: { amount: number; account: string; project_id: string | null; dept_id: string | null; description: string; paid_from: string; no: string; who: string }): Promise<Line[]> {
   const s = await getSettings(tx);
