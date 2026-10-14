@@ -10,7 +10,7 @@ export const STATUSES = [['todo', 'To do'], ['doing', 'In progress'], ['review',
 export type Status = typeof STATUSES[number][0];
 export const PRIORITIES = ['low', 'normal', 'high'] as const;
 export type Priority = typeof PRIORITIES[number];
-export const LINKS: Record<string, string> = { entry: '/entries/', 'payment-request': '/payment-requests/', 'sales-invoice': '/sales-invoices/', 'cost-center': '/cost-centers/', planning: '/planning/', design: '/design/', estimate: '/qs/', purchase: '/purchasing/', workorder: '/purchasing/work-orders/', claim: '/claims/', 'client-claim': '/claims/client/', variation: '/variations/', inspection: '/site/inspections/', 'site-report': '/site/reports/', snags: '/site/snags?project=', handover: '/site/handover/' };
+export const LINKS: Record<string, string> = { entry: '/entries/', 'payment-request': '/payment-requests/', 'sales-invoice': '/sales-invoices/', 'cost-center': '/cost-centers/', planning: '/planning/', design: '/design/', estimate: '/qs/', purchase: '/purchasing/', workorder: '/purchasing/work-orders/', claim: '/claims/', 'client-claim': '/claims/client/', variation: '/variations/', inspection: '/site/inspections/', 'site-report': '/site/reports/', snags: '/site/snags?project=', handover: '/site/handover/', budget: '/budgets?m=' };
 
 export type Task = {
   id: string; title: string; details: string; status: Status; priority: Priority; due: string | null;
