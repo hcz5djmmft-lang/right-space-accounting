@@ -72,8 +72,10 @@ export function PRForm({ initial, accounts, projects, departments, vendors, save
     <div>
       {err && <div className="msg bad">{err}</div>}
       <div className="card grid g4">
-        <label className="f"><span>Vendor</span><select className="inp" value={f.party} onChange={e => set({ party: e.target.value })}>
-          <option value="">Select…</option>{vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
+        <label className="f"><span>Vendor or subcontractor</span><select className="inp" value={f.party} onChange={e => set({ party: e.target.value })}>
+          <option value="">Select…</option>
+          <optgroup label="Vendors">{vendors.filter(v => !v.is_sub).map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup>
+          <optgroup label="Subcontractors">{vendors.filter(v => v.is_sub).map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup></select></label>
         <label className="f"><span>Project / department</span>{assignSelect(f.assign, v => set({ assign: v, lines: f.lines.map(l => (l.assign ? l : { ...l, acc: '' })) }), '— Per line —')}</label>
         <label className="f"><span>Date</span><input className="inp" type="date" value={f.date} onChange={e => set({ date: e.target.value })} /></label>
         <label className="f"><span>Due</span><input className="inp" type="date" value={f.due} onChange={e => set({ due: e.target.value })} /></label>
@@ -84,7 +86,7 @@ export function PRForm({ initial, accounts, projects, departments, vendors, save
 
       {vendorBills.length > 0 && (
         <div className="card">
-          <h2>Unpaid invoices of this vendor</h2>
+          <h2>Unpaid invoices of this {vendors.find(v => v.id === f.party)?.is_sub ? 'subcontractor' : 'vendor'}</h2>
           <p className="muted" style={{ margin: '0 0 8px', fontSize: 13 }}>Tick the invoices this request pays. They are already in the books from Receive and invoice, so the request needs no lines of its own.</p>
           <div className="tw"><table>
             <thead><tr><th></th><th>Invoice</th><th>Date</th><th className="hide-sm">Vendor&apos;s no.</th><th className="hide-sm">PO</th><th className="hide-sm">Cost center</th><th className="num">Unpaid</th></tr></thead>
