@@ -37,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       { href: '/entries', label: 'Entries' },
       { href: '/accounts', label: 'Chart of accounts' },
       { href: '/opening-balances', label: 'Opening balances' },
+      { href: '/close', label: 'Month-end close' },
       { href: '/banks', label: 'Banks & cash' },
       { href: '/partners', label: 'Partners' },
       { href: '/payment-requests', label: 'Payment requests' },
