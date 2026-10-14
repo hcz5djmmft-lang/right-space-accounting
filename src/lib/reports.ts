@@ -74,18 +74,22 @@ export async function budgetVsActual(opts: { from: string; to: string }): Promis
   });
 }
 
-// ---- Aging of open receivables (sales invoices) or payables (payment requests) ----
+// ---- Aging of open receivables (sales invoices) or payables (vendor invoices and payment requests) ----
+/** Vendor invoices with no due date fall due this many days after their date. */
+export const PAY_DAYS = 30;
 export const BUCKETS = ['Current', '1–30', '31–60', '61–90', '90+'] as const;
 export type AgingDoc = { id: string; no: string; date: string; due: string | null; party_id: string; party: string; balance: number; days: number; bucket: number };
 export type AgingRow = { party_id: string; party: string; buckets: number[]; total: number };
 export async function aging(opts: { side: 'sales' | 'purchase'; asOf: string }): Promise<{ docs: AgingDoc[]; parties: AgingRow[]; totals: number[] }> {
   const rows = await sql<{ id: string; no: string; date: string; due: string | null; party_id: string; party: string; balance: number }[]>`
-    select i.id, i.no, to_char(i.date, 'YYYY-MM-DD') date, to_char(i.due_date, 'YYYY-MM-DD') due, i.party_id, pt.name party,
+    select i.id, i.no, to_char(i.date, 'YYYY-MM-DD') date,
+      to_char(case when i.kind = 'purchase' then coalesce(i.due_date, i.date + ${PAY_DAYS}::int) else i.due_date end, 'YYYY-MM-DD') due, i.party_id, pt.name party,
       (case when i.kind = 'sales' then i.total else i.net end)
         - coalesce((select sum(al.amount) from payment_allocations al join payments pm on pm.id = al.payment_id and pm.status = 'posted' and pm.date <= ${opts.asOf}::date
                     where al.invoice_id = i.id), 0) balance
     from invoices i join parties pt on pt.id = i.party_id
     where i.kind = ${opts.side} and i.status = 'posted' and i.date <= ${opts.asOf}::date
+      and not exists (select 1 from payment_request_bills b where b.request_id = i.id) -- a request paying vendor invoices: the invoices carry the balance
     order by pt.name, i.date, i.no`;
   const docs: AgingDoc[] = rows.filter(r => r.balance > 0.004).map(r => {
     const days = r.due ? daysBetween(r.due, opts.asOf) : 0;
