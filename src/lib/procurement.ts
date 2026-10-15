@@ -92,7 +92,7 @@ export async function assignBuyer(user: User, requestId: string, buyerId: string
     let name = 'nobody';
     if (buyerId) {
       const b = (await procurementPeople()).find(x => x.id === buyerId);
-      if (!b) throw new RuleError('Pick a person from the list: the Purchasing department or the procurement positions of the org chart.');
+      if (!b) throw new RuleError('Pick a person from the list: the Procurement department or the procurement positions of the org chart.');
       name = b.name;
     }
     await tx`update purchase_requests set buyer_id = ${buyerId} where id = ${requestId}`;

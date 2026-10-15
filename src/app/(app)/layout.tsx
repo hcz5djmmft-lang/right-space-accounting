@@ -1,5 +1,6 @@
 import { requireUser, logout } from '@/lib/auth';
 import { waitingForUser } from '@/lib/documents';
+import { DateAutoClose } from '@/components/DateAutoClose';
 import { openForUser } from '@/lib/tasks';
 import { hasRole } from '@/lib/roles';
 import { sql } from '@/lib/db';
@@ -35,6 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="shell">
       <Nav items={shown} user={user.dept_name ? `${user.name} · ${user.dept_name}` : user.name} logout={signOut} lang={lang} signOutLabel={tr(lang, 'Sign out')} />
       <main>{children}</main>
+      <DateAutoClose />
     </div>
   );
 }
