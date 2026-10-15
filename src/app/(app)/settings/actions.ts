@@ -93,6 +93,41 @@ export async function updateUser(id: string, f: FormData) {
   back('Saved.');
 }
 
+/**
+ * Deletes a login (update 20, Adel 2026-10-15). A login nobody has used yet goes for good. One that already signed or
+ * raised something in the books is kept for the record and stopped instead: it can no longer sign in or be picked.
+ */
+export async function deleteUser(id: string) {
+  const admin = await requireUser('management');
+  if (id === admin.id) back('You cannot delete your own login.', true);
+  const [u] = await sql<{ name: string; email: string }[]>`select name, email from users where id = ${id}`;
+  if (!u) back('That login no longer exists.', true);
+  let gone = false;
+  await sql.begin(async tx => {
+    await tx`delete from sessions where user_id = ${id}`;
+    await tx`delete from user_positions where user_id = ${id}`;
+    await tx`update departments set head_user_id = null where head_user_id = ${id}`;
+    // Approver columns carry no foreign key, so a login someone's document waits on counts as having records too.
+    const [named] = await tx`select 1 from invoices where approver_id = ${id} union all select 1 from purchase_requests where approver_id = ${id}
+      union all select 1 from work_orders where approver_id = ${id} union all select 1 from petty_cash where approver_id = ${id}
+      union all select 1 from leave_requests where head_user_id = ${id} limit 1`;
+    if (named) await tx`update users set active = false where id = ${id}`;
+    else try {
+      await tx.savepoint(async sp => {
+        await sp`update employees set user_id = null where user_id = ${id}`;   // the HR file stays, without a login
+        await sp`delete from users where id = ${id}`;
+      });
+      gone = true;
+    } catch (e) {
+      if ((e as { code?: string }).code !== '23503') throw e;   // still named on documents, tasks or entries
+      await tx`update users set active = false where id = ${id}`;
+    }
+    await audit(tx, admin, 'user', id, gone ? 'Deleted login' : 'Stopped login (kept for its records)', `${u.name} · ${u.email}`);
+  });
+  revalidatePath('/', 'layout');
+  back(gone ? `${u.name}'s login is deleted.` : `${u.name} already has records in the system, so the login is kept for them and stopped: it can no longer sign in.`);
+}
+
 export async function resetPassword(id: string) {
   const admin = await requireUser('management');
   const password = crypto.randomBytes(6).toString('base64url');

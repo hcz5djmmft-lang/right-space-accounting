@@ -8,7 +8,8 @@ import { getSettings } from '@/lib/books';
 import { getSteps, isHeadStep } from '@/lib/documents';
 import { GROUPS, POSITIONS } from '@/lib/org-chart';
 import { positionHolders } from '@/lib/org';
-import { addDepartment, addUser, importStaffAction, resetPassword, saveCompany, saveDepartment, savePositionsAction, saveSteps, updateUser } from './actions';
+import { ConfirmButton } from '@/components/ConfirmButton';
+import { addDepartment, addUser, deleteUser, importStaffAction, resetPassword, saveCompany, saveDepartment, savePositionsAction, saveSteps, updateUser } from './actions';
 
 type Dept = { id: string; code: string; name: string; parent_name: string | null; head_user_id: string | null; roles: Role[]; active: boolean; members: number };
 
@@ -95,15 +96,16 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <tbody>{users.map(u => {
             const a = accessOf(u);
             return (
-            <tr key={u.id}><td colSpan={6} style={{ padding: 0 }}>
+            <tr key={u.id} style={u.active ? undefined : { opacity: 0.6 }}><td colSpan={6} style={{ padding: 0 }}>
               <form action={updateUser.bind(null, u.id)} style={{ padding: '8px 10px' }}>
                 <div className="row" style={{ justifyContent: 'space-between' }}>
                   <input className="inp" name="name" defaultValue={u.name} style={{ maxWidth: 200 }} />
                   <span className="hide-sm muted" style={{ minWidth: 180 }}>{u.email}</span>
                   {deptSelect('dept', u.dept_id)}
-                  <label className="row" style={{ fontSize: 13 }}><input type="checkbox" name="active" defaultChecked={u.active} /> Active</label>
+                  <label className="row" style={{ fontSize: 13 }}><input type="checkbox" name="active" defaultChecked={u.active} /> Active <span className="muted">(untick and Save to stop the login)</span></label>
                   <span className="row"><button className="btn sm">Save</button>
-                    {u.id !== me.id && <button className="btn sm" formAction={resetPassword.bind(null, u.id)}>Reset password</button>}</span>
+                    {u.id !== me.id && <button className="btn sm" formAction={resetPassword.bind(null, u.id)}>Reset password</button>}
+                    {u.id !== me.id && <ConfirmButton action={deleteUser.bind(null, u.id)} label="Delete" question={`Delete ${u.name}'s login? If they already have records in the system the login is stopped instead.`} />}</span>
                 </div>
                 <div style={{ marginTop: 6 }}>{accessTicks(a.access, a.roles.includes('management'))}</div>
               </form></td></tr>);
