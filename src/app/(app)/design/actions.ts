@@ -5,6 +5,7 @@ import { requireUser } from '@/lib/auth';
 import { RuleError } from '@/lib/ledger';
 import * as d from '@/lib/design';
 import type { Kind } from '@/lib/design-calc';
+import { startDesign, stopDesign } from '@/lib/attendance';
 
 const msg = (e: unknown) => (e instanceof RuleError ? e.message : (console.error(e), 'Something went wrong. Nothing was changed.'));
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
@@ -88,4 +89,20 @@ export async function removeFinishAction(projectId: string, id: string) {
   try { await d.removeFinish(user, id); } catch (e) { fin(projectId, msg(e)); }
   revalidatePath('/design/finishes');
   fin(projectId);
+}
+
+/** The design clock on the project's Design page (update 20). */
+export async function startDesignAction(projectId: string, only: string, f: FormData) {
+  const user = await requireUser();
+  const page = only ? `/design/${only}` : '/design';
+  try { await startDesign(user, projectId, s(f, 'note')); } catch (e) { redirect(`${page}?error=${encodeURIComponent(msg(e))}`); }
+  revalidatePath(page); revalidatePath('/clock');
+  redirect(page);
+}
+export async function stopDesignAction(only: string) {
+  const user = await requireUser();
+  const page = only ? `/design/${only}` : '/design';
+  try { await stopDesign(user); } catch (e) { redirect(`${page}?error=${encodeURIComponent(msg(e))}`); }
+  revalidatePath(page); revalidatePath('/clock');
+  redirect(page);
 }

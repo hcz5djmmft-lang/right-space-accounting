@@ -23,6 +23,7 @@ export type OpenRec = { in_time: string; what: string; where: string };
 export function ClockCard({ open, categories, projects, pick, office, lang = 'en' }: { open: OpenRec | null; categories: PickerCategory[]; projects: PickerProject[]; pick: { category: string; project: string | null }; office: Office; lang?: Lang }) {
   const t = (x: string) => tr(lang, x);
   const cam = useRef<HTMLInputElement>(null);
+  const upload = useRef<HTMLInputElement>(null);
   const form = useRef<HTMLFormElement>(null);
   const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
   const [pending, start] = useTransition();
@@ -34,12 +35,36 @@ export function ClockCard({ open, categories, projects, pick, office, lang = 'en
       if (c?.project && !fd.get('project')) return setMsg({ text: t('Choose the project.'), bad: true });
     }
     setMsg(null);
-    cam.current?.click();
+    void openCamera();
+  };
+  // update 20: the button opens the camera to take the photo. Phones open their own camera from the file box; a computer
+  // gets a live camera view here (its file box would open the photo library instead). Upload stays as a fallback.
+  const [live, setLive] = useState<MediaStream | null>(null);
+  const video = useRef<HTMLVideoElement>(null);
+  const openCamera = async () => {
+    const computer = typeof window !== 'undefined' && window.matchMedia?.('(pointer: fine)').matches;
+    if (!computer || !navigator.mediaDevices?.getUserMedia) return cam.current?.click();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      setLive(stream);
+      setTimeout(() => { if (video.current) { video.current.srcObject = stream; video.current.play().catch(() => {}); } }, 0);
+    } catch { cam.current?.click(); }
+  };
+  const closeCamera = () => { live?.getTracks().forEach(tr => tr.stop()); setLive(null); };
+  const snap = () => {
+    const v = video.current;
+    if (!v || !v.videoWidth) return;
+    const c = document.createElement('canvas');
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d')?.drawImage(v, 0, 0);
+    c.toBlob(b => { closeCamera(); if (b) sendFile(new File([b], 'selfie.jpg', { type: 'image/jpeg' })); }, 'image/jpeg', 0.9);
   };
   const send = (input: HTMLInputElement | null) => {
     const f = input?.files?.[0];
     if (input) input.value = '';
-    if (!f) return;
+    if (f) sendFile(f);
+  };
+  const sendFile = (f: File) => {
     start(async () => {
       const fd = form.current ? new FormData(form.current) : new FormData();
       setMsg({ text: t('Finding your location…'), bad: false });
@@ -59,6 +84,16 @@ export function ClockCard({ open, categories, projects, pick, office, lang = 'en
       <div className="muted" style={{ fontSize: 13 }}>{open ? <>{t('Clocked in at')} <b className="mono">{open.in_time}</b> · <b>{open.what}</b> · {open.where}</> : t('Not clocked in')}</div>
       {!open && <div style={{ textAlign: 'start', marginTop: 10 }}><CategoryPicker title={t('Clock in for')} categories={categories} projects={projects} category={pick.category} project={pick.project} office={office} lang={lang} /></div>}
       <input ref={cam} type="file" accept="image/*" capture="user" hidden onChange={e => send(e.currentTarget)} />
+      <input ref={upload} type="file" accept="image/*" hidden onChange={e => send(e.currentTarget)} />
+      {live && (
+        <div className="camera">
+          <video ref={video} playsInline muted autoPlay />
+          <div className="row" style={{ justifyContent: 'center', marginTop: 10 }}>
+            <button type="button" className="btn pri" onClick={snap}>{t('📷 Take photo')}</button>
+            <button type="button" className="btn" onClick={closeCamera}>{t('Cancel')}</button>
+          </div>
+          <button type="button" className="linkbtn" onClick={() => { closeCamera(); upload.current?.click(); }}>{t('Upload a photo instead')}</button>
+        </div>)}
       <button type="button" className={'btn ' + (open ? '' : 'pri')} disabled={pending} onClick={tap}
         style={{ margin: '14px auto', fontSize: 18, padding: '16px 28px', minWidth: 220, justifyContent: 'center' }}>
         {pending ? t('Working…') : open ? t('📷 Clock out') : t('📷 Clock in')}

@@ -147,7 +147,7 @@ describe('project pins', () => {
 });
 
 describe('what the day is for', () => {
-  it('a design clock-in opens a design stretch on the project; switching closes it with its minutes and cost from the salary', async () => {
+  it('the design clock on the Design page opens a design stretch on the project; Stop closes it with its minutes and cost from the salary', async () => {
     const at = t('2026-10-15T07:00:00Z');
     await expect(att.clockIn(omar as never, office, selfie, at, { category: 'design', projectId: null })).rejects.toThrow(/Choose the project/);
     await expect(att.clockIn(omar as never, office, selfie, at, { category: 'design', projectId: 'office' })).rejects.toThrow(/Choose the project/);
@@ -159,14 +159,17 @@ describe('what the day is for', () => {
     await sql`update projects set status = 'Active' where id = ${other.id}`;
     // a design clock left running from before this update is closed unfinished at the next clock-in, 0 minutes, with a note
     await sql`insert into work_sessions (employee_id, project_id, category, start_at, note) values (${omarEmp}, 'ph-b1302', 'design', ${t('2026-10-12T07:00:00Z')}, 'old clock')`;
-    const r = await att.clockIn(omar as never, { lat: 31.2005, lng: 29.9190, acc: 8 }, selfie, at, { category: 'design', projectId: 'ph-b1302', note: 'Concept 3D' });
+    // update 20: the Clock in page is attendance only; design is not a clock-in any more
+    await expect(att.clockIn(omar as never, office, selfie, at, { category: 'design', projectId: 'ph-b1302' })).rejects.toThrow(/Design work is started from the project's Design page/);
+    const r = await att.clockIn(omar as never, { lat: 31.2005, lng: 29.9190, acc: 8 }, selfie, at, { category: 'office', projectId: null });
     expect((await att.listSessions({ employee: omarEmp, period: '2026-10' })).find(x => x.day === '2026-10-12')).toMatchObject({ minutes: 0, cost: 0, end_time: '10:00', note: 'old clock · left running, closed unfinished at the next clock-in' });
-    expect(r.message).toBe('Clocked in for design on PH-B1302 at the office, 53 m from its pin (accurate to about 8 m).');
-    expect(await att.openRecord(omarEmp)).toMatchObject({ category: 'design', project_id: 'ph-b1302', in_place: 'office' });
+    expect(await att.openRecord(omarEmp)).toMatchObject({ category: 'office', in_place: 'office' });
+    await expect(att.stopDesign(omar as never)).rejects.toThrow(/not running/);
+    await att.startDesign(omar as never, 'ph-b1302', 'Concept 3D', at);
     expect(await att.openSession(omarEmp)).toMatchObject({ category: 'design', project_code: 'PH-B1302', note: 'Concept 3D', start_time: '10:00', attendance_id: r.id });
-    await expect(att.switchTo(omar as never, { category: 'design', projectId: 'ph-b1302' })).rejects.toThrow(/already on Design on PH-B1302 since 10:00/);
-    await expect(att.switchTo(sara as never, { category: 'office', projectId: null })).rejects.toThrow(/Clock in first/);
-    await att.switchTo(omar as never, { category: 'office', projectId: null }, t('2026-10-15T09:30:00Z')); // 150 min × 50/h = 125
+    await expect(att.startDesign(omar as never, 'ph-b1302')).rejects.toThrow(/already on Design on PH-B1302 since 10:00/);
+    await expect(att.startDesign(sara as never, 'ph-b1302')).rejects.toThrow(/Clock in first|Choose what/);
+    await att.stopDesign(omar as never, t('2026-10-15T09:30:00Z')); // 150 min × 50/h = 125
     const [d] = await att.listSessions({ employee: omarEmp, category: 'design' });
     expect(d).toMatchObject({ project_code: 'PH-B1302', minutes: 150, rate: 50, cost: 125, note: 'Concept 3D', start_time: '10:00', end_time: '12:30' });
     expect(await att.openSession(omarEmp)).toMatchObject({ category: 'office', project_id: null, start_time: '12:30' });
@@ -175,17 +178,23 @@ describe('what the day is for', () => {
     await att.clockOut(omar as never, { lat: 31.2005, lng: 29.9190, acc: 8 }, selfie, t('2026-10-15T14:00:00Z'));
     const mins = await att.categoryMinutes('2026-10');
     expect(mins.filter(m => m.employee_id === omarEmp)).toEqual([
-      expect.objectContaining({ category: 'design', minutes: 150 }), expect.objectContaining({ category: 'office', minutes: 540 + 480 + 270 }),
+      expect.objectContaining({ category: 'design', minutes: 150 }), expect.objectContaining({ category: 'office', minutes: 540 + 480 + 270 + 1 }),   // + the office minute before the design clock started
     ]);
   });
-  it('Finance staff get the finance categories; a wrong pick is refused', async () => {
+  it('the clock-in offers Office and Site on a project only (update 20): the finance categories are refused even to Finance', async () => {
     const [fd] = await sql<{ id: string }[]>`insert into departments (code, name) values ('FIN', 'Finance') on conflict (code) do update set name = 'Finance' returning id`;
     await sql`update employees set dept_id = ${fd.id} where id = ${omarEmp}`;
-    const r = await att.clockIn(omar as never, { lat: 31.2005, lng: 29.9190, acc: 8 }, selfie, t('2026-10-18T06:00:00Z'), { category: 'payments', projectId: 'ph-b1302' });
-    expect(r.message).toBe('Clocked in for payments at the office, 53 m from its pin (accurate to about 8 m).');
-    expect(await att.openRecord(omarEmp)).toMatchObject({ category: 'payments', project_id: null });   // no project on a finance category
-    await att.switchTo(omar as never, { category: 'reports', projectId: null }, t('2026-10-18T08:00:00Z'));
-    expect((await att.listSessions({ employee: omarEmp, category: 'payments' }))[0]).toMatchObject({ minutes: 120, cost: 100 });
-    await att.clockOut(omar as never, null, selfie, t('2026-10-18T14:00:00Z')).catch(() => null);
+    await expect(att.clockIn(omar as never, { lat: 31.2005, lng: 29.9190, acc: 8 }, selfie, t('2026-10-18T06:00:00Z'), { category: 'payments', projectId: null })).rejects.toThrow(/Choose what you are clocking in for/);
+    const { clockCategories } = await import('@/lib/clock-categories');
+    expect(clockCategories().map(c => c.label)).toEqual(['Office', 'Site on a project']);
+  });
+  it('a site clock-in emails HR where the phone was', async () => {
+    const { sentInTest } = await import('@/lib/mail');
+    sentInTest.length = 0;
+    await sql`update settings set hr = hr || ${sql.json({ hr_email: 'hr@x.test' } as never)} where id = 1`;
+    await att.clockIn(omar as never, { lat: 31.2005, lng: 29.9190, acc: 8 }, selfie, t('2026-10-19T06:00:00Z'), { category: 'site', projectId: 'ph-b1302' }).catch(e => e);
+    const mail = sentInTest.find(m => m.to.includes('hr@x.test'));
+    expect(mail?.subject).toMatch(/clocked in on site PH-B1302/);
+    expect(mail?.text).toContain('https://maps.google.com/?q=31.2005,29.919');
   });
 });

@@ -163,3 +163,8 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; colo
 .langsw { background: none; border: 0; color: var(--muted); cursor: pointer; font: inherit; font-size: 13px; padding: 4px 0; }
 /* an English sentence on an Arabic page keeps its full stop at its own end */
 [dir="rtl"] :is(p, li, td, .muted, .msg) { unicode-bidi: plaintext; }
+
+/* the live camera of the Clock in card on a computer (update 20) */
+.camera { margin: 12px auto 0; max-width: 420px; }
+.camera video { width: 100%; border-radius: 10px; background: #000; transform: scaleX(-1); }
+.linkbtn { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font: inherit; font-size: 13px; margin-top: 8px; }

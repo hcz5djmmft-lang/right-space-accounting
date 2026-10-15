@@ -45,7 +45,7 @@ export async function saveHrAction(f: FormData) {
   const next = hrSettings({
     office_lat: s(f, 'office_lat'), office_lng: s(f, 'office_lng'), office_radius_m: s(f, 'office_radius_m'),
     work_start: s(f, 'work_start'), work_end: s(f, 'work_end'), grace_min: s(f, 'grace_min'), min_overtime_min: s(f, 'min_overtime_min'), weekend,
-    hours_per_day: s(f, 'hours_per_day'), days_per_month: s(f, 'days_per_month'), overtime_rate: s(f, 'overtime_rate'), late_deduction: f.get('late_deduction') === 'on',
+    hours_per_day: s(f, 'hours_per_day'), days_per_month: s(f, 'days_per_month'), overtime_rate: s(f, 'overtime_rate'), late_deduction: f.get('late_deduction') === 'on', hr_email: s(f, 'hr_email'),
   });
   try {
     if ((next.office_lat === null) !== (next.office_lng === null)) throw new RuleError('Enter both the latitude and the longitude of the office, or clear both.');
