@@ -27,6 +27,8 @@ h1 { font-size: 22px; } h2 { font-size: 17px; }
 .side .cat .chev { font-size: 10px; transition: transform .15s; }
 .side .cat.open .chev { transform: rotate(90deg); }
 .side .cat.open .grp { color: var(--nav-ink); }
+.side .cat .nest { margin-left: 10px; border-left: 1px solid var(--line); padding-left: 2px; }
+.side .cat.sub .grp { margin-top: 4px; font-size: 11px; }
 .side a { display: flex; justify-content: space-between; padding: 7px 8px; border-radius: 6px; text-decoration: none; color: var(--nav-ink); }
 .side a:hover { background: #efe8da; }
 .side a.on { background: var(--nav-on); color: var(--gold-ink); font-weight: 600; box-shadow: inset 3px 0 0 var(--gold); }
@@ -157,6 +159,7 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; colo
 [dir="rtl"] .side .grp { letter-spacing: 0; text-transform: none; }
 [dir="rtl"] .side .cat .chev { transform: scaleX(-1); }
 [dir="rtl"] .side .cat.open .chev { transform: rotate(90deg); }
+[dir="rtl"] .side .cat .nest { margin-left: 0; margin-right: 10px; border-left: 0; border-right: 1px solid var(--line); padding-left: 0; padding-right: 2px; }
 .langsw { background: none; border: 0; color: var(--muted); cursor: pointer; font: inherit; font-size: 13px; padding: 4px 0; }
 /* an English sentence on an Arabic page keeps its full stop at its own end */
 [dir="rtl"] :is(p, li, td, .muted, .msg) { unicode-bidi: plaintext; }

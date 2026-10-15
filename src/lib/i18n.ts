@@ -26,6 +26,9 @@ const AR: Record<string, string> = {
   'HR': 'الموارد البشرية', 'Employees': 'الموظفون', 'Attendance': 'الحضور والانصراف', 'Pay items': 'بنود المرتب', 'HR reports': 'تقارير الموارد البشرية',
   'Projects': 'المشروعات', 'Cost centers': 'مراكز التكلفة', 'Design': 'التصميم', 'QS and pricing': 'الحصر والتسعير', 'Planning': 'التخطيط',
   'Variation orders': 'أوامر التغيير', 'Samples': 'العينات', 'Cost control': 'مراقبة التكلفة', 'Site execution': 'التنفيذ بالموقع', 'Tenders': 'المناقصات',
+  'Engineering': 'الهندسة', 'Technical Office': 'المكتب الفني', 'Main concept': 'التصميم المبدئي', 'Shop drawings': 'الرسومات التنفيذية',
+  'Procurement': 'المشتريات', 'Purchase orders': 'أوامر الشراء', 'New purchase request': 'طلب شراء جديد', 'Invoices': 'الفواتير',
+  'Bank reconciliation': 'التسوية البنكية',
   'Insight': 'التقارير', 'Reports': 'التقارير', 'Admin': 'الإدارة', 'Settings': 'الإعدادات', 'Audit log': 'سجل التغييرات', 'My account': 'حسابي',
 
   // clock in

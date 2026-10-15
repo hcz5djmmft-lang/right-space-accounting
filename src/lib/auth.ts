@@ -6,7 +6,9 @@ import { redirect } from 'next/navigation';
 import { sql } from './db';
 import { afterFailure, isLocked } from './lockout';
 
-import { type Role, type User, hasRole, mergeRoles } from './roles';
+import { headers } from 'next/headers';
+import { type Role, type User, hasRole, resolveUser } from './roles';
+import { accessFromRoles, canOpen, rolesFromAccess } from './access';
 export { ROLES, hasRole, type Role, type User } from './roles';
 
 const COOKIE = 'rsa_session';
@@ -56,13 +58,13 @@ export async function logout() {
 export async function currentUser(): Promise<User | null> {
   const t = (await cookies()).get(COOKIE)?.value;
   if (!t) return null;
-  const [u] = await sql<(User & { dept_roles: string[] | null })[]>`
-    select u.id, u.email, u.name, u.roles, u.dept_id, d.name dept_name, d.roles || coalesce(p.roles, '{}') dept_roles
+  const [u] = await sql<(User & { dept_roles: string[] | null; access: string[] | null })[]>`
+    select u.id, u.email, u.name, u.roles, u.access, u.dept_id, d.name dept_name, d.roles || coalesce(p.roles, '{}') dept_roles
     from sessions s join users u on u.id = s.user_id left join departments d on d.id = u.dept_id and d.active left join departments p on p.id = d.parent_id and p.active
     where s.token_hash = ${hash(t)} and s.expires_at > now() and u.active`;
   if (!u) return null;
   const { dept_roles, ...user } = u;
-  return { ...user, roles: mergeRoles(u.roles, dept_roles) };
+  return resolveUser(user, dept_roles, accessFromRoles, rolesFromAccess);
 }
 
 /** For pages and actions: the signed-in user, who must hold one of `roles` (Management may do anything). */
@@ -70,6 +72,9 @@ export async function requireUser(...roles: Role[]): Promise<User> {
   const u = await currentUser();
   if (!u) redirect('/login');
   if (roles.length && !hasRole(u, ...roles)) redirect('/?denied=1');
+  // the page being opened (set by src/proxy.ts) must be one of the sub-categories the person was given
+  const path = (await headers()).get('x-rs-path');
+  if (path && !canOpen(path, u.access ?? [], hasRole(u, 'management'))) redirect('/?denied=1');
   return u;
 }
 

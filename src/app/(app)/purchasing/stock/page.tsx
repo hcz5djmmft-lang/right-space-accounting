@@ -16,7 +16,7 @@ export default async function SiteStockPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <div className="head"><div><h1>Site stock</h1><p>What each project&apos;s site holds: delivered on its purchase orders, less what the site engineer records as used.</p></div>
-        <Link className="btn" href="/purchasing">Purchasing</Link></div>
+        <Link className="btn" href="/purchasing">Purchase requests</Link></div>
       {error && <div className="msg bad">{error}</div>}
       {ok && <div className="msg good">{ok}</div>}
       {projects.length === 0 ? <div className="empty card">No deliveries recorded yet. Record them on the purchase order.</div> : (
