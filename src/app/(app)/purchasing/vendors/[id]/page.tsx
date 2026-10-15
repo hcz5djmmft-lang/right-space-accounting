@@ -25,7 +25,7 @@ export default async function VendorPage({ params, searchParams }: { params: Pro
     <>
       <div className="head"><div><h1 dir="auto">{v.name} <span className="muted mono" style={{ fontSize: 16 }}>{v.code}</span></h1>
         <p dir="auto">{[v.full_name !== v.name ? v.full_name : null, v.phone, v.email].filter(Boolean).join(' · ') || 'Vendor'}{v.categories.length ? ` · ${v.categories.join(', ')}` : ''}{v.rating ? ` · ${stars(v.rating)}` : ''}</p></div>
-        <div className="row"><Link className="btn" href={`/parties/${id}`}>Account and unpaid invoices</Link><Link className="btn" href="/purchasing/vendors">All vendors</Link></div></div>
+        <div className="row"><Link className="btn" href={`/vendors/${id}`}>Account and unpaid invoices</Link><Link className="btn" href="/purchasing/vendors">All vendors</Link></div></div>
       {error && <div className="msg bad">{error}</div>}
       {ok && <div className="msg good">{ok}</div>}
       <div className="tiles">

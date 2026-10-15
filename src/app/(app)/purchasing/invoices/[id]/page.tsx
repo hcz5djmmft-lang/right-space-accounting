@@ -35,7 +35,7 @@ export default async function VendorInvoice({ params, searchParams }: { params: 
           <p dir="auto">{r.date} · {r.vendor} · vendor&apos;s invoice {r.ref} · for {r.cc}{po ? <> · on <Link href={`/purchasing/${po.id}`}>{po.po_no}</Link></> : null}</p></div>
         <div className="row">
           {open > 0.004 && <Link className="btn pri" href="/payment-requests/new">Pay a vendor or subcontractor</Link>}
-          <Link className="btn" href={`/parties/${r.party_id}`}>Vendor account</Link>
+          <Link className="btn" href={`/vendors/${r.party_id}`}>Vendor account</Link>
         </div>
       </div>
       {error && <div className="msg bad">{error}</div>}

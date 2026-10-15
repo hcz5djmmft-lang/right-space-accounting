@@ -6,7 +6,8 @@ import { sql } from '@/lib/db';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { notifyPending } from '@/lib/push';
-import { Nav, type NavItem } from '@/components/Nav';
+import { Nav } from '@/components/Nav';
+import { buildMenu, isGroup } from '@/lib/menu';
 import { tr } from '@/lib/i18n';
 import { getLang } from '@/lib/lang';
 
@@ -26,44 +27,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const finance = hasRole(user, 'finance'), projects = hasRole(user, 'finance', 'engineering', 'projects'), tenders = hasRole(user, 'tenders'), hr = hasRole(user, 'hr', 'finance');
   // a site engineer or project manager without the engineering roles still gets the Site page for their projects
   const site = !projects && !!(await sql`select 1 from projects p join employees e on e.id in (p.site_eng_id, p.manager_id) where e.user_id = ${user.id} and p.status = 'Active' limit 1`)[0];
-  const items: NavItem[] = [
-    { href: '/', label: 'Overview' },
-    { href: '/clock', label: 'Clock in' },
-    { href: '/leave', label: 'Leave' },
-    { href: '/approvals', label: 'Approvals', badge: n },
-    { href: '/tasks', label: 'Tasks', badge: myTasks },
-    { href: '/expenses', label: 'Expenses' },
-    ...(site ? [{ href: '/site', label: 'Site' }] : []),
-    ...(finance ? ['Finance',
-      { href: '/dashboard', label: "Partners' dashboard" },
-      { href: '/entries', label: 'Entries' },
-      { href: '/accounts', label: 'Chart of accounts' },
-      { href: '/opening-balances', label: 'Opening balances' },
-      { href: '/close', label: 'Month-end close' },
-      { href: '/budgets', label: 'Budgets' },
-      { href: '/fixed-assets', label: 'Fixed assets' },
-      { href: '/banks', label: 'Banks & cash' },
-      { href: '/petty-cash', label: 'Petty cash' },
-      { href: '/partners', label: 'Partners' },
-      { href: '/payment-requests', label: 'Payment requests' },
-      { href: '/payables', label: 'Payables' },
-      { href: '/collections', label: 'Collections' },
-      { href: '/collections/follow-up', label: 'Collections follow-up' },
-      { href: '/sales-invoices', label: 'Sales invoices' },
-      { href: '/parties', label: 'Customers & vendors' },
-      { href: '/payroll', label: 'Payroll' }] as NavItem[]
-      : ['Requests', { href: '/payment-requests', label: 'Payment requests' }] as NavItem[]),
-    'Purchasing', { href: '/purchasing', label: 'Purchase requests' }, { href: '/purchasing/plan', label: 'Material plan' }, { href: '/purchasing/vendors', label: 'Vendors' }, { href: '/purchasing/work-orders', label: 'Work orders' }, { href: '/purchasing/stock', label: 'Site stock' }, { href: '/claims', label: 'Progress claims' }, { href: '/purchasing/reports', label: 'Procurement reports' }, { href: '/purchasing/materials', label: 'Materials' },
-    ...(hr ? ['HR', { href: '/hr', label: 'Employees' }, { href: '/attendance', label: 'Attendance' }, { href: '/hr/pay-items', label: 'Pay items' }, { href: '/hr/reports', label: 'HR reports' }] as NavItem[] : []),
-    ...(projects || tenders ? ['Projects',
-      ...(projects ? [{ href: '/cost-centers', label: 'Cost centers' }, { href: '/design', label: 'Design' }, { href: '/qs', label: 'QS and pricing' }, { href: '/planning', label: 'Planning' }, { href: '/variations', label: 'Variation orders' }, { href: '/samples', label: 'Samples' }, { href: '/cost-control', label: 'Cost control' }, { href: '/site', label: 'Site execution' }] : []),
-      ...(tenders ? [{ href: '/tenders', label: 'Tenders' }] : [])] as NavItem[] : []),
-    ...(finance ? ['Insight', { href: '/reports', label: 'Reports' }] as NavItem[] : []),
-    ...(hasRole(user, 'management') ? ['Admin', { href: '/settings', label: 'Settings' }, { href: '/settings/audit', label: 'Audit log' }] as NavItem[] : []),
-    { href: '/account', label: 'My account' },
-  ];
+  const items = buildMenu({ finance, projects: projects, tenders, hr, management: hasRole(user, 'management'), site, approvals: n, tasks: myTasks });
   const lang = await getLang();
-  const shown = items.map(i => (typeof i === 'string' ? tr(lang, i) : { ...i, label: tr(lang, i.label) }));
+  const shown = items.map(i => (isGroup(i) ? { group: tr(lang, i.group), items: i.items.map(l => ({ ...l, label: tr(lang, l.label) })) } : { ...i, label: tr(lang, i.label) }));
   return (
     <div className="shell">
       <Nav items={shown} user={user.dept_name ? `${user.name} · ${user.dept_name}` : user.name} logout={signOut} lang={lang} signOutLabel={tr(lang, 'Sign out')} />
