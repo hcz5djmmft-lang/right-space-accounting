@@ -66,7 +66,7 @@ const voucherSelect = (where = sql``, limit = 500) => sql<Voucher[]>`
   from journal_entries e join journal_lines l on l.entry_id = e.id and l.dr > 0 join accounts a on a.code = l.account
   left join projects p on p.id = l.project_id left join departments d on d.id = l.dept_id left join users u on u.id = e.created_by
   left join journal_entries r on r.id = e.reversed_by
-  where e.kind = 'petty_cash' and e.status = 'posted' ${where}
+  where e.kind = 'petty_cash' and e.status = 'posted' and e.source_type is distinct from 'petty' ${where}
   order by e.date desc, e.no desc limit ${limit}`;
 export const listVouchers = (limit = 50) => voucherSelect(sql``, limit);
 export async function getVoucher(id: string) { return (await voucherSelect(sql`and e.id = ${id}`))[0]; }

@@ -5,6 +5,7 @@ import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
 import { isProcurement } from './purchasing';
 import { parseAmount } from './money';
+import { MAX_BYTES, addAttachment, sniff } from './attachments';
 
 // Customers, vendors and subcontractors (update 18). A customer carries a national ID number (kept in the old tax_id column).
 // A vendor or subcontractor (a subcontractor is a vendor in the books, so its invoices are paid like a vendor's) is paid to
@@ -64,18 +65,37 @@ const saveType = (tx: Tx, newType: string | null) => newType
   ? tx`update settings set cats = jsonb_set(coalesce(cats, '{}'::jsonb), '{vendor_type}', coalesce(cats->'vendor_type', ${tx.json(DEFAULT_VENDOR_TYPES)}::jsonb) || ${tx.json([newType])}::jsonb) where id = 1`
   : Promise.resolve();
 
-export async function addParty(user: User, kind: PartyKind, i: PartyInput) {
+export type PartyDoc = { name: string; body: Buffer };
+const checkDoc = (d: PartyDoc | null | undefined, what: string) => {
+  if (!d?.body.length) return;
+  if (d.body.length > MAX_BYTES) throw new RuleError(`The ${what} is over 4 MB. Take a smaller photo or send a smaller PDF.`);
+  if (!sniff(d.body)) throw new RuleError(`The ${what} must be a photo (JPG, PNG, HEIC) or a PDF.`);
+};
+
+/**
+ * Adds a customer, vendor or subcontractor. Codes (update 20): VC-0001 for a vendor, SC-0001 for a subcontractor, CU-0001 for a
+ * customer. A vendor or subcontractor is added with its Tax ID card uploaded; the commercial record and the bank details are optional.
+ */
+export async function addParty(user: User, kind: PartyKind, i: PartyInput, docs: { taxId?: PartyDoc | null; record?: PartyDoc | null } = {}) {
   await mayEdit(user, kind);
   const { v, newType } = await fields(kind, i);
-  return sql.begin(async tx => {
+  if (kind !== 'customer') {
+    if (!docs.taxId?.body.length) throw new RuleError('Upload the Tax ID card (a photo or a PDF): a vendor or subcontractor is added with it.');
+    checkDoc(docs.taxId, 'Tax ID card');
+    checkDoc(docs.record, 'commercial record');
+  }
+  const id = await sql.begin(async tx => {
     const type = kind === 'customer' ? 'customer' : 'vendor';
-    const prefix = kind === 'customer' ? 'CU' : kind === 'sub' ? 'SC' : 'VC';
-    const [{ n }] = await tx<{ n: number }[]>`select coalesce(max(substring(code from 3)::int), 0) + 1 n from parties where code ~ ${'^' + prefix + '[0-9]+$'}`;
+    const prefix = kind === 'customer' ? 'CU-' : kind === 'sub' ? 'SC-' : 'VC-';
+    const [{ n }] = await tx<{ n: number }[]>`select coalesce(max(regexp_replace(code, '[^0-9]', '', 'g')::int), 0) + 1 n from parties where code ~ ${'^' + prefix.slice(0, 2) + '-?[0-9]+$'}`;
     const [p] = await tx<{ id: string }[]>`insert into parties ${tx({ ...v, type, code: prefix + String(n).padStart(4, '0') })} returning id`;
     await saveType(tx, newType);
     await audit(tx, user, 'party', p.id, 'Created');
     return p.id;
   });
+  if (docs.taxId?.body.length) await addAttachment(user, 'vendor', id, docs.taxId.name, docs.taxId.body, 'Tax ID');
+  if (docs.record?.body.length) await addAttachment(user, 'vendor', id, docs.record.name, docs.record.body, 'Commercial record');
+  return id;
 }
 
 export async function updateParty(user: User, id: string, i: PartyInput) {

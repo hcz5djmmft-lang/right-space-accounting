@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { listAttachments } from '@/lib/attachments';
 import { getSettings } from '@/lib/books';
 import { REPORT_STATUSES, getReport, label, listManpower, listWork } from '@/lib/site';
+import { PrintBar } from '@/components/PrintBar';
 
 // The daily site report as a one-page sheet for the client or the file: manpower, work done, materials, issues, photos.
 export default async function PrintSiteReport({ params }: { params: Promise<{ id: string }> }) {
@@ -28,8 +29,7 @@ export default async function PrintSiteReport({ params }: { params: Promise<{ id
         .photos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.photos img{width:100%;height:170px;object-fit:cover;border:1px solid #cfc6b4}
         .sigs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px}.sig{border-top:1px solid #111;padding-top:5px;text-align:center}.sd{color:#666;font-size:11px}.foot{margin-top:16px;color:#777;font-size:10px}
       `}</style>
-      <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
-      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
+      <PrintBar />
       <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 38 }} /><h1>Daily site report {r.no}<small>تقرير الموقع اليومي</small></h1></div>
       <div className="meta">
         <div><b>Project (المشروع)</b><span dir="auto">{r.code}{r.project_name !== r.code ? ` · ${r.project_name}` : ''}</span></div><div><b>Day (التاريخ)</b>{r.day}</div>

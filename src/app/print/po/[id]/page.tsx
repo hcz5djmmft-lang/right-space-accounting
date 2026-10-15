@@ -6,6 +6,7 @@ import { amountInWords, lineAmount } from '@/lib/ledger';
 import { getPurchaseApprovals, getPurchaseLines, getPurchaseRequest, poFigures } from '@/lib/purchasing';
 import { getSettings } from '@/lib/books';
 import { today } from '@/lib/dates';
+import { PrintBar } from '@/components/PrintBar';
 
 // Printable purchase order with the company logo, to send to the vendor. Use the browser's Print / Save as PDF.
 export default async function PrintPO({ params }: { params: Promise<{ id: string }> }) {
@@ -37,8 +38,7 @@ export default async function PrintPO({ params }: { params: Promise<{ id: string
         .sigs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px}.sig{border-top:1px solid #111;padding-top:5px;text-align:center}
         .sd{color:#666;font-size:11px}.foot{margin-top:16px;color:#777;font-size:10px}
       `}</style>
-      <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
-      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
+      <PrintBar />
       <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 38 }} /><h1>Purchase Order<small>أمر شراء</small></h1></div>
       <div className="meta">
         <div><b>PO no.</b>{r.po_no}</div><div><b>Date</b>{r.po_date}</div>

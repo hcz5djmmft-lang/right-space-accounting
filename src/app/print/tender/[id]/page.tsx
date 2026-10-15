@@ -5,6 +5,7 @@ import { amountInWords } from '@/lib/ledger';
 import { loadTender } from '@/lib/tenders';
 import { clientRows, tenderTotals } from '@/lib/tender-calc';
 import { today } from '@/lib/dates';
+import { PrintBar } from '@/components/PrintBar';
 
 // Printable tender offer for the client: summary by trade, then the priced BOQ per trade.
 export default async function PrintTender({ params }: { params: Promise<{ id: string }> }) {
@@ -29,8 +30,7 @@ export default async function PrintTender({ params }: { params: Promise<{ id: st
         .pr-print table{width:100%;border-collapse:collapse}.pr-print th,.pr-print td{border:1px solid #cfc6b4;padding:4px 6px;text-align:left;vertical-align:top;color:#111}
         .pr-print th{background:#f4efe5;font-size:10.5px;position:static}.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.tot td{font-weight:700;background:#f4efe5}
       `}</style>
-      <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
-      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
+      <PrintBar />
       <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 34 }} /><h1>Tender offer<small>{t.no}</small></h1></div>
       <div className="meta"><div><b>Project:</b> <span dir="auto">{t.name}</span></div><div><b>Date:</b> {todayStr}</div><div><b>Client:</b> <span dir="auto">{t.client ?? ''}</span></div><div><b>Location:</b> <span dir="auto">{t.location}</span></div></div>
       <h2>Summary</h2>

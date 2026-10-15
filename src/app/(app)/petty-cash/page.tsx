@@ -9,17 +9,20 @@ import { approveTopupAction, countAction, floatAction, rejectTopupAction, topupA
 import { formLists } from '@/lib/form-data';
 import { listAssignees } from '@/lib/hr';
 import { listVouchers, officeCash } from '@/lib/petty-vouchers';
+import { STATUS_LABEL, listPetty } from '@/lib/petty-docs';
+import { sql } from '@/lib/db';
 import { PettyCashForm } from '@/components/PettyCashForm';
 import { voidVoucherAction, voucherAction } from './voucher-actions';
 
-/** Petty cash: a new petty cash paid from the office cash (update 18), the vouchers paid, the count sheet, top-up requests and their approval (improvement 15). */
+/** Petty cash: a new petty cash sent for approval and paid from the office cash (updates 18 and 20), the petty cash made, the count sheet, top-up requests and their approval (improvement 15). */
 export default async function PettyCash({ searchParams }: { searchParams: Promise<{ box?: string; ok?: string; error?: string }> }) {
   const user = await requireUser('finance');
   const q = await searchParams;
   const boxes = await pettyBoxes();
   if (!boxes.length) return <><div className="head"><div><h1>Petty cash</h1></div></div><p className="muted">No petty cash account is set up under Banks &amp; cash.</p></>;
   const b = boxes.find(x => x.code === q.box) ?? boxes[0];
-  const [counts, all, banks, lists, people, vouchers, cash] = await Promise.all([cashCounts(b.code), topups(), bankAccounts(), formLists(), listAssignees(), listVouchers(), officeCash()]);
+  const [counts, all, banks, lists, people, vouchers, cash, docs, parties] = await Promise.all([cashCounts(b.code), topups(), bankAccounts(), formLists(), listAssignees(), listVouchers(), officeCash(), listPetty(),
+    sql<{ id: string; name: string; code: string | null; is_sub: boolean }[]>`select id, name, code, is_sub from parties where type = 'vendor' order by name`]);
   const pending = all.filter(t => t.account === b.code && t.status === 'pending');
   const past = all.filter(t => t.account === b.code && t.status !== 'pending').slice(0, 10);
   const suggest = b.float !== null ? Math.max(0, Math.round((b.float - b.balance) * 100) / 100) : 0;
@@ -31,14 +34,22 @@ export default async function PettyCash({ searchParams }: { searchParams: Promis
       {q.ok && <div className="msg good">{q.ok}</div>}
       {q.error && <div className="msg bad">{q.error}</div>}
       <PettyCashForm accounts={lists.accounts} projects={lists.projects} departments={lists.departments} cash={{ code: cash.code, name: cash.name, balance: fmt(cash.balance) }} date={today()} action={voucherAction}
-        people={people.filter(p => p.employee_id).map(p => ({ id: p.employee_id!, name: p.name, detail: p.detail }))} />
-      {vouchers.length > 0 && <div className="card">
-        <h2 style={{ marginTop: 0 }}>Petty cash paid</h2>
+        employees={people.filter(p => p.employee_id).map(p => ({ id: p.employee_id!, name: p.name, detail: p.detail }))}
+        vendors={parties.filter(p => !p.is_sub).map(p => ({ id: p.id, name: p.name, detail: p.code ?? '' }))} subs={parties.filter(p => p.is_sub).map(p => ({ id: p.id, name: p.name, detail: p.code ?? '' }))} />
+      {(docs.length > 0 || vouchers.length > 0) && <div className="card">
+        <h2 style={{ marginTop: 0 }}>Petty cash</h2>
         <div className="tw"><table>
-          <thead><tr><th>No.</th><th>Date</th><th>Paid to</th><th className="hide-sm">Purpose</th><th className="hide-sm">Project / dept.</th><th className="num">EGP</th><th></th></tr></thead>
-          <tbody>{vouchers.map(v => <tr key={v.id} style={v.voided ? { opacity: .55, textDecoration: 'line-through' } : undefined}>
+          <thead><tr><th>No.</th><th>Date</th><th>Paid to</th><th className="hide-sm">Purpose</th><th className="hide-sm">Project / dept.</th><th>Status</th><th className="num">EGP</th><th></th></tr></thead>
+          <tbody>{docs.map(d => <tr key={d.id} style={d.status === 'voided' ? { opacity: .55, textDecoration: 'line-through' } : undefined}>
+            <td className="mono"><Link href={`/petty-cash/${d.id}`}>{d.no}</Link></td><td className="mono">{d.date}</td><td dir="auto">{d.paid_to_name}</td>
+            <td className="hide-sm" dir="auto">{d.purpose}</td><td className="hide-sm">{d.cc}</td>
+            <td><span className={'pill ' + (d.status === 'paid' ? 'posted' : d.status === 'rejected' || d.status === 'voided' ? 'rejected' : 'pending')}>{STATUS_LABEL[d.status]}</span></td>
+            <td className="num">{fmt(d.total)}</td>
+            <td><Link className="btn sm" href={`/print/petty-cash/${d.id}`} target="_blank">Print</Link></td></tr>)}
+          {vouchers.map(v => <tr key={v.id} style={v.voided ? { opacity: .55, textDecoration: 'line-through' } : undefined}>
             <td className="mono"><Link href={`/entries/${v.id}`}>{v.ref ?? v.no}</Link></td><td className="mono">{v.date}</td><td dir="auto">{v.paid_to}</td>
-            <td className="hide-sm" dir="auto">{v.purpose}</td><td className="hide-sm">{v.cc}<div className="muted mono" style={{ fontSize: 12 }}>{v.account}</div></td><td className="num">{fmt(v.amount)}</td>
+            <td className="hide-sm" dir="auto">{v.purpose}</td><td className="hide-sm">{v.cc}<div className="muted mono" style={{ fontSize: 12 }}>{v.account}</div></td>
+            <td><span className="pill posted">Paid</span></td><td className="num">{fmt(v.amount)}</td>
             <td style={{ whiteSpace: 'nowrap' }}><Link className="btn sm" href={`/print/petty-cash/${v.id}`} target="_blank">Print</Link>
               {!v.voided && <details style={{ display: 'inline-block', marginInlineStart: 4 }}><summary className="btn sm">Void</summary>
                 <form action={voidVoucherAction.bind(null, v.id)} className="row" style={{ marginTop: 6 }}><input className="inp" name="reason" placeholder="Why" required /><button className="btn sm bad">Void</button></form></details>}</td></tr>)}</tbody>

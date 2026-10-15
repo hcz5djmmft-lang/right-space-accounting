@@ -4,6 +4,7 @@ import { fmt } from '@/lib/money';
 import { amountInWords } from '@/lib/ledger';
 import { today } from '@/lib/dates';
 import { quarterOf, whtCertificate } from '@/lib/tax-returns';
+import { PrintBar } from '@/components/PrintBar';
 
 // WHT certificate for a supplier (شهادة خصم من المنبع): the tax Right Space withheld from their invoices in the period.
 // Use the browser's Print / Save as PDF.
@@ -30,8 +31,7 @@ export default async function PrintWht({ params, searchParams }: { params: Promi
         .sigs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:36px}.sig{border-top:1px solid #111;padding-top:5px;text-align:center}.sd{color:#666;font-size:11px}
         .foot{margin-top:16px;color:#777;font-size:10px}
       `}</style>
-      <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
-      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
+      <PrintBar />
       <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 34 }} />
         <h1>Withholding Tax Certificate<small>شهادة خصم ضريبة من المنبع</small></h1></div>
       <p>Period <b>{from}</b> to <b>{to}</b></p>

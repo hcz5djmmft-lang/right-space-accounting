@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { today } from '@/lib/dates';
 import { SNAG_STATUSES, label, listSnags, snagCounts } from '@/lib/site';
+import { PrintBar } from '@/components/PrintBar';
 
 // The snag list of a project for the handover walk: every finding with where, what, who fixes it and its state.
 export default async function PrintSnags({ params }: { params: Promise<{ project: string }> }) {
@@ -24,8 +25,7 @@ export default async function PrintSnags({ params }: { params: Promise<{ project
         .po-print th{background:#f4efe5;font-size:11px;position:static}.foot{margin-top:16px;color:#777;font-size:10px}
         .sigs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px}.sig{border-top:1px solid #111;padding-top:5px;text-align:center}.sd{color:#666;font-size:11px}
       `}</style>
-      <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
-      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
+      <PrintBar />
       <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 38 }} /><h1>Snag list · {p.code}<small>قائمة الملاحظات</small></h1></div>
       <p style={{ margin: '0 0 10px' }}><b>Project</b> <span dir="auto">{p.code}{p.name !== p.code ? ` · ${p.name}` : ''}</span>{p.client ? <> · <b>Client</b> <span dir="auto">{p.client}</span></> : null} · <b>Printed</b> {today()} · {counts.open} open, {counts.fixed} fixed, {counts.verified} verified</p>
       {live.length === 0 ? <p>No snag recorded.</p> : (
