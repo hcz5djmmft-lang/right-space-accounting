@@ -73,11 +73,11 @@ export async function cashView(now = today()): Promise<CashView> {
       from invoices i join parties p on p.id = i.party_id where i.kind = 'sales' and i.status = 'posted' and i.total - invoice_paid(i.id) > 0.004
         and coalesce(i.due_date, i.date) <= ${end}::date order by coalesce(i.due_date, i.date), i.no`,
     sql<{ id: string; no: string; party: string; due: string; amount: number; po_id: string | null }[]>`
-      select i.id, i.no, p.name party, to_char(coalesce(i.due_date, ${now}::date),'YYYY-MM-DD') due, (i.net - invoice_paid(i.id))::float amount, i.po_id
+      select i.id, i.no, p.name party, to_char(coalesce(i.due_date, ${now}::date),'YYYY-MM-DD') due, (i.net - invoice_paid(i.id))::float amount, case when i.is_bill then i.id end po_id
       from invoices i join parties p on p.id = i.party_id
       where i.kind = 'purchase' and i.status = 'posted' and i.net - invoice_paid(i.id) > 0.004
         and not exists (select 1 from payment_request_bills b where b.request_id = i.id)
-        and (i.po_id is null or exists (select 1 from payment_request_bills b join invoices r on r.id = b.request_id and r.status = 'posted' where b.bill_id = i.id))
+        and (not i.is_bill or exists (select 1 from payment_request_bills b join invoices r on r.id = b.request_id and r.status = 'posted' where b.bill_id = i.id))
         and coalesce(i.due_date, ${now}::date) <= ${end}::date order by coalesce(i.due_date, ${now}::date), i.no`,
     sql<{ n: number }[]>`select coalesce(sum(net), 0)::float n from invoices where kind = 'purchase' and status = 'pending'`,
     sql<{ n: number }[]>`select coalesce(sum(credit_limit), 0)::float n from bank_accounts where kind = 'card'`,

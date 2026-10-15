@@ -91,7 +91,8 @@ export async function savePaymentRequest(user: User, input: PRInput, submit: boo
       if (old.created_by !== user.id && !hasRole(user, 'finance')) throw new RuleError('Only the person who raised it, or Finance, can edit it.');
       no = old.no;
     } else {
-      no = await nextNo(tx, s.pr_prefix, 6);
+      // update 20: CIB-34-00001… (the old C-000001 kept six digits)
+      no = await nextNo(tx, s.pr_prefix, s.pr_prefix === 'C-' ? 6 : 5);
     }
     // a request that pays vendor invoices: each one this vendor's, unpaid and not on another request; it pays what is open
     const bills = billIds.length ? await requestableBills(tx, i.party, billIds, id) : [];
@@ -244,7 +245,7 @@ export async function openRequests(tx: Tx, party?: string) {
     left join lateral (select r.id, r.no from payment_request_bills b join invoices r on r.id = b.request_id and r.status = 'posted' where b.bill_id = i.id limit 1) q on true
     where i.kind = 'purchase' and i.status = 'posted' and (${party ?? null}::text is null or i.party_id = ${party ?? null})
       and not exists (select 1 from payment_request_bills b where b.request_id = i.id)
-      and (i.po_id is null or q.id is not null)
+      and (not i.is_bill or q.id is not null)
     order by i.date, i.no`;
 }
 
@@ -252,7 +253,7 @@ type RequestableBill = { id: string; no: string; open: number; project_id: strin
 /** Checks the vendor invoices a payment request is to pay and returns what is open on each. */
 async function requestableBills(tx: Tx, party: string, ids: string[], requestId?: string) {
   const rows = await tx<(RequestableBill & { party_id: string; status: string; po_id: string | null; other: string | null })[]>`
-    select i.id, i.no, i.party_id, i.status, i.po_id, i.project_id, i.dept_id, i.net - invoice_paid(i.id) open,
+    select i.id, i.no, i.party_id, i.status, case when i.is_bill then i.id end po_id, i.project_id, i.dept_id, i.net - invoice_paid(i.id) open,
       (select q.no from payment_request_bills b join invoices q on q.id = b.request_id and q.status in ('draft', 'pending', 'posted')
         where b.bill_id = i.id and q.id <> ${requestId ?? ''} limit 1) other
     from invoices i where i.id = any(${ids})`;
@@ -303,6 +304,13 @@ export async function postVendorPayment(user: User, p: PaymentInputForm) {
     const [{ id: eid }] = await tx<{ id: string }[]>`insert into journal_entries (no, date, memo, ref, kind, status, source_type, source_id, created_by)
       values (${jno}, ${p.date}, ${no + ' · ' + (party?.name ?? '')}, ${p.ref || no}, 'payment', 'draft', 'payment', ${id}, ${user.id}) returning id`;
     await writeLines(tx, eid, jl);
+    // update 20: a transfer paying one request carries the request's own number (CIB-34-…) when it goes out of that bank
+    if (alloc.length === 1) {
+      const r = open.get(alloc[0].invoice)!, reqNo = r.via ?? r.no;
+      const [b] = await tx<{ ref_prefix: string | null }[]>`select ref_prefix from bank_accounts where account = ${p.bank}`;
+      if (b?.ref_prefix && reqNo.startsWith(b.ref_prefix) && !(await tx`select 1 from journal_entries where payment_ref = ${reqNo}`)[0])
+        await tx`update journal_entries set payment_ref = ${reqNo} where id = ${eid}`;
+    }
     await postEntry(tx, user, eid, 'Posted from ' + no);
     const [{ payment_ref }] = await tx<{ payment_ref: string | null }[]>`select payment_ref from journal_entries where id = ${eid}`;
     await tx`update payments set status = 'posted', entry_id = ${eid}, reference = ${payment_ref} where id = ${id}`;

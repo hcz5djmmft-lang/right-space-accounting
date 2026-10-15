@@ -39,7 +39,7 @@ export async function saveCompany(f: FormData) {
   await sql.begin(async tx => {
     await tx`update settings set company_name = ${s(f, 'company_name') || 'Right Space Development'}, vat_rate = ${vat},
       require_approval = ${f.get('require_approval') === 'on'}, require_cc = ${f.get('require_cc') === 'on'},
-      lock_date = ${s(f, 'lock_date') || null}, company_tax_id = ${s(f, 'company_tax_id')}, pr_prefix = ${s(f, 'pr_prefix') || 'C-'} where id = 1`;
+      lock_date = ${s(f, 'lock_date') || null}, company_tax_id = ${s(f, 'company_tax_id')}, pr_prefix = ${s(f, 'pr_prefix') || 'CIB-34-'} where id = 1`;
     await audit(tx, user, 'settings', 'company', 'Changed company settings', '', Object.fromEntries(f));
   });
   revalidatePath('/', 'layout');

@@ -43,3 +43,11 @@ create table if not exists petty_cash_lines (
 
 -- Item 25: a sales invoice is approved by Finance, Engineering, then Management before it is issued.
 alter table invoices add column if not exists sales_step text check (sales_step in ('finance', 'engineering', 'management'));
+
+-- Items 19 to 21: vendor invoices are recorded first (against a PO, or by hand for a service), then a payment request pays
+-- them. is_bill marks a vendor invoice; those received on a PO already are.
+alter table invoices add column if not exists is_bill boolean not null default false;
+update invoices set is_bill = true where po_id is not null and not is_bill;
+
+-- Item 22: new payment requests are numbered CIB-34-00001…, the CIB account's payment numbers; existing ones keep theirs.
+update settings set pr_prefix = 'CIB-34-' where pr_prefix = 'C-';

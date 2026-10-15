@@ -37,7 +37,7 @@ export default async function PartyAccount({ params, searchParams }: { params: P
     vendor ? unpaidBills(id) : Promise.resolve([]),
     vendor ? sql<{ id: string; no: string; date: string; net: number; paid: number; status: string }[]>`
       select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, i.net, invoice_paid(i.id) paid, i.status from invoices i
-      where i.kind = 'purchase' and i.po_id is null and i.party_id = ${id} and i.status in ('pending', 'posted') and i.net - invoice_paid(i.id) > 0.004 order by i.date, i.no` : Promise.resolve([]),
+      where i.kind = 'purchase' and not i.is_bill and i.party_id = ${id} and i.status in ('pending', 'posted') and i.net - invoice_paid(i.id) > 0.004 order by i.date, i.no` : Promise.resolve([]),
   ]);
   const sign = vendor ? -1 : 1;
   let run = 0;
