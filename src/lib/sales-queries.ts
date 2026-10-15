@@ -5,7 +5,7 @@ export type InvoiceRow = {
   id: string; no: string; date: string; due: string | null; status: string; party_id: string; customer: string; customer_code: string | null;
   project_id: string | null; project_code: string | null; project_name: string | null; ref: string; vat_rate: number;
   subtotal: number; vat: number; total: number; created_by: string | null; created_by_name: string | null; entry_id: string | null; entry_no: string | null;
-  received: number; category: string | null; category_name: string | null;
+  received: number; category: string | null; category_name: string | null; sales_step: 'finance' | 'engineering' | 'management' | null;
 };
 export async function getInvoice(id: string) {
   const [r] = await sql<InvoiceRow[]>`

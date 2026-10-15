@@ -40,3 +40,6 @@ create table if not exists petty_cash_lines (
   amount      numeric(14,2) not null check (amount > 0),
   primary key (petty_id, line_no)
 );
+
+-- Item 25: a sales invoice is approved by Finance, Engineering, then Management before it is issued.
+alter table invoices add column if not exists sales_step text check (sales_step in ('finance', 'engineering', 'management'));

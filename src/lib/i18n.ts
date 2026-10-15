@@ -29,6 +29,7 @@ const AR: Record<string, string> = {
   'Engineering': 'الهندسة', 'Technical Office': 'المكتب الفني', 'Main concept': 'التصميم المبدئي', 'Shop drawings': 'الرسومات التنفيذية',
   'Procurement': 'المشتريات', 'Purchase orders': 'أوامر الشراء', 'New purchase request': 'طلب شراء جديد', 'Invoices': 'الفواتير',
   'Bank reconciliation': 'التسوية البنكية',
+  'Approve': 'اعتماد', 'Approved.': 'تم الاعتماد.', 'View': 'عرض', 'Approve signs it here; open the number to read it or to return it.': 'اعتماد يوقّع هنا؛ افتح الرقم لقراءته أو لإرجاعه.',
   'Insight': 'التقارير', 'Reports': 'التقارير', 'Admin': 'الإدارة', 'Settings': 'الإعدادات', 'Audit log': 'سجل التغييرات', 'My account': 'حسابي',
 
   // clock in

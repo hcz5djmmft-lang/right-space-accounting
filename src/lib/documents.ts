@@ -335,22 +335,28 @@ export async function waitingForUser(user: User) {
     sql<{ ok: boolean }[]>`select true ok from departments where code = 'PUR' and (head_user_id = ${user.id} or id = ${user.dept_id ?? ''})`,
   ]);
   const { claimsWaitingFor } = await import('./claims');
-  const { expensesWaitingFor } = await import('./expenses');
   const { topupsWaitingFor } = await import('./petty');
   const { tasksToReview } = await import('./tasks');
-  const [leave, design, claims, expenses, topups, reviews] = await Promise.all([leaveWaitingFor(user), designWaitingFor(user), claimsWaitingFor(user), expensesWaitingFor(user), topupsWaitingFor(user), tasksToReview(user)]);
+  const { pettyWaitingFor } = await import('./petty-docs');
+  const { salesWaitingFor, SALES_STEP_LABEL } = await import('./sales');
+  const [leave, design, claims, topups, reviews, petty, sales] = await Promise.all([leaveWaitingFor(user), designWaitingFor(user), claimsWaitingFor(user), topupsWaitingFor(user), tasksToReview(user), pettyWaitingFor(user), salesWaitingFor(user)]);
   const procurement = hasRole(user, 'management') || !!proc;
   const mine = purchases.filter(r => r.status === 'procurement' ? procurement : r.status === 'head' ? canSign(user, steps[0], r) : canSign(user, steps[steps.length - 1]));
-  return [
-    ...prs.filter(p => canSign(user, steps[p.signed], p)).map(p => ({ ...p, href: `/payment-requests/${p.id}`, type: `Payment request · ${stepLabel(steps[p.signed], p)}` })),
-    ...mine.map(r => ({ ...r, href: `/purchasing/${r.id}`, type: `Purchase request · ${r.status === 'procurement' ? 'Procurement pricing' : r.status === 'head' ? r.approver_label ?? 'Department head' : 'Management'}` })),
-    ...(hasRole(user, 'finance') ? entries.map(e => ({ ...e, href: `/entries/${e.id}`, type: 'Entry' })) : []),
-    ...leave.map(l => ({ id: l.id, no: l.name, date: l.from_date, memo: `${l.type_label} ${l.from_date} to ${l.to_date} (${l.days} days)${l.reason ? ` · ${l.reason}` : ''}`, who: l.name, amount: 0, href: `/leave/${l.id}`, type: `Leave · ${l.status === 'head' ? 'Department head' : 'HR'}` })),
-    ...design.map(s => ({ id: s.id, no: s.project_code, date: s.submitted_at?.slice(0, 10) ?? '', memo: `${s.kind_label} v${s.version} · ${s.drawings} drawings`, who: s.designer, amount: 0, href: `/design/${s.id}`, type: `Drawing set · ${s.status_label.replace('With the ', '')}` })),
-    ...expenses.map(x => ({ id: x.id, no: x.no, date: x.date, memo: `${x.description} · ${x.project_code ?? x.dept_name ?? ''} · ${x.paid_from_name}`, who: x.who, amount: x.amount, href: `/expenses/${x.id}`, type: `Expense · ${x.step}` })),
+  // `act` (update 20): the row can be approved from the list with its Approve button; rows without one need their page
+  // (Procurement prices a request, a top-up names its bank, a claim becomes a payment request).
+  const rows: WaitingRow[] = [
+    ...prs.filter(p => canSign(user, steps[p.signed], p)).map(p => ({ ...p, href: `/payment-requests/${p.id}`, type: `Payment request · ${stepLabel(steps[p.signed], p)}`, act: `pr:${p.id}` })),
+    ...mine.map(r => ({ ...r, href: `/purchasing/${r.id}`, type: `Purchase request · ${r.status === 'procurement' ? 'Procurement pricing' : r.status === 'head' ? r.approver_label ?? 'Department head' : 'Management'}`, act: r.status === 'procurement' ? undefined : `purchase:${r.id}` })),
+    ...(hasRole(user, 'finance') ? entries.map(e => ({ ...e, href: `/entries/${e.id}`, type: 'Entry', act: `entry:${e.id}` })) : []),
+    ...petty.map(d => ({ id: d.id, no: d.no, date: d.date, memo: `${d.paid_to_name} · ${d.purpose} · ${d.cc ?? ''}`, who: d.who, amount: d.total, href: `/petty-cash/${d.id}`, type: `Petty cash · ${d.status === 'head' ? d.approver_label ?? 'Department head' : 'Management'}`, act: `petty:${d.id}` })),
+    ...sales.map(i => ({ id: i.id, no: i.no, date: i.date, memo: i.customer, who: null, amount: i.total, href: `/sales-invoices/${i.id}`, type: `Sales invoice · ${SALES_STEP_LABEL[i.sales_step]}`, act: `sales:${i.id}` })),
+    ...leave.map(l => ({ id: l.id, no: l.name, date: l.from_date, memo: `${l.type_label} ${l.from_date} to ${l.to_date} (${l.days} days)${l.reason ? ` · ${l.reason}` : ''}`, who: l.name, amount: 0, href: `/leave/${l.id}`, type: `Leave · ${l.status === 'head' ? 'Department head' : 'HR'}`, act: `leave:${l.id}` })),
+    ...design.map(s => ({ id: s.id, no: s.project_code, date: s.submitted_at?.slice(0, 10) ?? '', memo: `${s.kind_label} v${s.version} · ${s.drawings} drawings`, who: s.designer, amount: 0, href: `/design/${s.id}`, type: `Drawing set · ${s.status_label.replace('With the ', '')}`, act: `design:${s.id}` })),
     ...topups.map(t => ({ id: t.id, no: t.no, date: t.at.slice(0, 10), memo: `${t.box}${t.note ? ` · ${t.note}` : ''}`, who: t.who, amount: t.amount, href: '/petty-cash', type: 'Petty cash top-up' })),
-    ...reviews.map(t => ({ id: t.id, no: t.project_code ?? 'Task', date: t.submitted_at?.slice(0, 10) ?? '', memo: `${t.title}${t.submit_note ? ` · ${t.submit_note}` : ''}`, who: t.assignee, amount: 0, href: `/tasks/${t.id}`, type: 'Task · review' })),
+    ...reviews.map(t => ({ id: t.id, no: t.project_code ?? 'Task', date: t.submitted_at?.slice(0, 10) ?? '', memo: `${t.title}${t.submit_note ? ` · ${t.submit_note}` : ''}`, who: t.assignee, amount: 0, href: `/tasks/${t.id}`, type: 'Task · review', act: `task:${t.id}` })),
     ...claims.map(c => ({ id: c.id, no: c.no, date: c.date, memo: `${c.vendor} · ${c.code} · claim ${c.claim_no}${c.trade ? ` · ${c.trade}` : ''}`, who: c.certified_by_name, amount: c.gross, href: `/claims/${c.id}`, type: `Progress claim · ${c.status === 'pricing' ? 'Procurement pricing' : 'Finance payment request'}` })),
   ];
+  return rows;
 }
+export type WaitingRow = { id: string; no: string; date: string; memo: string; who: string | null; amount: number; href: string; type: string; act?: string };
 

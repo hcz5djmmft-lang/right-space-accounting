@@ -20,7 +20,9 @@ export async function saveInvoiceAction(raw: unknown): Promise<{ error?: string;
   if (!p.success) return { error: p.error.issues[0]?.message ?? 'Check the form.' };
   const { post, ...input } = p.data;
   try {
-    const id = await sales.saveSalesInvoice(user, input, post);
+    // update 20: Finance no longer posts an invoice itself; it goes for approval (Finance, Engineering, Management)
+    const id = await sales.saveSalesInvoice(user, input, false);
+    if (post) await sales.sendSalesForApproval(user, id);
     revalidatePath('/', 'layout');
     return { id };
   } catch (e) { return { error: msg(e) }; }
@@ -40,7 +42,9 @@ async function act(id: string, fn: () => Promise<unknown>, done = `/sales-invoic
   revalidatePath('/', 'layout');
   redirect(err ? `/sales-invoices/${id}?error=${encodeURIComponent(err)}` : done);
 }
-export async function postInvoice(id: string) { const u = await requireUser(); await act(id, () => sales.postSalesInvoice(u, id)); }
+export async function sendInvoice(id: string) { const u = await requireUser(); await act(id, () => sales.sendSalesForApproval(u, id)); }
+export async function approveInvoice(id: string, f: FormData) { const u = await requireUser(); await act(id, () => sales.approveSales(u, id, String(f.get('note') ?? ''))); }
+export async function returnInvoice(id: string, f: FormData) { const u = await requireUser(); await act(id, () => sales.returnSales(u, id, String(f.get('note') ?? ''))); }
 export async function deleteInvoice(id: string) { const u = await requireUser(); await act(id, () => sales.deleteSalesInvoice(u, id), '/sales-invoices'); }
 export async function voidInvoice(id: string, f: FormData) {
   const u = await requireUser();

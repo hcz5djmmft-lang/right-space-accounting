@@ -52,16 +52,16 @@ describe('attendance maths', () => {
   it('the categories are data: who gets which, what is preselected, how they read', () => {
     expect(CATEGORIES.map(c => c.key)).toEqual(['office', 'site', 'design', 'payments', 'collections', 'payroll', 'bank_cash', 'cost_control', 'reports']);
     expect(new Set(CATEGORIES.map(c => c.key)).size).toBe(CATEGORIES.length);
-    expect(offeredCategories({ dept_name: null }).map(c => c.key)).toEqual(['office']);
+    expect(offeredCategories({ dept_name: null }).map(c => c.key)).toEqual(['office', 'site']);   // update 20: Office or Site for everyone
     expect(offeredCategories({ dept_name: 'Admin', work_location: 'site' }).map(c => c.key)).toEqual(['office', 'site']);
     expect(offeredCategories({ dept_name: 'Engineering', work_location: 'office' }).map(c => c.key)).toEqual(['office', 'site', 'design']);
     expect(offeredCategories({ dept_name: null }, { roles: ['projects'] }).map(c => c.key)).toEqual(['office', 'site', 'design']);
-    expect(offeredCategories({ dept_name: 'Finance' }).map(c => c.key)).toEqual(['office', 'payments', 'collections', 'payroll', 'bank_cash', 'cost_control', 'reports']);
-    expect(offeredCategories({ dept_name: null }, { roles: ['finance'] })).toHaveLength(7);
+    expect(offeredCategories({ dept_name: 'Finance' }).map(c => c.key)).toEqual(['office', 'site', 'payments', 'collections', 'payroll', 'bank_cash', 'cost_control', 'reports']);
+    expect(offeredCategories({ dept_name: null }, { roles: ['finance'] })).toHaveLength(8);
     expect(offeredCategories({ dept_name: 'Admin' }, { roles: ['management'] })).toHaveLength(9);
     expect(defaultPick({ work_location: 'site', project_id: 'p1' }, null)).toEqual({ category: 'site', projectId: 'p1' });
     expect(defaultPick({ work_location: 'office', project_id: null }, null)).toEqual({ category: 'office', projectId: null });
-    expect(defaultPick({ work_location: 'office', project_id: null }, { category: 'design', project_id: 'p2' })).toEqual({ category: 'design', projectId: 'p2' });
+    expect(defaultPick({ work_location: 'office', project_id: null }, { category: 'design', project_id: 'p2' })).toEqual({ category: 'office', projectId: null });   // update 20: design is clocked on the Design page
     expect(defaultPick({ work_location: 'office', project_id: null }, { category: 'gone', project_id: null })).toEqual({ category: 'office', projectId: null });
     expect(whatLabel(categoryOf('office'), null)).toBe('Office'); expect(whatLabel(categoryOf('site'), 'PH-B1302')).toBe('Site on PH-B1302'); expect(whatLabel(categoryOf('site'), null)).toBe('Site'); expect(whatLabel(categoryOf('bank_cash'), null)).toBe('Bank and petty cash');
     expect(whatPhrase(categoryOf('design')!, 'PH-B1302')).toBe('for design on PH-B1302'); expect(whatPhrase(categoryOf('design')!, null)).toBe('for design'); expect(whatPhrase(categoryOf('site')!, null)).toBe('on site');

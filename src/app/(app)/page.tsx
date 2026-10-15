@@ -35,7 +35,6 @@ export default async function Overview({ searchParams }: { searchParams: Promise
       {denied && <div className="msg bad">Your role does not give you access to that page.</div>}
       <div className="head">
         <div><h1>Good day, {user.name.split(' ')[0]}</h1><p>Right Space Development · all amounts in EGP</p></div>
-        <div className="row"><Link className="btn pri" href="/expenses/new">New expense</Link></div>
       </div>
       <PushButton publicKey={publicKey} compact />
       <div className="tiles">

@@ -8,7 +8,7 @@ import { lastImport, statementCounts, statementLines } from '@/lib/statements';
 
 /** The second line of an account's tile: what kind of account it is and the detail that tells it apart. */
 function describe(a: BankAccount) {
-  if (a.kind === 'card') { const c = cardFigures(a); return `Credit card · limit ${fmt(a.credit_limit ?? 0)}${c.available === null ? '' : ` · available ${fmt(c.available)}`}`; }
+  if (a.kind === 'card') { const c = cardFigures(a); return `Credit card · available of the ${fmt(a.credit_limit ?? 0)} limit · owed ${fmt(c.owed)}`; }
   if (a.kind === 'cash') return 'Office cash · petty cash is paid from here';
   return `Bank account${a.branch ? ` · ${a.branch}` : ''}${a.account_no ? ` · ···${a.account_no.slice(-4)}` : ''}`;
 }
@@ -34,7 +34,7 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
       {accounts.length === 0 && <div className="empty card">No bank or cash accounts. Tick &quot;Bank or cash account&quot; on an account in the chart of accounts.</div>}
       <div className="tiles">{accounts.map(a => (
         <Link key={a.code} href={q(a.code)} className="tile" style={{ textDecoration: 'none', outline: cur?.code === a.code ? '2px solid var(--gold-ink, #e5b35a)' : undefined }}>
-          <div className="k"><span className="mono">{a.code}</span> · {a.name}</div><div className="v mono">{fmt(a.kind === 'card' ? cardFigures(a).owed : a.balance)}</div>
+          <div className="k"><span className="mono">{a.code}</span> · {a.name}</div><div className="v mono">{fmt(a.kind === 'card' ? cardFigures(a).available ?? a.credit_limit ?? 0 : a.balance)}</div>
           <div className="muted" style={{ fontSize: 12 }}>{describe(a)}</div>
           {a.stmt_balance !== null && <div className="muted" style={{ fontSize: 12 }}>{reconcile(a).reconciled ? '✓ reconciled' : `statement ${fmt(a.stmt_balance)}`}{a.stmt_date ? ` · ${a.stmt_date}` : ''}</div>}
         </Link>))}</div>
@@ -53,7 +53,7 @@ export default async function Banks({ searchParams }: { searchParams: Promise<{ 
               {cur.holder && <tr><td>{cur.kind === 'bank' ? 'Account name' : 'Held by'}</td><td>{cur.holder}</td></tr>}
               <tr><td>Payments numbered</td><td className="mono">{cur.ref_prefix ? cur.ref_prefix + '00001, ' + cur.ref_prefix + '00002 …' : '—'}</td></tr>
             </tbody></table>
-            {cur.kind === 'card' && <p className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>Card purchases come from New expense (paid by the credit card).</p>}
+            {cur.kind === 'card' && <p className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>Card purchases are paid from an approved payment request, paid by the credit card (CC-12-…).</p>}
             {cur.kind === 'card' && (
               <form action={payCardAction} className="row" style={{ alignItems: 'end', flexWrap: 'wrap', marginTop: 10 }}>
                 {hidden}

@@ -49,7 +49,7 @@ export async function projectMoney(): Promise<ProjectMoney[]> {
 export type CashWeek = { from: string; to: string; inflow: number; outflow: number; closing: number };
 export type CashView = {
   bank: number; pettyCash: number; opening: number; overdueIn: number; overdueOut: number;
-  weeks: CashWeek[]; closing: number; pendingRequests: number; card: number;
+  weeks: CashWeek[]; closing: number; pendingRequests: number; card: number; cardLimit: number; cardAvailable: number;
   ins: { no: string; party: string; due: string; amount: number; href: string }[];
   outs: { no: string; party: string; due: string; amount: number; href: string }[];
 };
@@ -62,7 +62,7 @@ const plus = (d: string, n: number) => new Date(Date.parse(d + 'T00:00:00Z') + n
  */
 export async function cashView(now = today()): Promise<CashView> {
   const end = plus(now, 29);
-  const [[cash], ins, outs, [pending]] = await Promise.all([
+  const [[cash], ins, outs, [pending], [lim]] = await Promise.all([
     sql<{ bank: number; petty: number; card: number }[]>`
       select coalesce(sum(case when coalesce(b.kind, 'bank') = 'bank' and a.type = 'asset' then l.dr - l.cr end), 0)::float bank,
         coalesce(sum(case when b.kind = 'cash' and not coalesce(b.hidden, false) then l.dr - l.cr end), 0)::float petty, coalesce(sum(case when b.kind = 'card' then l.cr - l.dr end), 0)::float card
@@ -80,6 +80,7 @@ export async function cashView(now = today()): Promise<CashView> {
         and (i.po_id is null or exists (select 1 from payment_request_bills b join invoices r on r.id = b.request_id and r.status = 'posted' where b.bill_id = i.id))
         and coalesce(i.due_date, ${now}::date) <= ${end}::date order by coalesce(i.due_date, ${now}::date), i.no`,
     sql<{ n: number }[]>`select coalesce(sum(net), 0)::float n from invoices where kind = 'purchase' and status = 'pending'`,
+    sql<{ n: number }[]>`select coalesce(sum(credit_limit), 0)::float n from bank_accounts where kind = 'card'`,
   ]);
   const opening = r2(cash.bank + cash.petty);
   const weeks: CashWeek[] = [];
@@ -93,7 +94,7 @@ export async function cashView(now = today()): Promise<CashView> {
     weeks.push({ from, to, inflow, outflow, closing: bal });
   }
   return {
-    bank: r2(cash.bank), pettyCash: r2(cash.petty), card: r2(cash.card), opening,
+    bank: r2(cash.bank), pettyCash: r2(cash.petty), card: r2(cash.card), cardLimit: r2(lim.n), cardAvailable: r2(lim.n - cash.card), opening,
     overdueIn: r2(ins.filter(x => x.due < now).reduce((t, x) => t + x.amount, 0)),
     overdueOut: r2(outs.filter(x => x.due < now).reduce((t, x) => t + x.amount, 0)),
     weeks, closing: bal, pendingRequests: r2(pending.n),

@@ -18,7 +18,7 @@ export default async function Dashboard() {
         <div className="tile"><div className="k">Cash today (bank + petty cash)</div><div className="v mono">{fmt(cash.opening)}</div><div className="muted" style={{ fontSize: 12 }}>bank {fmt(cash.bank)} · petty cash {fmt(cash.pettyCash)}</div></div>
         <div className="tile"><div className="k">In 30 days, if all is paid on time</div><div className="v mono" style={cash.closing < 0 ? { color: 'var(--bad)' } : undefined}>{fmt(cash.closing)}</div></div>
         <div className="tile"><div className="k">Open contracts · expected margin</div><div className="v mono">{fmt(sum('contract'))}</div><div className="muted" style={{ fontSize: 12 }}>margin {fmt(sum('margin'))}</div></div>
-        <div className="tile"><div className="k">Credit card owed · requests in approval</div><div className="v mono">{fmt(cash.card)}</div><div className="muted" style={{ fontSize: 12 }}>{fmt(cash.pendingRequests)} waiting for approval</div></div>
+        <div className="tile"><div className="k">Credit card available</div><div className="v mono">{fmt(cash.cardAvailable)}</div><div className="muted" style={{ fontSize: 12 }}>owed {fmt(cash.card)} of the {fmt(cash.cardLimit)} limit · {fmt(cash.pendingRequests)} requests in approval</div></div>
       </div>
 
       <div className="card">
