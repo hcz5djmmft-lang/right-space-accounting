@@ -1,7 +1,8 @@
 // The menu (update 20). Headings fold open on a tap and are closed by default, except the ones holding the page you are on.
 // Finance is one heading again, opening AP, AR and Closing (each a heading of its own) and then its five pages; Projects is
 // Engineering, opening Technical Office, Design and Site; Purchasing is Procurement.
-// Headings in Adel's order (2026-10-15): Partners, Finance, Engineering, Procurement, then HR & Admin as one heading. What a person sees follows the
+// Headings in Adel's order (2026-10-15): Partners, Finance, Engineering, Procurement, HR & Admin (the
+// administrative department's HR pages), then System admin (Settings and Audit log, Management only). What a person sees follows the
 // sub-categories they were given (src/lib/access.ts). Plain data, no server code, so the sidebar and the phone tab row
 // (a client component) and the tests share it.
 
@@ -49,8 +50,7 @@ export function buildMenu(f: MenuFlags): MenuItem[] {
         { href: '/close', label: 'Month-end close' },
         { href: '/bank-reconciliation', label: 'Bank reconciliation' },
         { href: '/fixed-assets', label: 'Fixed assets' },
-        { href: '/reports', label: 'Reports' },
-        ...(f.management ? [{ href: '/settings/audit', label: 'Audit log' }] : [])])),
+        { href: '/reports', label: 'Reports' }])),
       ...when('books', [
         { href: '/entries', label: 'Entries' },
         { href: '/accounts', label: 'Chart of accounts' },
@@ -78,9 +78,8 @@ export function buildMenu(f: MenuFlags): MenuItem[] {
       { href: '/purchasing/plan', label: 'Material plan' }, { href: '/purchasing/vendors', label: 'Vendors' },
       { href: '/purchasing/work-orders', label: 'Work orders' }, { href: '/purchasing/stock', label: 'Site stock' }, { href: '/claims', label: 'Progress claims' },
       { href: '/purchasing/reports', label: 'Procurement reports' }, { href: '/purchasing/materials', label: 'Materials' }])),
-    ...g('HR & Admin', [
-      ...when('hr', [{ href: '/hr', label: 'Employees' }, { href: '/attendance', label: 'Attendance' }, { href: '/hr/pay-items', label: 'Pay items' }, { href: '/hr/reports', label: 'HR reports' }]),
-      ...(f.management ? [{ href: '/settings', label: 'Settings' }] : [])]),
+    ...when('hr', g('HR & Admin', [{ href: '/hr', label: 'Employees' }, { href: '/attendance', label: 'Attendance' }, { href: '/hr/pay-items', label: 'Pay items' }, { href: '/hr/reports', label: 'HR reports' }])),
+    ...(f.management ? g('System admin', [{ href: '/settings', label: 'Settings' }, { href: '/settings/audit', label: 'Audit log' }]) : []),
     { href: '/account', label: 'My account' },
   ];
 }

@@ -11,15 +11,16 @@ const groups = (f: Partial<MenuFlags>) => Object.fromEntries(buildMenu({ ...base
 describe('menu (update 20)', () => {
   it('has Finance as one heading opening AP, AR and Closing, then its five pages', () => {
     const g = groups({ management: true });
-    expect(Object.keys(g)).toEqual(['Partners', 'Finance', 'Engineering', 'Procurement', 'HR & Admin']);
+    expect(Object.keys(g)).toEqual(['Partners', 'Finance', 'Engineering', 'Procurement', 'HR & Admin', 'System admin']);
     expect(g.Finance).toEqual([
       { AP: ['Banks & cash', 'Petty cash', 'Payment requests', 'Invoices', 'Payables', 'Vendors & subcontractors'] },
       { AR: ['Sales invoices', 'Collections', 'Collections follow-up', 'Customers'] },
-      { Closing: ['Month-end close', 'Bank reconciliation', 'Fixed assets', 'Reports', 'Audit log'] },
+      { Closing: ['Month-end close', 'Bank reconciliation', 'Fixed assets', 'Reports'] },
       'Entries', 'Chart of accounts', 'Opening balances', 'Budgets', 'Payroll']);
     expect(g.Partners).toEqual(['Partners', "Partners' dashboard"]);
-    expect(g['HR & Admin']).toEqual(['Employees', 'Attendance', 'Pay items', 'HR reports', 'Settings']);
-    expect(groups({ access: ['hr'] })['HR & Admin']).toEqual(['Employees', 'Attendance', 'Pay items', 'HR reports']);
+    expect(g['HR & Admin']).toEqual(['Employees', 'Attendance', 'Pay items', 'HR reports']);
+    expect(g['System admin']).toEqual(['Settings', 'Audit log']);
+    expect(Object.keys(groups({ access: ['hr'] }))).toEqual(['HR & Admin']);
   });
   it('renames Projects to Engineering, opening Technical Office, Design and Site', () => {
     expect(groups({ management: true }).Engineering).toEqual(['Cost centers',
