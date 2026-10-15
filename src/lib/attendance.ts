@@ -5,9 +5,10 @@ import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
 import { TZ } from './dates';
 import { addAttachment } from './attachments';
+import { appUrl, sendMail } from './mail';
 import { startOnClockIn } from './tasks';
 import { type HrSettings, type Pin, LOCATION_HELP, hourlyRate, hrSettings, lateMinutes, localParts, officeSet, placeOf, timesheetAmounts, whereText, workedAndOvertime } from './attendance-calc';
-import { CATEGORIES, type Category, type Pick, categoryOf, defaultPick, offeredCategories, whatLabel, whatPhrase } from './clock-categories';
+import { CATEGORIES, type Category, type Pick, categoryOf, clockCategories, defaultPick, offeredCategories, whatLabel, whatPhrase } from './clock-categories';
 
 // Clock in and out, timesheets and the work sessions (what the person is doing: Office, Site or Design on a project, switched during the day).
 // The employee's own phone writes the records; HR reads and checks them.
@@ -81,7 +82,9 @@ export async function savePin(user: User, projectId: string, lat: number | null,
 async function resolve(tx: Tx, me: Me, user: User, pick: Pick | undefined): Promise<{ cat: Category; project: ProjectPin | null; note: string }> {
   const p = pick ?? defaultPick(me, null);
   const cat = categoryOf(p.category);
-  if (!cat || !offeredCategories(me, user).some(c => c.key === cat.key)) throw new RuleError('Choose what you are clocking in for.');
+  // the Clock in page offers Office and Site on a project; design work is started from the project's Design page
+  const allowed = cat?.key === 'design' ? offeredCategories(me, user).some(c => c.key === 'design') : !!cat?.clock;
+  if (!cat || !allowed) throw new RuleError('Choose what you are clocking in for.');
   const project = cat.project ? await projectFor(tx, p.projectId, true) : null;   // only a project still Active, as the phone offers
   if (cat.project && !project) throw new RuleError('Choose the project.');
   return { cat, project, note: (p.note ?? '').trim() };
@@ -94,6 +97,7 @@ export async function clockIn(user: User, pos: Pos, photo: { name: string; body:
   if (!photo) throw new RuleError('Take a selfie first: the camera opens when you tap Clock in.');
   const s = await getHr();
   const { cat, project, note } = await resolve(sql, me, user, pick);
+  if (!cat.clock) throw new RuleError('Clock in for Office or Site on a project. Design work is started from the project\'s Design page.');
   const pin = project?.pin ?? null;
   const { place, distance } = placeOf(cat.rule, pos, s, pin);
   const compared = cat.rule === 'site' ? !!pin : officeSet(s);
@@ -115,7 +119,24 @@ export async function clockIn(user: User, pos: Pos, photo: { name: string; body:
     return r.id;
   });
   await addAttachment(user, 'attendance', id, photo.name, photo.body, 'in');
+  if (cat.key === 'site') await emailSiteClockIn(s, me.name, project!.code, now, pos, place, distance).catch(e => console.error('site clock-in email', e));
   return { id, message: whereText('in', whatPhrase(cat, project?.code), { place, distance, acc: pos?.acc ?? null, hasPos: !!pos, rule: cat.rule, compared }) + movedText(moved) };
+}
+
+/** Who hears of a site clock-in: the address in HR's attendance settings, else everyone given HR who is not Management. */
+export async function hrEmails(s: HrSettings, tx: Tx = sql) {
+  if (s.hr_email) return [s.hr_email];
+  return (await tx<{ email: string }[]>`select email from users where active and 'hr' = any(coalesce(access, '{}')) and not ('management' = any(roles)) order by name`).map(u => u.email);
+}
+
+/** Item 4 of update 20: a clock-in on site emails HR where the phone was, with a map link. HR also sees it under Attendance. */
+async function emailSiteClockIn(s: HrSettings, name: string, code: string, at: Date, pos: Pos, place: string | null, distance: number | null) {
+  const to = await hrEmails(s);
+  if (!to.length) return;
+  const time = at.toLocaleString('en-GB', { timeZone: TZ, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const where = pos ? `Location: https://maps.google.com/?q=${pos.lat},${pos.lng}${pos.acc ? ` (accurate to about ${pos.acc} m)` : ''}` : 'The phone gave no location.';
+  const vs = distance !== null ? `\nDistance from the ${code} site pin: about ${distance} m${place === 'away' ? ' (outside the allowed distance)' : ''}.` : '';
+  await sendMail({ to, subject: `${name} clocked in on site ${code}`, text: `${name} clocked in on site ${code} at ${time} (Cairo time).\n${where}${vs}\n\nAttendance: ${appUrl('/attendance')}\n\nRight Space` });
 }
 
 /** The person clocks out: the same selfie and position, the open stretch is closed, then the day's worked and overtime minutes are fixed. */
@@ -164,6 +185,21 @@ export async function switchTo(user: User, pick: Pick, now = new Date()) {
     if (project) await audit(tx, user, 'project', project.id, `${cat.short} work started`, me.name);
     return id;
   });
+}
+
+/** The design clock (update 20): on the project's Design page the designer starts design work on that project, while clocked in;
+ *  its hours and their cost go to the project. Stop goes back to what the day was clocked in for. */
+export async function startDesign(user: User, projectId: string, note = '', now = new Date()) {
+  return switchTo(user, { category: 'design', projectId, note }, now);
+}
+export async function stopDesign(user: User, now = new Date()) {
+  const me = await employeeOf(user.id);
+  if (!me) throw new RuleError('Your login is not linked to an employee file. Ask HR to link it.');
+  const open = await openRecord(me.id);
+  const cur = await openSession(me.id);
+  if (!open || cur?.category !== 'design') throw new RuleError('The design clock is not running.');
+  const back = categoryOf(open.category)?.clock ? { category: open.category, projectId: open.project_id } : { category: 'office', projectId: null };
+  return switchTo(user, back, now);
 }
 
 /** HR looked at the selfies and the place; a note can say what was wrong. */

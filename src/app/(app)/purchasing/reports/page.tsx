@@ -17,7 +17,7 @@ export default async function ProcurementReports({ searchParams }: { searchParam
   return (
     <>
       <div className="head"><div><h1>Procurement reports</h1><p>What is on order and when it is due, what was spent with whom and on what, what each material cost over time, and what each project has committed against its BOQ budget.</p></div>
-        <Link className="btn" href="/purchasing">Purchasing</Link></div>
+        <Link className="btn" href="/purchasing">Purchase requests</Link></div>
       <div className="tabs">{TABS.map(([k, l]) => <Link key={k} href={`/purchasing/reports?tab=${k}`} className={tab === k ? 'on' : ''}>{l}</Link>)}</div>
       {(tab === 'open' || tab === 'due') && <OpenTable rows={tab === 'open' ? await openPOs(now) : await deliveriesDue(now)} due={tab === 'due'} />}
       {(tab === 'vendor' || tab === 'project') && (

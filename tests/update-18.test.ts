@@ -27,6 +27,7 @@ const fin: U = { id: '', email: 'fin@x.test', name: 'Fatma Finance', roles: ['fi
 const adel: U = { id: '', email: 'adel@x.test', name: 'Adel', roles: ['management'] };
 const sara: U = { id: '', email: 'sara@x.test', name: 'Sara Site', roles: [] };
 const hrm: U = { id: '', email: 'hr@x.test', name: 'Haitham HR', roles: ['hr'] };
+const taxDoc = { taxId: { name: 'tax.pdf', body: Buffer.from('%PDF-1.4 test') } };
 const selfie = { name: 'selfie.jpg', body: Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(50, 2)]) };
 let saraEmp = '';
 
@@ -38,6 +39,8 @@ beforeAll(async () => {
   await sql`update settings set lock_date = null, hr = '{}' where id = 1`;
   await sql`delete from employees`;
   for (const u of [fin, adel, sara, hrm]) u.id = (await sql`insert into users (email, name, password_hash, roles) values (${u.email}, ${u.name}, 'x', ${u.roles}) returning id`)[0].id;
+  // update 20: only a head gives tasks to others; Fatma heads Finance
+  await sql`insert into user_positions (user_id, position) values (${fin.id}, 'finance_head')`;
   saraEmp = await hr.saveEmployeeFile(hrm as never, { name: 'Sara Site', work_location: 'site', project_id: 'ph-b1302' });
   await hr.linkLogin(hrm as never, saraEmp, sara.id);
   await sql`insert into accounts (code, name, type, parent, postable, is_bank) values ('A110', 'Cash – office safe', 'asset', 'A100', true, true), ('A115', 'Petty cash – accountant', 'asset', 'A100', true, true) on conflict (code) do nothing`;
@@ -136,21 +139,21 @@ describe('pay the card', () => {
 
 describe('vendors, subcontractors and customers', () => {
   it('a subcontractor paid by InstaPay to a wallet, with a new vendor type that joins the list', async () => {
-    await expect(parties.addParty(fin as never, 'sub', { name: 'Hany Tiles', pay_method: 'instapay', instapay_no: '' })).rejects.toThrow(/InstaPay number/);
-    await expect(parties.addParty(fin as never, 'sub', { name: 'Hany Tiles', pay_method: 'instapay', instapay_no: '01001234567' })).rejects.toThrow(/bank account or wallet/);
-    const id = await parties.addParty(fin as never, 'sub', { name: 'Hany Tiles', pay_method: 'instapay', instapay_no: '01001234567', instapay_to: 'wallet', bank_name: 'NBE', new_type: 'Marble' });
+    await expect(parties.addParty(fin as never, 'sub', { name: 'Hany Tiles', pay_method: 'instapay', instapay_no: '' }, taxDoc)).rejects.toThrow(/InstaPay number/);
+    await expect(parties.addParty(fin as never, 'sub', { name: 'Hany Tiles', pay_method: 'instapay', instapay_no: '01001234567' }, taxDoc)).rejects.toThrow(/bank account or wallet/);
+    const id = await parties.addParty(fin as never, 'sub', { name: 'Hany Tiles', pay_method: 'instapay', instapay_no: '01001234567', instapay_to: 'wallet', bank_name: 'NBE', new_type: 'Marble' }, taxDoc);
     const [p] = await sql`select code, type, is_sub, vendor_type, pay_method, instapay_no, instapay_to, bank_name from parties where id = ${id}`;
     expect(p).toMatchObject({ type: 'vendor', is_sub: true, vendor_type: 'Marble', pay_method: 'instapay', instapay_no: '01001234567', instapay_to: 'wallet', bank_name: null });
-    expect(p.code).toMatch(/^SC\d{4}$/);
+    expect(p.code).toMatch(/^SC-\d{4}$/);
     expect(await parties.vendorTypes()).toEqual(expect.arrayContaining(['Plumbing', 'Electricity', 'Marble']));
-    await parties.addParty(fin as never, 'vendor', { name: 'Another', new_type: 'marble' });
+    await parties.addParty(fin as never, 'vendor', { name: 'Another', new_type: 'marble' }, taxDoc);
     expect((await parties.vendorTypes()).filter(t => t.toLowerCase() === 'marble')).toHaveLength(1);
     expect(parties.payLabel(p as never, true)).toBe('InstaPay · 01001234567 · wallet');
   });
   it('a vendor paid to a bank keeps the bank boxes; it moves to Subcontractors and back', async () => {
-    const id = await parties.addParty(fin as never, 'vendor', { name: 'Volt', pay_method: 'bank', bank_name: 'CIB', vendor_type: 'Electricity', instapay_no: '0100' });
+    const id = await parties.addParty(fin as never, 'vendor', { name: 'Volt', pay_method: 'bank', bank_name: 'CIB', vendor_type: 'Electricity', instapay_no: '0100' }, taxDoc);
     expect((await sql`select bank_name, instapay_no, vendor_type from parties where id = ${id}`)[0]).toMatchObject({ bank_name: 'CIB', instapay_no: null, vendor_type: 'Electricity' });
-    await expect(parties.addParty(sara as never, 'vendor', { name: 'x' })).rejects.toThrow(/Only Finance/);
+    await expect(parties.addParty(sara as never, 'vendor', { name: 'x' }, taxDoc)).rejects.toThrow(/Only Finance/);
     await parties.setSubcontractor(fin as never, id, true);
     expect((await sql`select is_sub from parties where id = ${id}`)[0].is_sub).toBe(true);
     await parties.updateParty(fin as never, id, { name: 'Volt Electric', pay_method: 'instapay', instapay_no: '0111', instapay_to: 'account', bank_name: 'CIB' });
@@ -210,7 +213,7 @@ describe('fixes after the review of update 18', () => {
   it('a refused form leaves no stray vendor type', async () => {
     await expect(parties.addParty(fin as never, 'sub', { name: 'Fountain works', pay_method: 'instapay', new_type: 'Fountains', instapay_no: '' } as never)).rejects.toThrow(/InstaPay number/);
     expect(await parties.vendorTypes()).not.toContain('Fountains');
-    await parties.addParty(fin as never, 'sub', { name: 'Fountain works', pay_method: 'instapay', new_type: 'Fountains', instapay_no: '01000000000', instapay_to: 'wallet' } as never);
+    await parties.addParty(fin as never, 'sub', { name: 'Fountain works', pay_method: 'instapay', new_type: 'Fountains', instapay_no: '01000000000', instapay_to: 'wallet' } as never, taxDoc);
     expect(await parties.vendorTypes()).toContain('Fountains');
   });
   it('the Arabic clock-in keeps the sentence about the task', async () => {

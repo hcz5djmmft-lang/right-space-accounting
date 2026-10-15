@@ -91,7 +91,8 @@ export async function savePaymentRequest(user: User, input: PRInput, submit: boo
       if (old.created_by !== user.id && !hasRole(user, 'finance')) throw new RuleError('Only the person who raised it, or Finance, can edit it.');
       no = old.no;
     } else {
-      no = await nextNo(tx, s.pr_prefix, 6);
+      // update 20: CIB-34-00001… (the old C-000001 kept six digits)
+      no = await nextNo(tx, s.pr_prefix, s.pr_prefix === 'C-' ? 6 : 5);
     }
     // a request that pays vendor invoices: each one this vendor's, unpaid and not on another request; it pays what is open
     const bills = billIds.length ? await requestableBills(tx, i.party, billIds, id) : [];
@@ -244,7 +245,7 @@ export async function openRequests(tx: Tx, party?: string) {
     left join lateral (select r.id, r.no from payment_request_bills b join invoices r on r.id = b.request_id and r.status = 'posted' where b.bill_id = i.id limit 1) q on true
     where i.kind = 'purchase' and i.status = 'posted' and (${party ?? null}::text is null or i.party_id = ${party ?? null})
       and not exists (select 1 from payment_request_bills b where b.request_id = i.id)
-      and (i.po_id is null or q.id is not null)
+      and (not i.is_bill or q.id is not null)
     order by i.date, i.no`;
 }
 
@@ -252,7 +253,7 @@ type RequestableBill = { id: string; no: string; open: number; project_id: strin
 /** Checks the vendor invoices a payment request is to pay and returns what is open on each. */
 async function requestableBills(tx: Tx, party: string, ids: string[], requestId?: string) {
   const rows = await tx<(RequestableBill & { party_id: string; status: string; po_id: string | null; other: string | null })[]>`
-    select i.id, i.no, i.party_id, i.status, i.po_id, i.project_id, i.dept_id, i.net - invoice_paid(i.id) open,
+    select i.id, i.no, i.party_id, i.status, case when i.is_bill then i.id end po_id, i.project_id, i.dept_id, i.net - invoice_paid(i.id) open,
       (select q.no from payment_request_bills b join invoices q on q.id = b.request_id and q.status in ('draft', 'pending', 'posted')
         where b.bill_id = i.id and q.id <> ${requestId ?? ''} limit 1) other
     from invoices i where i.id = any(${ids})`;
@@ -303,6 +304,13 @@ export async function postVendorPayment(user: User, p: PaymentInputForm) {
     const [{ id: eid }] = await tx<{ id: string }[]>`insert into journal_entries (no, date, memo, ref, kind, status, source_type, source_id, created_by)
       values (${jno}, ${p.date}, ${no + ' · ' + (party?.name ?? '')}, ${p.ref || no}, 'payment', 'draft', 'payment', ${id}, ${user.id}) returning id`;
     await writeLines(tx, eid, jl);
+    // update 20: a transfer paying one request carries the request's own number (CIB-34-…) when it goes out of that bank
+    if (alloc.length === 1) {
+      const r = open.get(alloc[0].invoice)!, reqNo = r.via ?? r.no;
+      const [b] = await tx<{ ref_prefix: string | null }[]>`select ref_prefix from bank_accounts where account = ${p.bank}`;
+      if (b?.ref_prefix && reqNo.startsWith(b.ref_prefix) && !(await tx`select 1 from journal_entries where payment_ref = ${reqNo}`)[0])
+        await tx`update journal_entries set payment_ref = ${reqNo} where id = ${eid}`;
+    }
     await postEntry(tx, user, eid, 'Posted from ' + no);
     const [{ payment_ref }] = await tx<{ payment_ref: string | null }[]>`select payment_ref from journal_entries where id = ${eid}`;
     await tx`update payments set status = 'posted', entry_id = ${eid}, reference = ${payment_ref} where id = ${id}`;
@@ -335,22 +343,28 @@ export async function waitingForUser(user: User) {
     sql<{ ok: boolean }[]>`select true ok from departments where code = 'PUR' and (head_user_id = ${user.id} or id = ${user.dept_id ?? ''})`,
   ]);
   const { claimsWaitingFor } = await import('./claims');
-  const { expensesWaitingFor } = await import('./expenses');
   const { topupsWaitingFor } = await import('./petty');
   const { tasksToReview } = await import('./tasks');
-  const [leave, design, claims, expenses, topups, reviews] = await Promise.all([leaveWaitingFor(user), designWaitingFor(user), claimsWaitingFor(user), expensesWaitingFor(user), topupsWaitingFor(user), tasksToReview(user)]);
+  const { pettyWaitingFor } = await import('./petty-docs');
+  const { salesWaitingFor, SALES_STEP_LABEL } = await import('./sales');
+  const [leave, design, claims, topups, reviews, petty, sales] = await Promise.all([leaveWaitingFor(user), designWaitingFor(user), claimsWaitingFor(user), topupsWaitingFor(user), tasksToReview(user), pettyWaitingFor(user), salesWaitingFor(user)]);
   const procurement = hasRole(user, 'management') || !!proc;
   const mine = purchases.filter(r => r.status === 'procurement' ? procurement : r.status === 'head' ? canSign(user, steps[0], r) : canSign(user, steps[steps.length - 1]));
-  return [
-    ...prs.filter(p => canSign(user, steps[p.signed], p)).map(p => ({ ...p, href: `/payment-requests/${p.id}`, type: `Payment request · ${stepLabel(steps[p.signed], p)}` })),
-    ...mine.map(r => ({ ...r, href: `/purchasing/${r.id}`, type: `Purchase request · ${r.status === 'procurement' ? 'Procurement pricing' : r.status === 'head' ? r.approver_label ?? 'Department head' : 'Management'}` })),
-    ...(hasRole(user, 'finance') ? entries.map(e => ({ ...e, href: `/entries/${e.id}`, type: 'Entry' })) : []),
-    ...leave.map(l => ({ id: l.id, no: l.name, date: l.from_date, memo: `${l.type_label} ${l.from_date} to ${l.to_date} (${l.days} days)${l.reason ? ` · ${l.reason}` : ''}`, who: l.name, amount: 0, href: `/leave/${l.id}`, type: `Leave · ${l.status === 'head' ? 'Department head' : 'HR'}` })),
-    ...design.map(s => ({ id: s.id, no: s.project_code, date: s.submitted_at?.slice(0, 10) ?? '', memo: `${s.kind_label} v${s.version} · ${s.drawings} drawings`, who: s.designer, amount: 0, href: `/design/${s.id}`, type: `Drawing set · ${s.status_label.replace('With the ', '')}` })),
-    ...expenses.map(x => ({ id: x.id, no: x.no, date: x.date, memo: `${x.description} · ${x.project_code ?? x.dept_name ?? ''} · ${x.paid_from_name}`, who: x.who, amount: x.amount, href: `/expenses/${x.id}`, type: `Expense · ${x.step}` })),
+  // `act` (update 20): the row can be approved from the list with its Approve button; rows without one need their page
+  // (Procurement prices a request, a top-up names its bank, a claim becomes a payment request).
+  const rows: WaitingRow[] = [
+    ...prs.filter(p => canSign(user, steps[p.signed], p)).map(p => ({ ...p, href: `/payment-requests/${p.id}`, type: `Payment request · ${stepLabel(steps[p.signed], p)}`, act: `pr:${p.id}` })),
+    ...mine.map(r => ({ ...r, href: `/purchasing/${r.id}`, type: `Purchase request · ${r.status === 'procurement' ? 'Procurement pricing' : r.status === 'head' ? r.approver_label ?? 'Department head' : 'Management'}`, act: r.status === 'procurement' ? undefined : `purchase:${r.id}` })),
+    ...(hasRole(user, 'finance') ? entries.map(e => ({ ...e, href: `/entries/${e.id}`, type: 'Entry', act: `entry:${e.id}` })) : []),
+    ...petty.map(d => ({ id: d.id, no: d.no, date: d.date, memo: `${d.paid_to_name} · ${d.purpose} · ${d.cc ?? ''}`, who: d.who, amount: d.total, href: `/petty-cash/${d.id}`, type: `Petty cash · ${d.status === 'head' ? d.approver_label ?? 'Department head' : 'Management'}`, act: `petty:${d.id}` })),
+    ...sales.map(i => ({ id: i.id, no: i.no, date: i.date, memo: i.customer, who: null, amount: i.total, href: `/sales-invoices/${i.id}`, type: `Sales invoice · ${SALES_STEP_LABEL[i.sales_step]}`, act: `sales:${i.id}` })),
+    ...leave.map(l => ({ id: l.id, no: l.name, date: l.from_date, memo: `${l.type_label} ${l.from_date} to ${l.to_date} (${l.days} days)${l.reason ? ` · ${l.reason}` : ''}`, who: l.name, amount: 0, href: `/leave/${l.id}`, type: `Leave · ${l.status === 'head' ? 'Department head' : 'HR'}`, act: `leave:${l.id}` })),
+    ...design.map(s => ({ id: s.id, no: s.project_code, date: s.submitted_at?.slice(0, 10) ?? '', memo: `${s.kind_label} v${s.version} · ${s.drawings} drawings`, who: s.designer, amount: 0, href: `/design/${s.id}`, type: `Drawing set · ${s.status_label.replace('With the ', '')}`, act: `design:${s.id}` })),
     ...topups.map(t => ({ id: t.id, no: t.no, date: t.at.slice(0, 10), memo: `${t.box}${t.note ? ` · ${t.note}` : ''}`, who: t.who, amount: t.amount, href: '/petty-cash', type: 'Petty cash top-up' })),
-    ...reviews.map(t => ({ id: t.id, no: t.project_code ?? 'Task', date: t.submitted_at?.slice(0, 10) ?? '', memo: `${t.title}${t.submit_note ? ` · ${t.submit_note}` : ''}`, who: t.assignee, amount: 0, href: `/tasks/${t.id}`, type: 'Task · review' })),
+    ...reviews.map(t => ({ id: t.id, no: t.project_code ?? 'Task', date: t.submitted_at?.slice(0, 10) ?? '', memo: `${t.title}${t.submit_note ? ` · ${t.submit_note}` : ''}`, who: t.assignee, amount: 0, href: `/tasks/${t.id}`, type: 'Task · review', act: `task:${t.id}` })),
     ...claims.map(c => ({ id: c.id, no: c.no, date: c.date, memo: `${c.vendor} · ${c.code} · claim ${c.claim_no}${c.trade ? ` · ${c.trade}` : ''}`, who: c.certified_by_name, amount: c.gross, href: `/claims/${c.id}`, type: `Progress claim · ${c.status === 'pricing' ? 'Procurement pricing' : 'Finance payment request'}` })),
   ];
+  return rows;
 }
+export type WaitingRow = { id: string; no: string; date: string; memo: string; who: string | null; amount: number; href: string; type: string; act?: string };
 

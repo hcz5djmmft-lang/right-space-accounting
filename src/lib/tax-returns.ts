@@ -26,7 +26,7 @@ export async function vatReturn(period: string): Promise<VatReturn> {
   const from = period + '-01', to = monthEnd(period), out = s.account_map.vatOut ?? '', inn = s.account_map.vatIn ?? '';
   const [docs, other, [gl], [saved]] = await Promise.all([
     sql<{ id: string; kind: string; no: string; date: string; party: string; tax_id: string | null; base: number; vat: number; po_id: string | null }[]>`
-      select i.id, i.kind, i.no, to_char(i.date,'YYYY-MM-DD') date, coalesce(p.full_name, p.name) party, p.tax_id, i.subtotal::float base, i.vat::float vat, i.po_id
+      select i.id, i.kind, i.no, to_char(i.date,'YYYY-MM-DD') date, coalesce(p.full_name, p.name) party, p.tax_id, i.subtotal::float base, i.vat::float vat, case when i.is_bill then i.id end po_id
       from invoices i join parties p on p.id = i.party_id
       where i.status = 'posted' and i.vat <> 0 and i.date between ${from}::date and ${to}::date
         and not exists (select 1 from payment_request_bills b where b.request_id = i.id)
@@ -98,7 +98,7 @@ export async function whtCertificate(partyId: string, from: string, to: string) 
   const [[party], lines, s] = await Promise.all([
     sql<{ id: string; name: string; full_name: string | null; tax_id: string | null; code: string | null }[]>`select id, name, full_name, tax_id, code from parties where id = ${partyId}`,
     sql<{ id: string; no: string; date: string; ref: string; base: number; rate: number; wht: number; po_id: string | null }[]>`
-      select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, i.ref, i.subtotal::float base, i.wht_rate::float rate, i.wht::float wht, i.po_id
+      select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, i.ref, i.subtotal::float base, i.wht_rate::float rate, i.wht::float wht, case when i.is_bill then i.id end po_id
       from invoices i where i.kind = 'purchase' and i.status = 'posted' and i.wht > 0 and i.party_id = ${partyId} and i.date between ${from}::date and ${to}::date
         and not exists (select 1 from payment_request_bills b where b.request_id = i.id)
       order by i.date, i.no`,

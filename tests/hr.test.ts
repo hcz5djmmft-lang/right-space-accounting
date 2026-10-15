@@ -28,6 +28,7 @@ beforeAll(async () => {
   await importOld(sql, ctx.window.__SEED, { replace: true });
   await sql`delete from employees`;
   for (const u of [hrm, fin, eng]) u.id = (await sql`insert into users (email, name, password_hash, roles) values (${u.email}, ${u.name}, 'x', ${u.roles}) returning id`)[0].id;
+  await sql`insert into user_positions (user_id, position) values (${hrm.id}, 'hr_head')`;   // update 20: a head gives tasks
 });
 afterAll(async () => { await sql.end(); fs.rmSync(process.env.UPLOAD_DIR!, { recursive: true, force: true }); });
 

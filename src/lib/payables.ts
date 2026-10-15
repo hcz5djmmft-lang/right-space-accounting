@@ -17,7 +17,7 @@ async function payDocs(asOf: string): Promise<PayDoc[]> {
   const { docs } = await aging({ side: 'purchase', asOf });
   if (!docs.length) return [];
   const info = await sql<{ id: string; po_id: string | null; project: string | null; released: boolean; waiting: boolean }[]>`
-    select i.id, i.po_id, p.code project,
+    select i.id, case when i.is_bill then coalesce(i.po_id, i.id) end po_id, p.code project,
       exists (select 1 from payment_request_bills b join invoices r on r.id = b.request_id and r.status = 'posted' where b.bill_id = i.id) released,
       exists (select 1 from payment_request_bills b join invoices r on r.id = b.request_id and r.status = 'pending' where b.bill_id = i.id) waiting
     from invoices i left join projects p on p.id = i.project_id where i.id in ${sql(docs.map(d => d.id))}`;

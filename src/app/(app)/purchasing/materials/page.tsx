@@ -15,7 +15,7 @@ export default async function Materials({ searchParams }: { searchParams: Promis
   return (
     <>
       <div className="head"><div><h1>Materials</h1><p>What can be ordered on a purchase request. Each material has its GL code: on a project it goes to that project&apos;s copy of the code (24001 becomes 24001-3), for a department to the Office code.</p></div>
-        <Link className="btn" href="/purchasing">Purchasing</Link></div>
+        <Link className="btn" href="/purchasing">Purchase requests</Link></div>
       {error && <div className="msg bad">{error}</div>}
       {ok && <div className="msg good">{ok}</div>}
       {may && (

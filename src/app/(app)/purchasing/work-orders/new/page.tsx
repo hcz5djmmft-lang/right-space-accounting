@@ -5,6 +5,7 @@ import { today } from '@/lib/dates';
 import { listProjects } from '@/lib/queries';
 import { WO_ACCOUNT, WO_CATEGORIES, getWOLines, getWorkOrder } from '@/lib/procurement';
 import { workOrderAction } from '../../procurement-actions';
+import { ProjectGlPicker } from '@/components/ProjectGlPicker';
 
 /** A work order to a subcontractor: project, category, items with rates, retention and advance. `?edit=` reopens a draft. */
 export default async function NewWorkOrder({ searchParams }: { searchParams: Promise<{ edit?: string; error?: string; project?: string }> }) {
@@ -27,11 +28,10 @@ export default async function NewWorkOrder({ searchParams }: { searchParams: Pro
       <form action={workOrderAction} className="card">
         {cur && <input type="hidden" name="id" value={cur.id} />}
         <div className="grid g3">
-          <label className="f"><span>Project</span><select className="inp" name="project" required defaultValue={cur?.project_id ?? project ?? ''}><option value="">Select…</option>{projects.filter(p => !p.is_office).map(p => <option key={p.id} value={p.id}>{p.code}{p.name !== p.code ? ` · ${p.name}` : ''}</option>)}</select></label>
+          <ProjectGlPicker projects={projects.filter(p => !p.is_office)} codes={byProject} project={cur?.project_id ?? project ?? ''} account={cur?.account ?? ''} />
           <label className="f"><span>Subcontractor</span><select className="inp" name="vendor" required defaultValue={cur?.vendor_id ?? ''}><option value="">Select…</option>{vendors.map(v => <option key={v.id} value={v.id}>{v.name}{v.categories.length ? ` · ${v.categories.join(', ')}` : ''}</option>)}</select></label>
           <label className="f"><span>Work category</span><select className="inp" name="category" defaultValue={cur?.category ?? 'other'}>{WO_CATEGORIES.map(c => <option key={c.no} value={c.no}>{c.no === 'other' ? 'Other' : `${c.no} · ${c.title}`}</option>)}</select></label>
           <label className="f" style={{ gridColumn: '1 / -1' }}><span>Work (title)</span><input className="inp" name="title" dir="auto" required defaultValue={cur?.title ?? ''} placeholder="Plumbing rough-in of the two bathrooms and the kitchen" /></label>
-          <label className="f"><span>GL code (the project&apos;s copy)</span><select className="inp mono" name="account" required defaultValue={cur?.account ?? ''}><option value="">Select…</option>{Object.entries(byProject).flatMap(([pid, cs]) => cs.map(c => <option key={c.code} value={c.code}>{projects.find(p => p.id === pid)?.code} · {c.code} · {c.name}</option>))}</select></label>
           <label className="f"><span>Date</span><input className="inp" type="date" name="date" required defaultValue={cur?.date ?? today()} /></label>
           <label className="f"><span>VAT</span><select className="inp" name="vat_rate" defaultValue={String(cur?.vat_rate ?? 0)}><option value="0">0%</option><option value="14">14%</option></select></label>
           <label className="f"><span>Start</span><input className="inp" type="date" name="start" defaultValue={cur?.start_date ?? ''} /></label>

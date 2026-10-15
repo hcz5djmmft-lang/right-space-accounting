@@ -10,6 +10,8 @@ import { payLabel, vendorTypes } from '@/lib/parties';
 import { PartyFields } from '@/components/PartyFields';
 import { subAction, updatePartyAction } from './actions';
 import { listHref } from '../list';
+import { listAttachments } from '@/lib/attachments';
+import { Attachments } from '@/components/Attachments';
 
 /** A vendor's or customer's account: what is unpaid, and every posted movement on payables (or receivables). */
 export default async function PartyAccount({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; ok?: string }> }) {
@@ -26,7 +28,8 @@ export default async function PartyAccount({ params, searchParams }: { params: P
   const may = hasRole(user, 'finance') || (vendor && await isProcurement(user));
   const types = vendor ? await vendorTypes() : [];
   const ctrl = vendor ? s.account_map.ap : s.account_map.ar;
-  const [lines, bills, requests] = await Promise.all([
+  const [files, lines, bills, requests] = await Promise.all([
+    vendor ? listAttachments('vendor', id) : Promise.resolve([]),
     sql<{ entry_id: string; no: string; date: string; memo: string; payment_ref: string | null; dr: number; cr: number }[]>`
       select e.id entry_id, e.no, to_char(e.date,'YYYY-MM-DD') date, coalesce(nullif(l.description, ''), e.memo) memo, e.payment_ref, l.dr, l.cr
       from journal_lines l join journal_entries e on e.id = l.entry_id and e.status = 'posted'
@@ -34,7 +37,7 @@ export default async function PartyAccount({ params, searchParams }: { params: P
     vendor ? unpaidBills(id) : Promise.resolve([]),
     vendor ? sql<{ id: string; no: string; date: string; net: number; paid: number; status: string }[]>`
       select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, i.net, invoice_paid(i.id) paid, i.status from invoices i
-      where i.kind = 'purchase' and i.po_id is null and i.party_id = ${id} and i.status in ('pending', 'posted') and i.net - invoice_paid(i.id) > 0.004 order by i.date, i.no` : Promise.resolve([]),
+      where i.kind = 'purchase' and not i.is_bill and i.party_id = ${id} and i.status in ('pending', 'posted') and i.net - invoice_paid(i.id) > 0.004 order by i.date, i.no` : Promise.resolve([]),
   ]);
   const sign = vendor ? -1 : 1;
   let run = 0;
@@ -61,6 +64,10 @@ export default async function PartyAccount({ params, searchParams }: { params: P
                   <td>{r.status === 'posted' ? 'approved' : 'waiting for approval'}</td><td className="num">{fmt(r.net - r.paid)}</td></tr>)}
               </tbody></table></div>)}
         </div>)}
+
+      {vendor && <div className="card"><h2>Documents</h2>
+        <p className="muted" style={{ marginTop: 0 }}>The Tax ID card (required) and the commercial record.</p>
+        <Attachments entity="vendor" id={id} path={`/vendors/${id}`} items={files} userId={user.id} canRemove={may} locked={false} /></div>}
 
       <div className="card">
         <h2>Account · {ctrl}</h2>

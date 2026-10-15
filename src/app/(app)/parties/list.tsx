@@ -21,7 +21,8 @@ async function add(form: FormData) {
   const user = await requireUser();
   const kind = (['customer', 'vendor', 'sub'].includes(String(form.get('kind'))) ? String(form.get('kind')) : 'vendor') as PartyKind;
   const back = listHref(kind);
-  try { await addParty(user, kind, partyFromForm(form)); }
+  const doc = async (k: string) => { const f = form.get(k); return f instanceof File && f.size ? { name: f.name || k, body: Buffer.from(await f.arrayBuffer()) } : null; };
+  try { await addParty(user, kind, partyFromForm(form), { taxId: await doc('tax_doc'), record: await doc('cr_doc') }); }
   catch (e) { redirect(`${back}${back.includes('?') ? '&' : '?'}error=${encodeURIComponent(e instanceof RuleError ? e.message : (console.error(e), 'Something went wrong. Nothing was added.'))}`); }
   revalidatePath(back.split('?')[0]);
   redirect(back);
@@ -66,6 +67,10 @@ export async function PartyList({ side, q }: { side: 'ar' | 'ap'; q: { tab?: str
           <h2>Add {KIND_NAME[tab]}</h2>
           <input type="hidden" name="kind" value={tab} />
           <PartyFields kind={tab} types={types} />
+          {!customer && <div className="grid g2" style={{ marginTop: 10 }}>
+            <label className="f"><span>Tax ID card (required, photo or PDF)</span><input className="inp" type="file" name="tax_doc" accept="image/*,application/pdf" required /></label>
+            <label className="f"><span>Commercial record (optional)</span><input className="inp" type="file" name="cr_doc" accept="image/*,application/pdf" /></label>
+          </div>}
           <div className="row" style={{ justifyContent: 'flex-end', marginTop: 12 }}><button className="btn pri">Add</button></div>
         </form>)}
     </>

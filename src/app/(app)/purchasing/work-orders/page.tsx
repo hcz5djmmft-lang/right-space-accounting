@@ -15,7 +15,7 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: P
   return (
     <>
       <div className="head"><div><h1>Work orders</h1><p>A work order gives a subcontractor one work category of a project (demolition, electrical, plumbing, tiling…) with its items and rates, the retention held back and any advance. Procurement raises it, the department head and Management approve it like a purchase order, and the subcontractor&apos;s progress claims are certified against it.</p></div>
-        <div className="row"><Link className="btn pri" href="/purchasing/work-orders/new">New work order</Link><Link className="btn" href="/purchasing">Purchasing</Link></div></div>
+        <div className="row"><Link className="btn pri" href="/purchasing/work-orders/new">New work order</Link></div></div>
       {ok && <div className="msg good">{ok}</div>}
       {error && <div className="msg bad">{error}</div>}
       <div className="tabs"><Link href="/purchasing/work-orders?tab=open" className={tab === 'open' ? 'on' : ''}>Open</Link><Link href="/purchasing/work-orders?tab=mine" className={tab === 'mine' ? 'on' : ''}>Raised by me</Link><Link href="/purchasing/work-orders?tab=all" className={tab === 'all' ? 'on' : ''}>All</Link></div>

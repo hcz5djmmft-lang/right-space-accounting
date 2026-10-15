@@ -9,7 +9,8 @@ import { getInvoice, getInvoiceLines, getInvoiceReceipts } from '@/lib/sales-que
 import { METHOD_LABEL } from '@/lib/collections';
 import { listAttachments } from '@/lib/attachments';
 import { Attachments } from '@/components/Attachments';
-import { deleteInvoice, postInvoice, voidInvoice } from '../actions';
+import { approveInvoice, deleteInvoice, returnInvoice, sendInvoice, voidInvoice } from '../actions';
+import { canSignSales, SALES_STEP_LABEL } from '@/lib/sales';
 import { TZ, today } from '@/lib/dates';
 
 export default async function InvoicePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
@@ -28,7 +29,9 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const finance = hasRole(user, 'finance');
   const open = r.total - r.received;
   const todayStr = today();
-  const state = r.status === 'posted' ? (open <= 0.004 ? 'received' : r.received ? 'part received' : 'open') : r.status;
+  const state = r.status === 'posted' ? (open <= 0.004 ? 'received' : r.received ? 'part received' : 'open')
+    : r.status === 'pending' && r.sales_step ? `waiting for ${SALES_STEP_LABEL[r.sales_step]}` : r.status;
+  const sign = r.status === 'pending' && await canSignSales(user, r.sales_step);
   return (
     <>
       <div className="head">
@@ -38,11 +41,20 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
           <a className="btn" href={`/print/sales-invoice/${id}`} target="_blank">Print</a>
           {r.status === 'draft' && finance && <Link className="btn" href={`/sales-invoices/${id}/edit`}>Edit</Link>}
           {r.status === 'draft' && finance && <form action={deleteInvoice.bind(null, id)}><button className="btn bad">Delete</button></form>}
-          {r.status === 'draft' && finance && <form action={postInvoice.bind(null, id)}><button className="btn pri">Post invoice</button></form>}
+          {r.status === 'draft' && finance && <form action={sendInvoice.bind(null, id)}><button className="btn pri">Send for approval</button></form>}
           {r.status === 'posted' && open > 0.004 && finance && <Link className="btn pri" href={`/receipts/new?invoice=${id}`}>Money received</Link>}
         </div>
       </div>
       {error && <div className="msg bad">{error}</div>}
+      {r.status === 'pending' && r.sales_step && (
+        <div className="card">
+          <p style={{ marginTop: 0 }}>Approval before the invoice is issued: Finance, then Engineering, then Management. Now waiting for <b>{SALES_STEP_LABEL[r.sales_step]}</b>. Management&apos;s approval posts it.</p>
+          {sign && <form className="row" style={{ alignItems: 'end' }}>
+            <label className="f" style={{ flex: 1 }}><span>Note (needed to return it)</span><input className="inp" name="note" dir="auto" /></label>
+            <button className="btn pri" formAction={approveInvoice.bind(null, id)}>Approve</button>
+            <button className="btn bad" formAction={returnInvoice.bind(null, id)}>Return to Finance</button>
+          </form>}
+        </div>)}
 
       <div className="tw" style={{ marginBottom: 14 }}><table>
         <thead><tr><th>Revenue GL code</th><th className="hide-sm">Description</th><th className="hide-sm">Project</th><th className="num">Qty</th><th className="num">Price</th><th className="num">Amount</th></tr></thead>

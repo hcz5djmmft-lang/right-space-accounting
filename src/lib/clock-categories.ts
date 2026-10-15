@@ -7,13 +7,16 @@
 //            employees whose file says Works at: Site; with none of the three, everyone gets it
 import { hasRole, type Role } from './roles';
 
-export type Category = { key: string; label: string; short: string; project: boolean; rule: 'office' | 'site'; phrase: string; depts?: string[]; roles?: Role[]; siteStaff?: boolean };
+export type Category = { key: string; label: string; short: string; project: boolean; rule: 'office' | 'site'; phrase: string; depts?: string[]; roles?: Role[]; siteStaff?: boolean;
+  /** offered on the Clock in page (update 20: only Office and Site on a project; the others stay for the days already recorded) */
+  clock?: boolean };
 
 const ENG = { depts: ['Engineering'], roles: ['engineering', 'projects'] as Role[] };
 const FIN = { depts: ['Finance'], roles: ['finance'] as Role[] };
 export const CATEGORIES: Category[] = [
-  { key: 'office', label: 'Office', short: 'Office', project: false, rule: 'office', phrase: '' },
-  { key: 'site', label: 'Site on a project', short: 'Site', project: true, rule: 'site', phrase: 'on site {project}', ...ENG, siteStaff: true },
+  { key: 'office', label: 'Office', short: 'Office', project: false, rule: 'office', phrase: '', clock: true },
+  { key: 'site', label: 'Site on a project', short: 'Site', project: true, rule: 'site', phrase: 'on site {project}', clock: true },
+  // the design clock (update 20): started and stopped on the Design page of the project, not at the clock-in
   { key: 'design', label: 'Design on a project', short: 'Design', project: true, rule: 'office', phrase: 'for design on {project}', ...ENG },
   // Finance and accounting (Adel, 2026-10-14): what the accountant's day went on, switched as the work changes
   { key: 'payments', label: 'Payments', short: 'Payments', project: false, rule: 'office', phrase: 'for payments', ...FIN },
@@ -26,7 +29,10 @@ export const CATEGORIES: Category[] = [
 
 export const categoryOf = (key: string | null | undefined) => CATEGORIES.find(c => c.key === key) ?? null;
 
-/** The categories one person may pick: everyone's, their department's, those of the roles their login holds, and Site for site staff. */
+/** What the Clock in page offers (update 20, Adel): Office, or Site on a project. Attendance only. */
+export const clockCategories = () => CATEGORIES.filter(c => c.clock);
+
+/** The categories one person may work on: everyone's, their department's, those of the roles their login holds, and Site for site staff. */
 export const offeredCategories = (me: { dept_name: string | null; work_location?: string }, user?: { roles: Role[] }) =>
   CATEGORIES.filter(c => (!c.depts && !c.roles && !c.siteStaff)
     || (me.dept_name !== null && (c.depts ?? []).includes(me.dept_name))
@@ -43,6 +49,6 @@ export type Pick = { category: string; projectId: string | null; note?: string }
 
 /** What the phone preselects: what the person did last time, else Site on their project for site staff, else Office. */
 export function defaultPick(me: { work_location: string; project_id: string | null }, last: { category: string; project_id: string | null } | null): Pick {
-  if (last && categoryOf(last.category)) return { category: last.category, projectId: last.project_id };
+  if (last && categoryOf(last.category)?.clock) return { category: last.category, projectId: last.project_id };
   return me.work_location === 'site' ? { category: 'site', projectId: me.project_id } : { category: 'office', projectId: null };
 }

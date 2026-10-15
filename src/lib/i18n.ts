@@ -26,6 +26,11 @@ const AR: Record<string, string> = {
   'HR': 'الموارد البشرية', 'Employees': 'الموظفون', 'Attendance': 'الحضور والانصراف', 'Pay items': 'بنود المرتب', 'HR reports': 'تقارير الموارد البشرية',
   'Projects': 'المشروعات', 'Cost centers': 'مراكز التكلفة', 'Design': 'التصميم', 'QS and pricing': 'الحصر والتسعير', 'Planning': 'التخطيط',
   'Variation orders': 'أوامر التغيير', 'Samples': 'العينات', 'Cost control': 'مراقبة التكلفة', 'Site execution': 'التنفيذ بالموقع', 'Tenders': 'المناقصات',
+  'Engineering': 'الهندسة', 'Technical Office': 'المكتب الفني', 'Main concept': 'التصميم المبدئي', 'Shop drawings': 'الرسومات التنفيذية',
+  'Procurement': 'المشتريات', 'Purchase orders': 'أوامر الشراء', 'New purchase request': 'طلب شراء جديد', 'Invoices': 'الفواتير',
+  'Bank reconciliation': 'التسوية البنكية',
+  'Approve': 'اعتماد', 'Approved.': 'تم الاعتماد.', 'View': 'عرض', 'Approve signs it here; open the number to read it or to return it.': 'اعتماد يوقّع هنا؛ افتح الرقم لقراءته أو لإرجاعه.',
+  'Good day': 'أهلاً', 'Your access does not include that page.': 'صلاحياتك لا تشمل هذه الصفحة.', 'All pending steps': 'كل الخطوات المنتظرة', 'Sales & Marketing': 'المبيعات والتسويق', 'Approvals waiting for me': 'موافقات بانتظاري', 'My tasks': 'مهامي', 'Clocked in now': 'الحاضرون الآن', 'Alerts': 'تنبيهات',
   'Insight': 'التقارير', 'Reports': 'التقارير', 'Admin': 'الإدارة', 'Settings': 'الإعدادات', 'Audit log': 'سجل التغييرات', 'My account': 'حسابي',
 
   // clock in
@@ -33,6 +38,10 @@ const AR: Record<string, string> = {
   'Ask HR to link it from your employee file.': 'اطلب من الموارد البشرية ربطه من ملف الموظف.',
   'Site staff': 'موظف موقع', 'Office staff': 'موظف مكتب',
   'Say what the day is for when you clock in; Switch when it changes.': 'اختر نوع العمل عند تسجيل الحضور، واضغط تبديل عندما يتغير.',
+  'Clock in at the office or on a project site; Switch when you move.': 'سجّل الحضور في المكتب أو في موقع مشروع، واضغط تبديل عند الانتقال.',
+  "Design hours are clocked on the project's Design page.": 'ساعات التصميم تُسجَّل من صفحة التصميم الخاصة بالمشروع.',
+  'Moving between the office and a site? Pick it here: each stretch keeps its hours.': 'تنتقل بين المكتب والموقع؟ اختر هنا: كل فترة تحتفظ بساعاتها.',
+  'Note (optional)': 'ملاحظة (اختياري)', '📷 Take photo': '📷 التقط الصورة', 'Cancel': 'إلغاء', 'Upload a photo instead': 'أو ارفع صورة',
   'Switch during the day': 'التبديل خلال اليوم', 'Now:': 'الآن:', 'since': 'منذ',
   'Moving to something else? Pick it here: each stretch keeps its hours, and design hours go to the project with their cost.': 'هتنتقل لشغل تاني؟ اختاره هنا: كل فترة تحتفظ بساعاتها، وساعات التصميم تُحمّل على المشروع بتكلفتها.',
   'Switch to': 'التبديل إلى', 'What (optional): Concept 3D, shop drawings…': 'ماذا (اختياري): تصميم ثلاثي الأبعاد، رسومات تنفيذية…', 'Switch': 'تبديل',

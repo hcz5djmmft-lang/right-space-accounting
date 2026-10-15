@@ -48,9 +48,10 @@ describe('expenses from the phone', () => {
     expect(await ex.getExpense(id)).toMatchObject({ no: 'EX-00001', status: 'pending', receipts: 1, approver_label: 'Engineering head', approver_id: eng.id });
   });
   it('waits on the Approvals page of the head, then Management; the last approval posts it against petty cash', async () => {
-    expect((await docs.waitingForUser(eng as never)).map(w => w.type)).toContain('Expense · Engineering head');
+    // update 20: Expenses left the system; old ones no longer wait on the Approvals page
+    expect((await docs.waitingForUser(eng as never)).map(w => w.type)).not.toContain('Expense · Engineering head');
     await expect(ex.approveExpense(adel as never, id)).resolves.toBeUndefined(); // Management may sign the head's step
-    expect((await docs.waitingForUser(adel as never)).some(w => w.href === `/expenses/${id}`)).toBe(true);
+    expect((await docs.waitingForUser(adel as never)).some(w => w.href === `/expenses/${id}`)).toBe(false);
     await expect(ex.approveExpense(eng as never, id)).rejects.toThrow(/waiting for Management/);
     await ex.approveExpense(adel as never, id);
     const x = (await ex.getExpense(id))!;

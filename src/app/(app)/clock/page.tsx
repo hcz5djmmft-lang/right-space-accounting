@@ -4,7 +4,7 @@ import { hasRole } from '@/lib/roles';
 import { today } from '@/lib/dates';
 import { employeeOf, getHr, lastRecord, listRecords, listSessions, openRecord, openSession, projectPins } from '@/lib/attendance';
 import { fmtMin, officeSet, placeLabel } from '@/lib/attendance-calc';
-import { categoryOf, defaultPick, offeredCategories, whatLabel } from '@/lib/clock-categories';
+import { categoryOf, clockCategories, defaultPick, whatLabel } from '@/lib/clock-categories';
 import { ClockCard } from '@/components/ClockCard';
 import { CategoryPicker } from '@/components/CategoryPicker';
 import { switchAction } from './actions';
@@ -25,7 +25,7 @@ export default async function Clock({ searchParams }: { searchParams: Promise<{ 
   const [s, open, session, month, sessions, projects, last] = await Promise.all([
     getHr(), openRecord(me.id), openSession(me.id), listRecords({ employee: me.id, period }), listSessions({ employee: me.id, period }), projectPins(), lastRecord(me.id),
   ]);
-  const categories = offeredCategories(me, user).map(c => ({ key: c.key, label: t(c.label), project: c.project, rule: c.rule }));
+  const categories = clockCategories().map(c => ({ key: c.key, label: t(c.label), project: c.project, rule: c.rule }));
   const pick = defaultPick(me, last);
   const office = { set: officeSet(s), radius: s.office_radius_m };
   const what = (category: string, code: string | null) => {
@@ -38,7 +38,7 @@ export default async function Clock({ searchParams }: { searchParams: Promise<{ 
   const now = session ?? open;
   return (
     <>
-      <div className="head"><div><h1>{t('Clock in')}</h1><p>{me.name} · {t(me.work_location === 'site' ? 'Site staff' : 'Office staff')}. {t('Say what the day is for when you clock in; Switch when it changes.')}</p></div></div>
+      <div className="head"><div><h1>{t('Clock in')}</h1><p>{me.name} · {t(me.work_location === 'site' ? 'Site staff' : 'Office staff')}. {t('Clock in at the office or on a project site; Switch when you move.')} {t('Design hours are clocked on the project\'s Design page.')}</p></div></div>
       {error && <div className="msg bad">{error}</div>}
       <ClockCard open={open ? { in_time: open.in_time, what: what((now ?? open).category, (now ?? open).project_code), where: place(open.in_place, open.in_lat !== null) } : null}
         categories={categories} projects={projects} pick={{ category: pick.category, project: pick.projectId }} office={office} lang={lang} />
@@ -47,11 +47,11 @@ export default async function Clock({ searchParams }: { searchParams: Promise<{ 
         <div className="card">
           <h2 style={{ marginTop: 0 }}>{t('Switch during the day')}</h2>
           <p className="muted" style={{ marginTop: 0 }}>{t('Now:')} <b>{now ? what(now.category, now.project_code) : ''}</b>{session ? <> {t('since')} <b className="mono">{session.start_time}</b>{session.note ? ` · ${session.note}` : ''}</> : null}.
-            {' '}{t('Moving to something else? Pick it here: each stretch keeps its hours, and design hours go to the project with their cost.')}</p>
+            {' '}{t('Moving between the office and a site? Pick it here: each stretch keeps its hours.')}</p>
           <form action={switchAction}>
             <CategoryPicker title={t('Switch to')} categories={categories} projects={projects} category={now?.category ?? pick.category} project={now?.project_id ?? pick.projectId} office={office} checkPosition={false} lang={lang} />
             <div className="row" style={{ marginTop: 10, justifyContent: 'space-between' }}>
-              <input className="inp" name="note" dir="auto" placeholder={t('What (optional): Concept 3D, shop drawings…')} style={{ flex: 1, minWidth: 180 }} />
+              <input className="inp" name="note" dir="auto" placeholder={t('Note (optional)')} style={{ flex: 1, minWidth: 180 }} />
               <button className="btn">{t('Switch')}</button>
             </div>
           </form>

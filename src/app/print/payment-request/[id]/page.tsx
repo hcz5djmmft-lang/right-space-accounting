@@ -6,6 +6,7 @@ import { amountInWords, lineAmount } from '@/lib/ledger';
 import { getSteps, requestBills, stepLabel } from '@/lib/documents';
 import { getPR, getPRApprovals, getPRLines } from '@/lib/pr-queries';
 import { today } from '@/lib/dates';
+import { PrintBar } from '@/components/PrintBar';
 
 // Printable payment request (إذن صرف), same layout as the old app's printout. Use the browser's Print / Save as PDF.
 export default async function PrintPR({ params }: { params: Promise<{ id: string }> }) {
@@ -40,8 +41,7 @@ export default async function PrintPR({ params }: { params: Promise<{ id: string
         .sigs{display:grid;grid-template-columns:repeat(${sigs.length},1fr);gap:14px;margin-top:22px}.sig{border-top:1px solid #111;padding-top:5px;text-align:center}
         .sd{color:#666;font-size:11px}.foot{margin-top:16px;color:#777;font-size:10px}
       `}</style>
-      <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
-      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
+      <PrintBar />
       <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 34 }} /><h1>Payment Request<small>إذن صــرف</small></h1></div>
       <div className="meta">
         <div><b>Request no.</b>{r.no}</div><div><b>Date</b>{r.date}</div>

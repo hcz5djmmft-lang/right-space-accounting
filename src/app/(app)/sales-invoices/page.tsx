@@ -5,7 +5,7 @@ import { sql } from '@/lib/db';
 import { fmt } from '@/lib/money';
 import { today } from '@/lib/dates';
 
-const TABS = [['open', 'Not yet received'], ['draft', 'Drafts'], ['all', 'All']] as const;
+const TABS = [['open', 'Not yet received'], ['pending', 'Waiting for approval'], ['draft', 'Drafts'], ['all', 'All']] as const;
 
 export default async function SalesInvoices({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const user = await requireUser();
@@ -15,17 +15,17 @@ export default async function SalesInvoices({ searchParams }: { searchParams: Pr
       coalesce((select sum(a.amount) from payment_allocations a join payments py on py.id = a.payment_id and py.status = 'posted' where a.invoice_id = i.id),0) received
     from invoices i join parties p on p.id = i.party_id left join projects pr on pr.id = i.project_id left join collection_types t on t.id = i.category
     where i.kind = 'sales' order by i.date desc, i.no desc limit 500`;
-  const shown = rows.filter(r => tab === 'open' ? r.status === 'posted' && r.total - r.received > 0.004 : tab === 'draft' ? r.status === 'draft' : true);
+  const shown = rows.filter(r => tab === 'open' ? r.status === 'posted' && r.total - r.received > 0.004 : tab === 'draft' ? r.status === 'draft' : tab === 'pending' ? r.status === 'pending' : true);
   const todayStr = today();
   const stateOf = (r: typeof rows[number]) =>
     r.status === 'posted' ? (r.total - r.received <= 0.004 ? 'Received' : r.received ? 'Part received' : r.due && r.due < todayStr ? 'Overdue' : 'Open')
-    : r.status === 'void' ? 'Void' : 'Draft';
-  const cls = (r: typeof rows[number]) => r.status === 'void' ? 'rejected' : r.status === 'posted' ? (r.total - r.received <= 0.004 ? 'posted' : 'pending') : '';
+    : r.status === 'void' ? 'Void' : r.status === 'pending' ? 'Waiting for approval' : 'Draft';
+  const cls = (r: typeof rows[number]) => r.status === 'void' ? 'rejected' : r.status === 'posted' ? (r.total - r.received <= 0.004 ? 'posted' : 'pending') : r.status === 'pending' ? 'pending' : '';
   const open = shown.reduce((s, r) => s + (r.status === 'posted' ? r.total - r.received : 0), 0);
   return (
     <>
       <div className="head"><div><h1>Sales invoices</h1><p>Invoices to clients · {tab === 'open' ? `${fmt(open)} EGP still to receive` : 'VAT 14% on top'}</p></div>
-        {hasRole(user, 'finance') && <div className="row"><Link className="btn pri" href="/sales-invoices/new">New invoice</Link><Link className="btn" href="/receipts/new">Money received</Link><Link className="btn" href="/collections">Collections</Link></div>}</div>
+        {hasRole(user, 'finance') && <div className="row"><Link className="btn pri" href="/sales-invoices/new">New invoice</Link></div>}</div>
       <div className="tabs">{TABS.map(([k, l]) => <Link key={k} href={`/sales-invoices?tab=${k}`} className={tab === k ? 'on' : ''}>{l}</Link>)}</div>
       {shown.length === 0 ? <div className="empty card">Nothing here.</div> : (
         <div className="tw"><table>

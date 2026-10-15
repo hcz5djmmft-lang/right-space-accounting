@@ -47,7 +47,7 @@ export function diff(tbl: string, before: Record<string, unknown> | null, after:
 }
 
 const hrefOf = (tbl: string, d: Record<string, unknown>) => tbl === 'journal' ? `/entries/${d.id}`
-  : tbl === 'invoice' ? (d.kind === 'sales' ? `/sales-invoices/${d.id}` : d.po_id ? `/purchasing/invoices/${d.id}` : `/payment-requests/${d.id}`)
+  : tbl === 'invoice' ? (d.kind === 'sales' ? `/sales-invoices/${d.id}` : d.po_id || d.is_bill ? `/purchasing/invoices/${d.id}` : `/payment-requests/${d.id}`)
   : tbl === 'payment' ? (d.kind === 'receipt' ? `/receipts/${d.id}` : null) : `/payroll/runs/${d.period}`;
 
 export type Filter = { tbl?: string; who?: string; from?: string; to?: string; q?: string; limit?: number };

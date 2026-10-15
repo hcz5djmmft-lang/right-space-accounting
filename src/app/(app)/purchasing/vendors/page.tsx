@@ -11,7 +11,7 @@ export default async function VendorsPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <div className="head"><div><h1>Vendors</h1><p>Suppliers and subcontractors with their categories, documents, price history and rating. Add a vendor in Vendors &amp; subcontractors; open one here for its profile.</p></div>
-        <div className="row"><Link className="btn pri" href="/vendors">Vendors &amp; subcontractors</Link><Link className="btn" href="/purchasing">Purchasing</Link></div></div>
+        <div className="row"><Link className="btn pri" href="/vendors">Vendors &amp; subcontractors</Link><Link className="btn" href="/purchasing">Purchase requests</Link></div></div>
       <div className="tabs"><Link href="/purchasing/vendors" className={!category ? 'on' : ''}>All</Link>{VENDOR_CATEGORIES.map(c => <Link key={c} href={`/purchasing/vendors?category=${encodeURIComponent(c)}`} className={category === c ? 'on' : ''}>{c}</Link>)}</div>
       {vendors.length === 0 ? <div className="empty card">No vendor here yet.</div> : (
         <div className="tw"><table>

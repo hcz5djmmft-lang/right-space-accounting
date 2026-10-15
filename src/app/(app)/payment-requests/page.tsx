@@ -16,7 +16,7 @@ export default async function PaymentRequests({ searchParams }: { searchParams: 
         (select count(*)::int from invoice_approvals a where a.invoice_id = i.id) signed,
         invoice_paid(i.id) paid
       from invoices i join parties p on p.id = i.party_id left join projects pr on pr.id = i.project_id left join departments d on d.id = i.dept_id
-      where i.kind = 'purchase' and i.po_id is null order by i.date desc, i.no desc limit 500`,
+      where i.kind = 'purchase' and not i.is_bill order by i.date desc, i.no desc limit 500`,
     getSteps(),
   ]);
   const shown = rows.filter(r =>

@@ -5,9 +5,11 @@ import { docLines, docTotals, paymentLines, RuleError, type DocInput, type DocLi
 import { hasRole, type User } from './roles';
 import { r2 } from './money';
 import { collectionTypes } from './collections';
+import { holdersOf } from './org';
 
-// Sales invoices to customers and the receipts that settle them. Finance records both; there is no
-// approval chain on the sales side (the old app had none either): a draft is posted when Finance says so.
+// Sales invoices to customers and the receipts that settle them. Finance records both. From update 20 (Adel, 2026-10-15)
+// a new invoice goes through Finance, then Engineering (the Director of Engineering), then Management before it is
+// issued: Management's approval posts it. A returned invoice is a draft again.
 
 export type InvoiceInput = { id?: string; date: string; due?: string | null; party: string; project?: string | null; category?: string | null; ref: string; vatRate: number; lines: DocLine[] };
 
@@ -58,6 +60,7 @@ export async function saveSalesInvoice(user: User, input: InvoiceInput, post: bo
       await tx`insert into invoice_lines (invoice_id, line_no, account, description, qty, price, project_id)
         values (${id!}, ${k + 1}, ${l.acc}, ${l.desc ?? ''}, ${l.qty}, ${l.price}, ${l.project || i.project || null})`;
     await audit(tx, user, 'invoice', id!, input.id ? 'Edited' : 'Created');
+    await closeInvoiceTask(tx, i.project);
     if (post) await postInvoice(tx, user, id!);
     return id!;
   });
@@ -189,4 +192,106 @@ export async function voidCustomerReceipt(user: User, id: string, reason: string
     await audit(tx, user, 'payment', id, 'Voided', reason);
   });
   return rid;
+}
+
+// ---- Approval before the invoice is issued (update 20, item 25) ----
+
+export type SalesStep = 'finance' | 'engineering' | 'management';
+export const SALES_STEP_LABEL: Record<SalesStep, string> = { finance: 'Finance', engineering: 'Engineering', management: 'Management' };
+const NEXT: Record<SalesStep, SalesStep | null> = { finance: 'engineering', engineering: 'management', management: null };
+
+/** Engineering's signer: the Director of Engineering, else the head of Engineering, else anyone in Engineering. */
+async function engineeringSigners(tx: Tx) {
+  const director = await holdersOf('eng_director', tx);
+  if (director.length) return director;
+  const [d] = await tx<{ head: string | null }[]>`select (select u.id from users u where u.id = d.head_user_id and u.active) head from departments d where d.code = 'ENG' and d.active`;
+  return d?.head ? [d.head] : null;
+}
+
+/** Whether this person signs the invoice at its current step. Management signs any step. */
+export async function canSignSales(user: User, step: SalesStep | null, tx: Tx = sql) {
+  if (!step) return false;
+  if (user.roles.includes('management')) return true;
+  if (step === 'finance') return hasRole(user, 'finance');
+  if (step === 'engineering') {
+    const who = await engineeringSigners(tx);
+    return who ? who.includes(user.id) : hasRole(user, 'engineering');
+  }
+  return false;
+}
+
+/** Finance sends a draft for approval: it waits for Finance's own check first. */
+export async function sendSalesForApproval(user: User, id: string) {
+  needFinance(user, 'send sales invoices for approval');
+  await sql.begin(async tx => {
+    const [inv] = await tx<{ status: string; no: string }[]>`select status, no from invoices where id = ${id} and kind = 'sales' for update`;
+    if (!inv) throw new RuleError('Invoice not found.');
+    if (inv.status !== 'draft') throw new RuleError('Only a draft is sent for approval.');
+    await tx`update invoices set status = 'pending', sales_step = 'finance', approver_label = 'Finance' where id = ${id}`;
+    await audit(tx, user, 'invoice', id, 'Sent for approval', 'Finance, then Engineering, then Management');
+  });
+}
+
+/** Signs the current step; Management's signature issues (posts) the invoice. */
+export async function approveSales(user: User, id: string, note = '') {
+  await sql.begin(async tx => {
+    const [inv] = await tx<{ status: string; sales_step: SalesStep | null }[]>`select status, sales_step from invoices where id = ${id} and kind = 'sales' for update`;
+    if (!inv) throw new RuleError('Invoice not found.');
+    if (inv.status !== 'pending' || !inv.sales_step) throw new RuleError('This invoice is not waiting for approval.');
+    if (!(await canSignSales(user, inv.sales_step, tx))) throw new RuleError(`This invoice waits for ${SALES_STEP_LABEL[inv.sales_step]}.`);
+    await audit(tx, user, 'invoice', id, `Approved (${SALES_STEP_LABEL[inv.sales_step]})`, note);
+    // Management may sign for an earlier step; the invoice still goes on to Management's own approval
+    const next = NEXT[inv.sales_step];
+    if (next) {
+      await tx`update invoices set sales_step = ${next}, approver_label = ${SALES_STEP_LABEL[next]} where id = ${id}`;
+      return;
+    }
+    await tx`update invoices set status = 'draft', sales_step = null, approver_label = null where id = ${id}`;
+    await postInvoice(tx, user, id);
+  });
+}
+
+/** Sends the invoice back to Finance as a draft, with the reason. */
+export async function returnSales(user: User, id: string, note: string) {
+  await sql.begin(async tx => {
+    const [inv] = await tx<{ status: string; sales_step: SalesStep | null }[]>`select status, sales_step from invoices where id = ${id} and kind = 'sales' for update`;
+    if (!inv || inv.status !== 'pending') throw new RuleError('This invoice is not waiting for approval.');
+    if (!(await canSignSales(user, inv.sales_step, tx))) throw new RuleError(`This invoice waits for ${SALES_STEP_LABEL[inv.sales_step!]}.`);
+    if (!note.trim()) throw new RuleError('Write why it goes back.');
+    await tx`update invoices set status = 'draft', sales_step = null, approver_label = null where id = ${id}`;
+    await audit(tx, user, 'invoice', id, 'Returned to Finance', note);
+  });
+}
+
+/** Sales invoices waiting for this person's approval. */
+export async function salesWaitingFor(user: User) {
+  const rows = await sql<{ id: string; no: string; date: string; customer: string; total: number; sales_step: SalesStep }[]>`
+    select i.id, i.no, to_char(i.date,'YYYY-MM-DD') date, p.name customer, i.total, i.sales_step
+    from invoices i join parties p on p.id = i.party_id where i.kind = 'sales' and i.status = 'pending' and i.sales_step is not null order by i.date, i.no`;
+  const out: (typeof rows)[number][] = [];
+  for (const r of rows) if (await canSignSales(user, r.sales_step)) out.push(r);
+  return out;
+}
+
+// ---- A new project asks the accountant for its sales invoice (update 20, item 26) ----
+
+const INVOICE_TASK = 'Sales invoice: ';
+
+/** Gives the accountant (else the finance head) a task to make the new project's sales invoice. It closes by itself once
+ *  an invoice for the project is made. */
+export async function askForSalesInvoice(tx: Tx, user: User, project: { id: string; code: string; name?: string | null }) {
+  const [who] = [...await holdersOf('accountant', tx), ...await holdersOf('finance_head', tx)];
+  if (!who) return null;
+  const [e] = await tx<{ id: string }[]>`select id from employees where user_id = ${who} and active limit 1`;
+  const [{ id }] = await tx<{ id: string }[]>`insert into tasks (title, details, status, priority, assignee_id, assignee_emp_id, link_type, link_id, link_label, project_id, created_by)
+    values (${INVOICE_TASK + project.code + (project.name && project.name !== project.code ? ` · ${project.name}` : '')},
+      ${`New project added by ${user.name}: make its sales invoice (AR > Sales invoices > New invoice). This task closes by itself once the invoice is made.`},
+      'todo', 'normal', ${who}, ${e?.id ?? null}, 'cost-center', ${project.id}, ${project.code}, ${project.id}, ${user.id}) returning id`;
+  return id;
+}
+
+async function closeInvoiceTask(tx: Tx, projectId: string | null | undefined) {
+  if (!projectId) return;
+  await tx`update tasks set status = 'done', done_at = now(), updated_at = now()
+    where link_type = 'cost-center' and link_id = ${projectId} and status <> 'done' and title like ${INVOICE_TASK + '%'}`;
 }

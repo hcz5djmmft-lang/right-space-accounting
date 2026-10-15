@@ -8,11 +8,13 @@ export type HrSettings = {
   work_start: string; work_end: string; grace_min: number; min_overtime_min: number;
   weekend: number[];              // JS weekdays, 0 = Sunday … 6 = Saturday; Egypt: Friday (5) and Saturday (6)
   hours_per_day: number; days_per_month: number; overtime_rate: number; late_deduction: boolean;
+  /** where a site clock-in is emailed (update 20); empty: the logins given HR */
+  hr_email: string;
 };
 export const DEFAULT_HR: HrSettings = {
   office_lat: null, office_lng: null, office_radius_m: 200,
   work_start: '09:00', work_end: '17:00', grace_min: 15, min_overtime_min: 30, weekend: [5, 6],
-  hours_per_day: 8, days_per_month: 22, overtime_rate: 1.35, late_deduction: true,
+  hours_per_day: 8, days_per_month: 22, overtime_rate: 1.35, late_deduction: true, hr_email: '',
 };
 const num = (v: unknown, d: number) => (v === null || v === undefined || v === '' || isNaN(Number(v)) ? d : Number(v));
 export function hrSettings(j: Record<string, unknown> | null | undefined): HrSettings {
@@ -28,6 +30,7 @@ export function hrSettings(j: Record<string, unknown> | null | undefined): HrSet
   s.hours_per_day = num(j.hours_per_day, s.hours_per_day); s.days_per_month = num(j.days_per_month, s.days_per_month);
   s.overtime_rate = num(j.overtime_rate, s.overtime_rate);
   if (typeof j.late_deduction === 'boolean') s.late_deduction = j.late_deduction;
+  if (typeof j.hr_email === 'string') s.hr_email = j.hr_email.trim();
   return s;
 }
 export const officeSet = (s: HrSettings) => s.office_lat !== null && s.office_lng !== null;

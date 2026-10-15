@@ -7,6 +7,7 @@ import { getSettings } from '@/lib/books';
 import { today } from '@/lib/dates';
 import { getEstimate } from '@/lib/qs';
 import { MASTER } from '@/lib/qs-data';
+import { PrintBar } from '@/components/PrintBar';
 
 // The client's BOQ (quotation): the Master BOQ items at client rates (dry rate ÷ 0.70), VAT apart, with the company logo.
 // The dry cost, the risk and the margin never appear here. Use the browser's Print / Save as PDF.
@@ -41,8 +42,7 @@ export default async function PrintBoq({ params }: { params: Promise<{ id: strin
         .sigs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px}.sig{border-top:1px solid #111;padding-top:5px;text-align:center}
         .sd{color:#666;font-size:11px}.foot{margin-top:16px;color:#777;font-size:10px}
       `}</style>
-      <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
-      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
+      <PrintBar />
       <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 38 }} /><h1>Bill of Quantities<small>مقايسة أعمال التشطيبات</small></h1></div>
       <div className="meta">
         <div><b>Project</b><span dir="auto">{e.project_code}{e.project_name !== e.project_code ? ` · ${e.project_name}` : ''}</span></div><div><b>Date</b>{e.sent_at ?? e.updated_at.slice(0, 10)}</div>

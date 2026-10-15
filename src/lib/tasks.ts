@@ -49,8 +49,27 @@ export type TaskInput = {
   id?: string; title: string; details: string; priority: Priority; due?: string | null; status?: Status; assignee_id?: string | null; assignee_emp_id?: string | null;
   link_type?: string | null; link_id?: string | null; link_label?: string | null; project_id?: string | null;
 };
+const HEAD_POSITIONS = ['eng_director', 'to_head', 'design_head', 'site_head', 'procurement_head', 'hr_head', 'finance_head'];
+/** Update 20 (item 12): only a head gives tasks to others: Management, a department's head, the holder of a head position
+ *  (Director of Engineering, Technical Office head…). */
+export async function isHead(user: User, tx: Tx = sql) {
+  if (hasRole(user, 'management')) return true;
+  return !!(await tx`select 1 where exists (select 1 from departments where head_user_id = ${user.id} and active)
+    or exists (select 1 from user_positions where user_id = ${user.id} and position in ${tx(HEAD_POSITIONS)})`)[0];
+}
+async function forSelf(user: User, i: Pick<TaskInput, 'assignee_id' | 'assignee_emp_id'>) {
+  if (!i.assignee_id && !i.assignee_emp_id) return true;
+  if (i.assignee_emp_id) return !!(await sql`select 1 from employees where id = ${i.assignee_emp_id} and user_id = ${user.id}`)[0];
+  return i.assignee_id === user.id;
+}
+
 export async function saveTask(user: User, i: TaskInput) {
   const title = i.title.trim();
+  if (!(await forSelf(user, i)) && !(await isHead(user))) {
+    const [old] = i.id ? await sql<{ assignee_id: string | null; assignee_emp_id: string | null }[]>`select assignee_id, assignee_emp_id from tasks where id = ${i.id}` : [];
+    const same = old && (old.assignee_id ?? null) === (i.assignee_id || null) && (old.assignee_emp_id ?? null) === (i.assignee_emp_id || null);
+    if (!same) throw new RuleError('Only department heads give tasks to others. You can add a task for yourself.');
+  }
   if (!title) throw new RuleError('Give the task a title.');
   if (!PRIORITIES.includes(i.priority)) throw new RuleError('Unknown priority.');
   if (i.link_type && !LINKS[i.link_type]) throw new RuleError('Unknown link.');

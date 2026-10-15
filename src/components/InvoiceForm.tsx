@@ -73,7 +73,7 @@ export function InvoiceForm({ initial, types, projects, customers, save }: {
       <div className="row" style={{ justifyContent: 'flex-end' }}>
         <button type="button" className="btn" disabled={busy} onClick={() => router.back()}>Cancel</button>
         <button type="button" className="btn" disabled={busy} onClick={() => submit(false)}>Save draft</button>
-        <button type="button" className="btn pri" disabled={busy} onClick={() => submit(true)}>Post invoice</button>
+        <button type="button" className="btn pri" disabled={busy} onClick={() => submit(true)}>Send for approval</button>
       </div>
     </div>
   );

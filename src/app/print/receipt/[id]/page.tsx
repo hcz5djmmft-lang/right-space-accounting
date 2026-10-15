@@ -5,6 +5,7 @@ import { amountInWords } from '@/lib/ledger';
 import { getSettings } from '@/lib/books';
 import { getReceipt, getReceiptAllocations } from '@/lib/collections';
 import { today } from '@/lib/dates';
+import { PrintBar } from '@/components/PrintBar';
 
 // Printable receipt for the client: a cash receipt (إيصال استلام نقدية) or a bank transfer receipt (إيصال تحويل بنكي). Use the browser's Print / Save as PDF.
 export default async function PrintReceipt({ params }: { params: Promise<{ id: string }> }) {
@@ -35,8 +36,7 @@ export default async function PrintReceipt({ params }: { params: Promise<{ id: s
         .void{position:absolute;left:0;right:0;top:40%;text-align:center;font-size:72px;color:#b3261e44;transform:rotate(-20deg);font-weight:700}
         .foot{margin-top:16px;color:#777;font-size:10px}
       `}</style>
-      <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
-      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
+      <PrintBar />
       {r.status === 'void' && <div className="void">VOID</div>}
       <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 34 }} />
         <h1>{cash ? 'Cash Receipt' : 'Bank Transfer Receipt'}<small>{cash ? 'إيصال استلام نقدية' : 'إيصال تحويل بنكي'}</small></h1></div>

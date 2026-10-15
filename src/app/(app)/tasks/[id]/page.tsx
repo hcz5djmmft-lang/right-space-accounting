@@ -5,7 +5,7 @@ import { listAssignees } from '@/lib/hr';
 import { listProjects } from '@/lib/queries';
 import { hasRole } from '@/lib/roles';
 import { sql } from '@/lib/db';
-import { canReview, getTask, listComments, LINKS, SELF_CLOSING, STATUSES } from '@/lib/tasks';
+import { canReview, getTask, isHead, listComments, LINKS, SELF_CLOSING, STATUSES } from '@/lib/tasks';
 import { listAttachments } from '@/lib/attachments';
 import { Attachments } from '@/components/Attachments';
 import { TaskForm } from '@/components/TaskForm';
@@ -56,7 +56,7 @@ export default async function TaskPage({ params, searchParams }: { params: Promi
             </form>)}
         </div>)}
 
-      <TaskForm t={t} people={people} projects={projects} action={saveTaskAction} me={user.id} />
+      <TaskForm t={t} people={(await isHead(user)) ? people : people.filter(p => p.user_id === user.id || p.key === t.assignee_key)} projects={projects} action={saveTaskAction} me={user.id} />
       <div className="card"><h2 style={{ marginTop: 0 }}>Files</h2>
         <Attachments entity="task" id={id} path={`/tasks/${id}`} items={files} userId={user.id} canRemove={mayDelete} locked={t.status === 'done'} /></div>
       <div className="card"><h2>Comments</h2>

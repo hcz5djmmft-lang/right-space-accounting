@@ -24,6 +24,8 @@ export default async function HrSettings({ searchParams }: { searchParams: Promi
             <label className="f"><span>Allowed distance (metres)</span><input className="inp mono" name="office_radius_m" defaultValue={s.office_radius_m} inputMode="numeric" /></label>
           </div>
           <div style={{ marginTop: 10 }}><UseMyLocation /></div>
+          <label className="f" style={{ marginTop: 12 }}><span>Email each site clock-in to (empty: everyone given HR under Settings &gt; People)</span>
+            <input className="inp" type="email" name="hr_email" defaultValue={s.hr_email} placeholder="hr@…" /></label>
         </div>
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Working day</h2>

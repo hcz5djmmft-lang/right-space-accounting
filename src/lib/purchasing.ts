@@ -303,7 +303,7 @@ export async function receiveInvoice(user: User, poId: string, input: ReceiveInp
     const jl = docLines(doc, s.account_map);
     await validateLines(tx, jl, s);
     const [{ id }] = await tx<{ id: string }[]>`insert into invoices ${tx({
-      kind: 'purchase', no, date: input.date, party_id: h.vendor_id, project_id: h.project_id, dept_id: h.dept_id, ref: input.ref.trim(), po_id: poId,
+      kind: 'purchase', no, date: input.date, party_id: h.vendor_id, project_id: h.project_id, dept_id: h.dept_id, ref: input.ref.trim(), po_id: poId, is_bill: true,
       vat_rate: doc.vatRate, wht_rate: doc.whtRate, subtotal: t.subtotal, vat: t.vat, wht: t.wht, total: t.total, net: t.net, status: 'draft', created_by: user.id,
     })} returning id`;
     for (const [k, l] of lines.entries()) {
@@ -332,7 +332,7 @@ export async function receiveInvoice(user: User, poId: string, input: ReceiveInp
 export async function voidVendorInvoice(user: User, id: string, reason: string, date: string) {
   if (!hasRole(user, 'finance')) throw new RuleError('Only Finance can void invoices.');
   const inv = await sql.begin(async tx => {
-    const [inv] = await tx<{ no: string; status: string; entry_id: string; po_id: string | null }[]>`select no, status, entry_id, po_id from invoices where id = ${id} and kind = 'purchase' and po_id is not null for update`;
+    const [inv] = await tx<{ no: string; status: string; entry_id: string; po_id: string | null }[]>`select no, status, entry_id, po_id from invoices where id = ${id} and kind = 'purchase' and is_bill for update`;
     if (!inv) throw new RuleError('Vendor invoice not found.');
     if (inv.status !== 'posted') throw new RuleError('Only posted invoices can be voided.');
     if (Number((await tx<{ v: number }[]>`select invoice_paid(${id}) v`)[0].v) > 0) throw new RuleError('A payment is allocated to this invoice. Reverse the payment first.');
@@ -358,5 +358,5 @@ export const unpaidBills = (party?: string, tx: Tx = sql) => tx<VendorBill[]>`
       i.net - invoice_paid(i.id) open, rq.no request_no, rq.id request_id, i.party_id
     from invoices i left join purchase_requests r on r.id = i.po_id left join projects p on p.id = i.project_id left join departments d on d.id = i.dept_id
     left join lateral (select q.id, q.no from payment_request_bills b join invoices q on q.id = b.request_id and q.status in ('draft', 'pending', 'posted') where b.bill_id = i.id limit 1) rq on true
-    where i.kind = 'purchase' and i.po_id is not null and i.status = 'posted' and (${party ?? null}::text is null or i.party_id = ${party ?? null})
+    where i.kind = 'purchase' and i.is_bill and i.status = 'posted' and (${party ?? null}::text is null or i.party_id = ${party ?? null})
   ) x where x.open > 0.004 order by x.date, x.no`;

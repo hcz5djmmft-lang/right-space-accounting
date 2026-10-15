@@ -2,6 +2,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Acc, Dept, Party, Proj } from '@/lib/queries';
+import { VendorPicker } from './VendorPicker';
 
 type Line = { assign: string; acc: string; desc: string; qty: string; price: string };
 export type PRInitial = {
@@ -10,6 +11,8 @@ export type PRInitial = {
   bills?: string[];
 };
 /** A vendor invoice received against a PO and not yet paid (see unpaidBills). */
+/** A subcontractor's progress claim priced by Procurement and waiting for Finance's payment request. */
+export type OpenClaim = { id: string; no: string; vendor_id: string; claim_no: number; code: string; gross: number };
 export type OpenBill = { id: string; no: string; date: string; ref: string; po_no: string | null; cc: string | null; open: number; party_id: string; request_id: string | null; request_no: string | null };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -18,11 +21,13 @@ const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2,
 const parse = (v: string) => ({ project: v.startsWith('p:') ? v.slice(2) : null, dept: v.startsWith('d:') ? v.slice(2) : null });
 const blank: Line = { assign: '', acc: '', desc: '', qty: '1', price: '' };
 
-export function PRForm({ initial, accounts, projects, departments, vendors, save, bills = [] }: {
-  initial: PRInitial; accounts: Acc[]; projects: Proj[]; departments: Dept[]; vendors: Party[]; bills?: OpenBill[];
-  save: (x: unknown) => Promise<{ error?: string; id?: string }>;
+export function PRForm({ initial, accounts, projects, departments, vendors, save, bills = [], claims = [], raiseClaim }: {
+  initial: PRInitial; accounts: Acc[]; projects: Proj[]; departments: Dept[]; vendors: Party[]; bills?: OpenBill[]; claims?: OpenClaim[];
+  save: (x: unknown) => Promise<{ error?: string; id?: string }>; raiseClaim?: (id: string) => Promise<void>;
 }) {
   const [f, setF] = useState(initial);
+  // update 20: a request pays the vendor's recorded invoices; its own lines are only for an advance with no invoice yet
+  const [ownLines, setOwnLines] = useState(() => initial.lines.some(l => l.acc || l.price) && !(initial.bills ?? []).length && !!initial.id);
   const [err, setErr] = useState('');
   const [busy, start] = useTransition();
   const router = useRouter();
@@ -37,6 +42,7 @@ export function PRForm({ initial, accounts, projects, departments, vendors, save
   };
   // the vendor's unpaid invoices that this request may pay (not already on another request)
   const vendorBills = bills.filter(b => b.party_id === f.party && (!b.request_id || b.request_id === f.id));
+  const vendorClaims = claims.filter(c => c.vendor_id === f.party);
   const ticked = (f.bills ?? []).filter(id => vendorBills.some(b => b.id === id));
   const paysBills = ticked.length > 0;
   const billTotal = r2(vendorBills.filter(b => ticked.includes(b.id)).reduce((t, b) => t + b.open, 0));
@@ -53,7 +59,7 @@ export function PRForm({ initial, accounts, projects, departments, vendors, save
       id: f.id, submit, date: f.date, due: f.due || null, party: f.party, project: h.project, dept: h.dept,
       costType: f.costType || null, ref: f.ref.trim(), requester: f.requester.trim() || null,
       vatRate: num(f.vatRate), whtRate: num(f.whtRate), siRate: num(f.siRate), retRate: num(f.retRate), dpAmount: dp,
-      lines: paysBills ? [] : f.lines.filter(l => l.acc || num(l.price)).map(l => ({ acc: l.acc, desc: l.desc.trim(), qty: num(l.qty), price: num(l.price), ...parse(l.assign) })),
+      lines: paysBills || !ownLines ? [] : f.lines.filter(l => l.acc || num(l.price)).map(l => ({ acc: l.acc, desc: l.desc.trim(), qty: num(l.qty), price: num(l.price), ...parse(l.assign) })),
       bills: ticked,
     });
     if (res.error) setErr(res.error); else router.push('/payment-requests/' + res.id);
@@ -72,10 +78,7 @@ export function PRForm({ initial, accounts, projects, departments, vendors, save
     <div>
       {err && <div className="msg bad">{err}</div>}
       <div className="card grid g4">
-        <label className="f"><span>Vendor or subcontractor</span><select className="inp" value={f.party} onChange={e => set({ party: e.target.value })}>
-          <option value="">Select…</option>
-          <optgroup label="Vendors">{vendors.filter(v => !v.is_sub).map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup>
-          <optgroup label="Subcontractors">{vendors.filter(v => v.is_sub).map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</optgroup></select></label>
+        <label className="f"><span>Vendor or subcontractor</span><VendorPicker vendors={vendors} value={f.party} onChange={id => set({ party: id, bills: [] })} /></label>
         <label className="f"><span>Project / department</span>{assignSelect(f.assign, v => set({ assign: v, lines: f.lines.map(l => (l.assign ? l : { ...l, acc: '' })) }), '— Per line —')}</label>
         <label className="f"><span>Date</span><input className="inp" type="date" value={f.date} onChange={e => set({ date: e.target.value })} /></label>
         <label className="f"><span>Due</span><input className="inp" type="date" value={f.due} onChange={e => set({ due: e.target.value })} /></label>
@@ -84,10 +87,24 @@ export function PRForm({ initial, accounts, projects, departments, vendors, save
         <label className="f" style={{ gridColumn: 'span 2' }}><span>Requester (if not you)</span><input className="inp" dir="auto" value={f.requester} onChange={e => set({ requester: e.target.value })} /></label>
       </div>
 
+      {f.party && vendorBills.length === 0 && vendorClaims.length === 0 && !ownLines && (
+        <div className="card muted">No open invoices or claims for this {vendors.find(v => v.id === f.party)?.is_sub ? 'subcontractor' : 'vendor'}. Record the invoice first in <a href="/ap-invoices?new=1">AP &gt; Invoices</a> (or Receive and invoice on its PO), then pay it here.</div>)}
+      {vendorClaims.length > 0 && raiseClaim && (
+        <div className="card">
+          <h2>Progress claims to pay</h2>
+          <p className="muted" style={{ margin: '0 0 8px', fontSize: 13 }}>Claims priced by Procurement. Paying one drafts its own payment request with the claim&apos;s lines, retention and advance.</p>
+          <div className="tw"><table>
+            <thead><tr><th>Claim</th><th>Project</th><th className="num">Gross</th><th></th></tr></thead>
+            <tbody>{vendorClaims.map(c => (
+              <tr key={c.id}><td className="mono"><a href={`/claims/${c.id}`}>{c.no}</a> · claim {c.claim_no}</td><td>{c.code}</td><td className="num">{fmt(c.gross)}</td>
+                <td><form action={raiseClaim.bind(null, c.id)}><button className="btn sm pri">Pay this claim</button></form></td></tr>))}</tbody>
+          </table></div>
+        </div>)}
+
       {vendorBills.length > 0 && (
         <div className="card">
           <h2>Unpaid invoices of this {vendors.find(v => v.id === f.party)?.is_sub ? 'subcontractor' : 'vendor'}</h2>
-          <p className="muted" style={{ margin: '0 0 8px', fontSize: 13 }}>Tick the invoices this request pays. They are already in the books from Receive and invoice, so the request needs no lines of its own.</p>
+          <p className="muted" style={{ margin: '0 0 8px', fontSize: 13 }}>Tick the invoices this request pays. They are already in the books (AP &gt; Invoices), so the request needs no lines of its own.</p>
           <div className="tw"><table>
             <thead><tr><th></th><th>Invoice</th><th>Date</th><th className="hide-sm">Vendor&apos;s no.</th><th className="hide-sm">PO</th><th className="hide-sm">Cost center</th><th className="num">Unpaid</th></tr></thead>
             <tbody>{vendorBills.map(b => (
@@ -97,7 +114,9 @@ export function PRForm({ initial, accounts, projects, departments, vendors, save
           </table></div>
         </div>)}
 
-      {!paysBills && <>
+      {!paysBills && f.party && !ownLines && (
+        <div className="row" style={{ marginBottom: 14 }}><button type="button" className="btn sm" onClick={() => setOwnLines(true)}>No invoice yet: pay an advance or down payment</button></div>)}
+      {!paysBills && ownLines && <>
       <div className="card">
         <div className="lines-grid">{f.lines.map((l, i) => {
           const list = glFor(l.assign);

@@ -5,6 +5,9 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { requireUser, hashPassword } from '@/lib/auth';
 import { ROLES, type Role } from '@/lib/roles';
+import { AREA_KEYS } from '@/lib/access';
+import { importStaff, readStaffSheet } from '@/lib/staff';
+import { RuleError } from '@/lib/ledger';
 import { sql } from '@/lib/db';
 import { audit } from '@/lib/books';
 import { appUrl, sendMail } from '@/lib/mail';
@@ -16,6 +19,9 @@ async function flash(msg: string) {
   (await cookies()).set('rsa_flash', msg, { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/settings', maxAge: 60 });
   redirect('/settings');
 }
+/** The sub-categories ticked for a person (update 20). */
+const accessOf = (f: FormData) => f.getAll('access').map(String).filter(a => AREA_KEYS.includes(a));
+const mgmtOf = (f: FormData): Role[] => (f.get('management') === 'on' ? ['management'] : []);
 const rolesOf = (f: FormData, k = 'roles') => f.getAll(k).map(String).filter((r): r is Role => r in ROLES);
 /** The chosen department's id, or null for none; an unknown id (a stale form) is refused. */
 async function deptOf(f: FormData) {
@@ -33,7 +39,7 @@ export async function saveCompany(f: FormData) {
   await sql.begin(async tx => {
     await tx`update settings set company_name = ${s(f, 'company_name') || 'Right Space Development'}, vat_rate = ${vat},
       require_approval = ${f.get('require_approval') === 'on'}, require_cc = ${f.get('require_cc') === 'on'},
-      lock_date = ${s(f, 'lock_date') || null}, company_tax_id = ${s(f, 'company_tax_id')}, pr_prefix = ${s(f, 'pr_prefix') || 'C-'} where id = 1`;
+      lock_date = ${s(f, 'lock_date') || null}, company_tax_id = ${s(f, 'company_tax_id')}, pr_prefix = ${s(f, 'pr_prefix') || 'CIB-34-'} where id = 1`;
     await audit(tx, user, 'settings', 'company', 'Changed company settings', '', Object.fromEntries(f));
   });
   revalidatePath('/', 'layout');
@@ -61,10 +67,10 @@ export async function addUser(f: FormData) {
   if (!email || !name) back('Enter a name and an email.', true);
   const dept = await deptOf(f);
   const password = crypto.randomBytes(6).toString('base64url');
-  const [u] = await sql<{ id: string }[]>`insert into users (email, name, password_hash, roles, dept_id) values (${email}, ${name}, ${await hashPassword(password)}, ${rolesOf(f)}, ${dept})
+  const [u] = await sql<{ id: string }[]>`insert into users (email, name, password_hash, roles, access, dept_id) values (${email}, ${name}, ${await hashPassword(password)}, ${mgmtOf(f)}, ${accessOf(f)}, ${dept})
     on conflict (email) do nothing returning id`;
   if (!u) back(`${email} already has a login.`, true);
-  await audit(sql, admin, 'user', u.id, 'Created login', rolesOf(f).join(', '));
+  await audit(sql, admin, 'user', u.id, 'Created login', [...mgmtOf(f), ...accessOf(f)].join(', '));
   await sendMail({
     to: [email], subject: 'Your Right Space login',
     text: `Hello ${name},\n\n${admin.name} gave you access to Right Space.\n\nSign in: ${appUrl('/login')}\nEmail: ${email}\nTemporary password: ${password}\n\nPlease change it after signing in (top of the menu, "My account").`,
@@ -75,12 +81,13 @@ export async function addUser(f: FormData) {
 
 export async function updateUser(id: string, f: FormData) {
   const admin = await requireUser('management');
-  const roles = rolesOf(f), active = f.get('active') === 'on', dept = await deptOf(f);
+  const roles = mgmtOf(f), access = accessOf(f), active = f.get('active') === 'on', dept = await deptOf(f);
   if (id === admin.id && (!roles.includes('management') || !active)) back('You cannot remove your own Management access.', true);
   await sql.begin(async tx => {
-    await tx`update users set name = ${s(f, 'name')}, roles = ${roles}, active = ${active}, dept_id = ${dept} where id = ${id}`;
+    // from update 20 a person's access is the sub-categories ticked here; their department no longer adds to it
+    await tx`update users set name = ${s(f, 'name')}, roles = ${roles}, access = ${access}, active = ${active}, dept_id = ${dept} where id = ${id}`;
     if (!active) await tx`delete from sessions where user_id = ${id}`;
-    await audit(tx, admin, 'user', id, 'Changed access', `${roles.join(', ') || 'no roles'}${active ? '' : ' · deactivated'}`);
+    await audit(tx, admin, 'user', id, 'Changed access', `${roles.includes('management') ? 'Management, everything' : access.join(', ') || 'the top items only'}${active ? '' : ' · deactivated'}`);
   });
   revalidatePath('/', 'layout');
   back('Saved.');
@@ -133,4 +140,22 @@ export async function addDepartment(f: FormData) {
   await audit(sql, admin, 'department', d.id, 'Created', `${code} · ${name}`);
   revalidatePath('/', 'layout');
   back(`${name} added. Choose its head and what its members can do, then Save.`);
+}
+
+/** Logins for everyone in the staff sheet (update 20): one upload; every temporary password is shown once on the page. */
+export async function importStaffAction(f: FormData) {
+  const admin = await requireUser('management');
+  const file = f.get('sheet');
+  if (!(file instanceof File) || !file.size) back('Choose the staff sheet (Excel) first.', true);
+  let r: Awaited<ReturnType<typeof importStaff>> | null = null;
+  try { r = await importStaff(admin, readStaffSheet(Buffer.from(await (file as File).arrayBuffer()), (file as File).name)); }
+  catch (e) { back(e instanceof RuleError ? e.message : 'The sheet could not be read. Save it as .xlsx or .csv and try again.', true); }
+  revalidatePath('/', 'layout');
+  const lines = [
+    `${r!.created.length} login${r!.created.length === 1 ? '' : 's'} created, ${r!.updated.length} updated. Temporary passwords, shown once; pass each one on now (each person changes it under My account):`,
+    ...r!.created.map(c => `${c.name} · ${c.email} · ${c.password}`),
+    ...(r!.updated.length ? [`Already had a login (access updated, password unchanged): ${r!.updated.join(', ')}.`] : []),
+    ...(r!.skipped.length ? [`Not in the staff list, left out: ${r!.skipped.join(', ')}.`] : []),
+  ];
+  await flash(lines.join('\n'));
 }

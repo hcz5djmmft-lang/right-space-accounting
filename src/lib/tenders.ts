@@ -6,6 +6,7 @@ import { hasRole, type User } from './roles';
 import { r2 } from './money';
 import { CURRENCIES, MAX_BIDDERS, parseItems, parsePrices, STATUSES, tenderTotals, type Bidder, type Item, type Price, type Tender, type Trade } from './tender-calc';
 import { today } from './dates';
+import { askForSalesInvoice } from './sales';
 
 // Tenders: 1 Details → 2 BOQ → 3 Bidders & prices → 4 Comparison & award → 5 Client price.
 // The Tenders role (and Management) edits; the maths lives in tender-calc.ts.
@@ -207,6 +208,7 @@ export async function tenderToProject(user: User, id: string) {
     await tx`update tenders set project_id = ${pid} where id = ${id}`;
     await audit(tx, user, 'tender', id, 'Cost center created', `${code} · contract ${T.client} · budget ${T.cost}`);
     await audit(tx, user, 'project', pid, 'Created from tender', t.no);
+    await askForSalesInvoice(tx, user, { id: pid, code, name: t.name });
     return pid;
   });
 }

@@ -1,56 +1,57 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
-import { sql } from '@/lib/db';
-import { fmt } from '@/lib/money';
-import { today } from '@/lib/dates';
 import { pushKeys } from '@/lib/push';
 import { PushButton } from '@/components/PushButton';
+import { pendingSteps } from '@/lib/pending';
+import { DASHBOARDS, dashboard, dashboardsFor, type DashKey } from '@/lib/home';
+import { tr } from '@/lib/i18n';
+import { getLang } from '@/lib/lang';
 
-export default async function Overview({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
+/**
+ * Overview (update 20, item 1): the pending steps for me at the top, the clock-in button on a phone, then the dashboard of my
+ * department. Someone in two departments switches at the top; Management sees all seven, starting with its own.
+ */
+export default async function Overview({ searchParams }: { searchParams: Promise<{ denied?: string; d?: string }> }) {
   const user = await requireUser();
-  const { denied } = await searchParams;
-  const [banks, [pl], [pend], projects] = await Promise.all([
-    sql<{ code: string; name: string; bal: number }[]>`
-      select a.code, a.name, coalesce(sum(l.dr - l.cr),0) bal from accounts a
-      left join journal_lines l on l.account = a.code and exists (select 1 from journal_entries e where e.id = l.entry_id and e.status = 'posted')
-      where a.is_bank group by a.code, a.name order by a.code`,
-    sql<{ rev: number; exp: number }[]>`
-      select coalesce(sum(case when a.type='revenue' then l.cr - l.dr end),0) rev, coalesce(sum(case when a.type='expense' then l.dr - l.cr end),0) exp
-      from journal_lines l join accounts a on a.code = l.account join journal_entries e on e.id = l.entry_id and e.status = 'posted'
-      where e.date >= ${today().slice(0, 4) + '-01-01'}::date`,
-    sql<{ n: number }[]>`select count(*)::int n from journal_entries where status = 'pending'`,
-    sql<{ id: string; code: string; name: string; budget: number | null; spent: number; collected: number }[]>`
-      select p.id, p.code, p.name, p.budget,
-        coalesce(sum(case when a.type='expense' then l.dr - l.cr end),0) spent,
-        coalesce(sum(case when a.type='revenue' then l.cr - l.dr end),0) collected
-      from projects p left join journal_lines l on l.project_id = p.id
-        and exists (select 1 from journal_entries e where e.id = l.entry_id and e.status = 'posted')
-      left join accounts a on a.code = l.account
-      where p.status <> 'Closed' group by p.id order by p.is_office desc, p.code`,
-  ]);
-  const cash = banks.reduce((s, b) => s + b.bal, 0);
-  const { publicKey } = await pushKeys();
+  const { denied, d } = await searchParams;
+  const mine = await dashboardsFor(user);
+  const key = (mine.includes(d as DashKey) ? d : mine[0]) as DashKey | undefined;
+  const [steps, dash, { publicKey }, lang] = await Promise.all([pendingSteps(user), key ? dashboard(key, user) : null, pushKeys(), getLang()]);
+  const t = (x: string) => tr(lang, x);
   return (
     <>
-      {denied && <div className="msg bad">Your role does not give you access to that page.</div>}
+      {denied && <div className="msg bad">{t('Your access does not include that page.')}</div>}
       <div className="head">
-        <div><h1>Good day, {user.name.split(' ')[0]}</h1><p>Right Space Development · all amounts in EGP</p></div>
-        <div className="row"><Link className="btn pri" href="/expenses/new">New expense</Link></div>
+        <div><h1>{t('Good day')}, {user.name.split(' ')[0]}</h1><p>Right Space Development{dash ? ` · ${t(dash.title)}` : ''}</p></div>
+        <Link className="btn pri only-sm" href="/clock">{t('Clock in')}</Link>
       </div>
       <PushButton publicKey={publicKey} compact />
-      <div className="tiles">
-        <div className="tile"><div className="k">Cash &amp; bank</div><div className="v mono">{fmt(cash)}</div></div>
-        <div className="tile"><div className="k">Revenue this year</div><div className="v mono">{fmt(pl.rev)}</div></div>
-        <div className="tile"><div className="k">Expenses this year</div><div className="v mono">{fmt(pl.exp)}</div></div>
-        <Link href="/approvals" className="tile" style={{ textDecoration: 'none' }}><div className="k">Waiting for approval</div><div className="v">{pend.n}</div></Link>
-      </div>
-      <div className="grid g2">
-        <div className="card"><h2>Banks &amp; cash</h2>
-          <table><tbody>{banks.map(b => <tr key={b.code}><td><span className="mono">{b.code}</span> · {b.name}</td><td className="num">{fmt(b.bal)}</td></tr>)}</tbody></table></div>
-        <div className="card"><h2>Projects</h2>
-          <table><thead><tr><th>Project</th><th className="num">Spent</th><th className="num">Collected</th></tr></thead>
-            <tbody>{projects.map(p => <tr key={p.id}><td><Link href={`/cost-centers/${p.id}`}>{p.code}</Link></td><td className="num">{fmt(p.spent)}</td><td className="num">{fmt(p.collected)}</td></tr>)}</tbody></table></div>
-      </div>
+
+      {steps.length > 0 && (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>{t('Pending steps for you')} <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>· {steps.length}</span></h2>
+          <div style={{ display: 'grid', gap: 6 }}>{steps.slice(0, 12).map((st, i) => <div key={i} className="row" style={{ gap: 8 }}><span className="pill pending" style={{ textTransform: 'capitalize' }}>{st.kind}</span><Link href={st.href} dir="auto">{st.title}</Link>{st.since && <span className="muted mono" style={{ fontSize: 12 }}>{st.since}</span>}</div>)}</div>
+          {steps.length > 12 && <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}><Link href="/tasks">{t('All pending steps')}</Link> · {steps.length}</p>}
+        </div>)}
+
+      {mine.length > 1 && <div className="tabs">{DASHBOARDS.filter(([k]) => mine.includes(k)).map(([k, l]) => <Link key={k} href={`/?d=${k}`} className={key === k ? 'on' : ''}>{t(l)}</Link>)}</div>}
+
+      {dash && <>
+        <div className="tiles">{dash.tiles.map((x, i) => {
+          const body = <><div className="k">{t(x.label)}</div><div className="v mono">{x.value}</div>{x.sub && <div className="muted" style={{ fontSize: 12 }} dir="auto">{x.sub}</div>}</>;
+          return x.href ? <Link key={i} href={x.href} className={'tile' + (x.warn ? ' warn' : '')} style={{ textDecoration: 'none' }}>{body}</Link> : <div key={i} className={'tile' + (x.warn ? ' warn' : '')}>{body}</div>;
+        })}</div>
+        <div className="grid g2">{dash.lists.map((l, i) => (
+          <div key={i} className="card dash-list">
+            <h2 style={{ marginTop: 0 }}>{l.href ? <Link href={l.href}>{t(l.title)}</Link> : t(l.title)}</h2>
+            {l.rows.length === 0 ? <p className="muted" style={{ margin: 0 }}>{t(l.empty)}</p>
+              : l.rows.map((r, k) => (
+                <div key={k} className="row-line">
+                  <div dir="auto">{r.href ? <Link href={r.href} style={r.warn ? { color: 'var(--bad)' } : undefined}>{r.text}</Link> : <span style={r.warn ? { color: 'var(--bad)' } : undefined}>{r.text}</span>}{r.sub && <div className="sub">{r.sub}</div>}</div>
+                  {r.value && <div className="mono" style={{ whiteSpace: 'nowrap' }}>{r.value}</div>}
+                </div>))}
+          </div>))}</div>
+      </>}
     </>
   );
 }

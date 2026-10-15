@@ -6,6 +6,7 @@ import { fmt } from '@/lib/money';
 import { getSettings } from '@/lib/books';
 import { getInfo } from '@/lib/projects';
 import { getHandover, listSnags, snagCounts } from '@/lib/site';
+import { PrintBar } from '@/components/PrintBar';
 
 // The handover certificate (شهادة تسليم): project and client, contract and variations, the snag list's state, the defects period, two signatures.
 export default async function PrintHandover({ params, searchParams }: { params: Promise<{ project: string }>; searchParams: Promise<{ c?: string }> }) {
@@ -39,8 +40,7 @@ export default async function PrintHandover({ params, searchParams }: { params: 
         .sigs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:40px}.sig{border-top:1px solid #111;padding-top:5px;text-align:center}
         .sd{color:#666;font-size:11px}.foot{margin-top:16px;color:#777;font-size:10px}.draft{color:#b00;font-weight:700}
       `}</style>
-      <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
-      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
+      <PrintBar />
       <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 38 }} /><h1>Handover certificate {h.no}<small>شهادة تسليم الأعمال</small></h1></div>
       {h.status !== 'signed' && <p className="draft">DRAFT — not yet signed</p>}
       <div className="meta">

@@ -6,6 +6,7 @@ import { amountInWords } from '@/lib/ledger';
 import { getSettings } from '@/lib/books';
 import { today } from '@/lib/dates';
 import { clientClaimFull } from '@/lib/claims';
+import { PrintBar } from '@/components/PrintBar';
 
 // The client's progress claim (statement of work done against the BOQ) with the Right Space logo. Browser Print / Save as PDF.
 export default async function PrintClientClaim({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ c?: string }> }) {
@@ -35,8 +36,7 @@ export default async function PrintClientClaim({ params, searchParams }: { param
         .sigs{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:30px}.sig{border-top:1px solid #111;padding-top:5px;text-align:center}
         .sd{color:#666;font-size:11px}.foot{margin-top:16px;color:#777;font-size:10px}
       `}</style>
-      <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
-      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
+      <PrintBar />
       <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 38 }} /><h1>Progress claim no. {c.claim_no}<small>مستخلص جارى رقم ( {c.claim_no} )</small></h1></div>
       <div className="meta">
         <div><b>Claim</b>{c.no} · {c.date}</div><div><b>Project</b><span dir="auto">{c.code}{c.project_name !== c.code ? ` · ${c.project_name}` : ''}</span></div>

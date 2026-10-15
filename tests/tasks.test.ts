@@ -18,7 +18,11 @@ afterAll(async () => { await sql.end(); });
 
 describe('tasks', () => {
   let id = '';
-  it('anyone adds a task; the board sorts high priority and earliest due first', async () => {
+  it('a head gives tasks to others (update 20), anyone adds one for themselves; the board sorts high priority and earliest due first', async () => {
+    await expect(tasks.saveTask(eng as never, { title: 'x', details: '', priority: 'normal', assignee_id: fin.id })).rejects.toThrow(/Only department heads/);
+    expect(await tasks.isHead(eng as never)).toBe(false);
+    await sql`insert into user_positions (user_id, position) values (${eng.id}, 'to_head')`;
+    expect(await tasks.isHead(eng as never)).toBe(true);
     id = await tasks.saveTask(eng as never, { title: 'Collect PH-B1302 receipts', details: '', status: 'todo', priority: 'normal', due: '2026-10-20', assignee_id: fin.id, link_type: 'cost-center', link_id: 'ph-b1302', link_label: 'PH-B1302' });
     await tasks.saveTask(fin as never, { title: 'Close September', details: 'TB and bank rec', status: 'doing', priority: 'high', due: '2026-10-15', assignee_id: fin.id });
     await tasks.saveTask(fin as never, { title: 'Low one', details: '', status: 'todo', priority: 'low', assignee_id: null });

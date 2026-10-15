@@ -8,6 +8,7 @@ import { getSettings } from '@/lib/books';
 import { getInvoice, getInvoiceLines } from '@/lib/sales-queries';
 import { invoiceBankDetails } from '@/lib/collections';
 import { today } from '@/lib/dates';
+import { PrintBar } from '@/components/PrintBar';
 
 // Printable sales invoice for the client. Use the browser's Print / Save as PDF.
 export default async function PrintInvoice({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ c?: string }> }) {
@@ -40,8 +41,7 @@ export default async function PrintInvoice({ params, searchParams }: { params: P
         .void{position:absolute;left:0;right:0;top:40%;text-align:center;font-size:72px;color:#b3261e44;transform:rotate(-20deg);font-weight:700}
         .foot{margin-top:16px;color:#777;font-size:10px}
       `}</style>
-      <p className="noprint"><button className="btn pri" id="pp">Print / save as PDF</button></p>
-      <script dangerouslySetInnerHTML={{ __html: "document.getElementById('pp').onclick=()=>window.print()" }} />
+      <PrintBar />
       {r.status === 'void' && <div className="void">VOID</div>}
       <div className="top"><img src="/logo.svg" alt="Right Space Development" style={{ height: 34 }} /><h1>Invoice<small>فاتورة</small></h1></div>
       <div className="meta">

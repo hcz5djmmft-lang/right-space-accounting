@@ -7,6 +7,7 @@ import { audit, createProjectCodes } from '@/lib/books';
 import { parseAmount } from '@/lib/money';
 import { savePin } from '@/lib/attendance';
 import { RuleError } from '@/lib/ledger';
+import { askForSalesInvoice } from '@/lib/sales';
 
 const s = (f: FormData, k: string) => String(f.get(k) ?? '').trim();
 const optNum = (f: FormData, k: string) => (s(f, k) ? parseAmount(s(f, k)) : null);
@@ -27,6 +28,7 @@ export async function createProject(form: FormData) {
       const r = await createProjectCodes(tx, p.id, code);
       await tx`insert into project_phases (project_id, phase, user_id, note) values (${p.id}, 'form', ${user.id}, 'Project added')`;
       await audit(tx, user, 'project', p.id, 'Created', `${r.count} GL codes created with suffix -${r.suffix}`);
+      await askForSalesInvoice(tx, user, { id: p.id, code, name: s(form, 'name') || code });
       return p.id;
     });
   } catch (e) {

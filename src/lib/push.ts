@@ -1,7 +1,8 @@
 import 'server-only';
 import webpush from 'web-push';
 import { sql } from './db';
-import { mergeRoles, type User } from './roles';
+import { resolveUser, type User } from './roles';
+import { accessFromRoles, rolesFromAccess } from './access';
 import { appUrl } from './mail';
 import { today } from './dates';
 import { r2, fmt } from './money';
@@ -73,13 +74,13 @@ export async function pushTo(userIds: string[], m: PushMessage) {
 
 /** A person as the pages see them (their roles merged with their department's). */
 export async function userById(id: string): Promise<User | null> {
-  const [u] = await sql<(User & { dept_roles: string[] | null })[]>`
-    select u.id, u.email, u.name, u.roles, u.dept_id, d.name dept_name, d.roles || coalesce(p.roles, '{}') dept_roles
+  const [u] = await sql<(User & { dept_roles: string[] | null; access: string[] | null })[]>`
+    select u.id, u.email, u.name, u.roles, u.access, u.dept_id, d.name dept_name, d.roles || coalesce(p.roles, '{}') dept_roles
     from users u left join departments d on d.id = u.dept_id and d.active left join departments p on p.id = d.parent_id and p.active
     where u.id = ${id} and u.active`;
   if (!u) return null;
   const { dept_roles, ...user } = u;
-  return { ...user, roles: mergeRoles(u.roles, dept_roles) };
+  return resolveUser(user, dept_roles, accessFromRoles, rolesFromAccess);
 }
 
 // the daily site report and the weekly progress are left out: they would ring at midnight; they still show under Tasks

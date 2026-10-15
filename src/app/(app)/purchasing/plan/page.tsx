@@ -20,7 +20,7 @@ export default async function MaterialPlanPage({ searchParams }: { searchParams:
   return (
     <>
       <div className="head"><div><h1>Material plan</h1><p>Every material the accepted estimate counted, per project, with the date it is needed on site (a week before its work starts, from the schedule&apos;s baseline). Tick lines and raise a purchase request: the materials come across as they are, nothing is retyped.</p></div>
-        <Link className="btn" href="/purchasing">Purchasing</Link></div>
+        <Link className="btn" href="/purchasing">Purchase requests</Link></div>
       {error && <div className="msg bad">{error}</div>}
       {ok && <div className="msg good">{ok}</div>}
       {projects.length === 0 ? <div className="empty card">No material plan yet. A project gets one when the client accepts its estimate (QS and pricing).</div> : (
