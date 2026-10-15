@@ -168,3 +168,11 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; colo
 .camera { margin: 12px auto 0; max-width: 420px; }
 .camera video { width: 100%; border-radius: 10px; background: #000; transform: scaleX(-1); }
 .linkbtn { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font: inherit; font-size: 13px; margin-top: 8px; }
+
+/* Update 20: the home dashboards on Overview; the clock-in button shows on phones only */
+.only-sm { display: none; }
+@media (max-width: 860px) { .only-sm { display: inline-flex; } .head .only-sm.btn { width: 100%; justify-content: center; } }
+.tile.warn { border-color: var(--bad); }
+.dash-list .row-line { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.dash-list .row-line:last-child { border-bottom: 0; }
+.dash-list .row-line .sub { font-size: 12px; color: var(--muted, #888); }

@@ -30,6 +30,7 @@ const AR: Record<string, string> = {
   'Procurement': 'المشتريات', 'Purchase orders': 'أوامر الشراء', 'New purchase request': 'طلب شراء جديد', 'Invoices': 'الفواتير',
   'Bank reconciliation': 'التسوية البنكية',
   'Approve': 'اعتماد', 'Approved.': 'تم الاعتماد.', 'View': 'عرض', 'Approve signs it here; open the number to read it or to return it.': 'اعتماد يوقّع هنا؛ افتح الرقم لقراءته أو لإرجاعه.',
+  'Good day': 'أهلاً', 'Your access does not include that page.': 'صلاحياتك لا تشمل هذه الصفحة.', 'All pending steps': 'كل الخطوات المنتظرة', 'Sales & Marketing': 'المبيعات والتسويق', 'Approvals waiting for me': 'موافقات بانتظاري', 'My tasks': 'مهامي', 'Clocked in now': 'الحاضرون الآن', 'Alerts': 'تنبيهات',
   'Insight': 'التقارير', 'Reports': 'التقارير', 'Admin': 'الإدارة', 'Settings': 'الإعدادات', 'Audit log': 'سجل التغييرات', 'My account': 'حسابي',
 
   // clock in
