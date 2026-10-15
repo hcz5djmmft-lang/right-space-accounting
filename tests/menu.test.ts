@@ -11,15 +11,16 @@ const groups = (f: Partial<MenuFlags>) => Object.fromEntries(buildMenu({ ...base
 describe('menu (update 20)', () => {
   it('has Finance as one heading opening AP, AR and Closing, then its five pages', () => {
     const g = groups({ management: true });
-    expect(Object.keys(g)).toEqual(['Partners', 'Finance', 'Engineering', 'Procurement', 'HR & Admin', 'System admin']);
+    expect(Object.keys(g)).toEqual(['Partners', 'Finance', 'Engineering', 'Procurement', 'HR & Admin']);
     expect(g.Finance).toEqual([
       { AP: ['Banks & cash', 'Petty cash', 'Payment requests', 'Invoices', 'Payables', 'Vendors & subcontractors'] },
       { AR: ['Sales invoices', 'Collections', 'Collections follow-up', 'Customers'] },
-      { Closing: ['Month-end close', 'Bank reconciliation', 'Fixed assets', 'Reports'] },
+      { Closing: ['Month-end close', 'Bank reconciliation', 'Fixed assets', 'Reports', 'Audit log'] },
       'Entries', 'Chart of accounts', 'Opening balances', 'Budgets', 'Payroll']);
     expect(g.Partners).toEqual(['Partners', "Partners' dashboard"]);
     expect(g['HR & Admin']).toEqual(['Employees', 'Attendance', 'Pay items', 'HR reports']);
-    expect(g['System admin']).toEqual(['Settings', 'Audit log']);
+    expect(buildMenu({ ...base, management: true }).slice(-2).map(i => (isGroup(i) ? i.group : i.label))).toEqual(['Settings', 'My account']);
+    expect(allLinks(buildMenu({ ...base, access: ['hr'] })).map(l => l.label)).not.toContain('Settings');
     expect(Object.keys(groups({ access: ['hr'] }))).toEqual(['HR & Admin']);
   });
   it('renames Projects to Engineering, opening Technical Office, Design and Site', () => {
