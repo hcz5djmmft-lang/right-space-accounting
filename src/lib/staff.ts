@@ -71,6 +71,12 @@ export async function importStaff(admin: User, rows: StaffRow[]): Promise<Import
       const id = ids.get(key), dept = depts.get(code);
       if (id && dept) await tx`update departments set head_user_id = ${id} where id = ${dept}`;
     }
+    // Adel is not on the sheet (he has his login): he is the Director of Finance in the hierarchy he confirmed
+    if (/^adel\b/i.test(admin.name.trim())) {
+      const fin = depts.get('FIN');
+      if (fin) await tx`update departments set head_user_id = ${admin.id} where id = ${fin} and head_user_id is null`;
+      if (!(await tx`select 1 from user_positions where position = 'finance_head'`)[0]) await tx`insert into user_positions (user_id, position) values (${admin.id}, 'finance_head')`;
+    }
     await audit(tx, admin, 'settings', 'staff', 'Imported the staff sheet', `${result.created.length} created, ${result.updated.length} updated`);
   });
   return result;
