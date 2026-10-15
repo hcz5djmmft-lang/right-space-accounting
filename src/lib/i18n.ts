@@ -23,7 +23,7 @@ const AR: Record<string, string> = {
   'AP': 'الموردون والمدفوعات', 'AR': 'العملاء والتحصيل', 'Closing': 'الإقفال', 'Customers': 'العملاء', 'Vendors & subcontractors': 'الموردون ومقاولو الباطن',
   'Purchasing': 'المشتريات', 'Purchase requests': 'طلبات الشراء', 'Material plan': 'خطة الخامات', 'Vendors': 'الموردون', 'Work orders': 'أوامر الشغل',
   'Site stock': 'مخزون الموقع', 'Progress claims': 'المستخلصات', 'Procurement reports': 'تقارير المشتريات', 'Materials': 'الخامات',
-  'HR': 'الموارد البشرية', 'HR & Admin': 'الموارد البشرية والإدارة', 'Employees': 'الموظفون', 'Attendance': 'الحضور والانصراف', 'Pay items': 'بنود المرتب', 'HR reports': 'تقارير الموارد البشرية',
+  'HR': 'الموارد البشرية', 'HR & Admin': 'الموارد البشرية والإدارة', 'System admin': 'إدارة النظام', 'Employees': 'الموظفون', 'Attendance': 'الحضور والانصراف', 'Pay items': 'بنود المرتب', 'HR reports': 'تقارير الموارد البشرية',
   'Projects': 'المشروعات', 'Cost centers': 'مراكز التكلفة', 'Design': 'التصميم', 'QS and pricing': 'الحصر والتسعير', 'Planning': 'التخطيط',
   'Variation orders': 'أوامر التغيير', 'Samples': 'العينات', 'Cost control': 'مراقبة التكلفة', 'Site execution': 'التنفيذ بالموقع', 'Tenders': 'المناقصات',
   'Engineering': 'الهندسة', 'Technical Office': 'المكتب الفني', 'Main concept': 'التصميم المبدئي', 'Shop drawings': 'الرسومات التنفيذية',
