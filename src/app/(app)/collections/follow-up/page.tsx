@@ -37,7 +37,7 @@ export default async function FollowUp() {
               <CopyButton text={msg.en} label="Copy WhatsApp message" />
               <CopyButton text={msg.ar} label="نسخ الرسالة بالعربي" />
               {wa && <a className="btn sm" href={`https://wa.me/${wa}?text=${encodeURIComponent(msg.en + '\n\n' + msg.ar)}`} target="_blank" rel="noreferrer">Open in WhatsApp</a>}
-              {!c.phone && <Link className="btn sm" href={`/parties/${c.party_id}`}>Add the phone number</Link>}
+              {!c.phone && <Link className="btn sm" href={`/customers/${c.party_id}`}>Add the phone number</Link>}
             </div>
           </div>);
       })}

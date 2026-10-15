@@ -9,6 +9,7 @@ import { hasRole } from '@/lib/roles';
 import { payLabel, vendorTypes } from '@/lib/parties';
 import { PartyFields } from '@/components/PartyFields';
 import { subAction, updatePartyAction } from './actions';
+import { listHref } from '../list';
 
 /** A vendor's or customer's account: what is unpaid, and every posted movement on payables (or receivables). */
 export default async function PartyAccount({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; ok?: string }> }) {
@@ -42,7 +43,7 @@ export default async function PartyAccount({ params, searchParams }: { params: P
     <>
       <div className="head"><div><h1>{p.name} <span className="muted mono" style={{ fontSize: 16 }}>{p.code}</span></h1>
         <p dir="auto">{[vendor ? (p.is_sub ? 'Subcontractor' : 'Vendor') : 'Customer', p.vendor_type, p.full_name !== p.name ? p.full_name : null, p.phone, p.email, vendor ? payLabel(p, may) : p.tax_id ? `ID ${p.tax_id}` : null].filter(Boolean).join(' · ')}</p></div>
-        <div className="row">{vendor && <Link className="btn pri" href="/payment-requests/new">Pay a vendor or subcontractor</Link>}<Link className="btn" href={`/parties?tab=${kind}`}>All {vendor ? (p.is_sub ? 'subcontractors' : 'vendors') : 'customers'}</Link></div></div>
+        <div className="row">{vendor && <Link className="btn pri" href="/payment-requests/new">Pay a vendor or subcontractor</Link>}<Link className="btn" href={listHref(kind)}>All {vendor ? (p.is_sub ? 'subcontractors' : 'vendors') : 'customers'}</Link></div></div>
       {q.error && <div className="msg bad">{q.error}</div>}
       {q.ok && <div className="msg good">{q.ok}</div>}
       <div className="tiles"><div className="tile"><div className="k">{vendor ? 'We owe them' : 'They owe us'}</div><div className="v mono">{fmt(balance)}</div></div></div>
@@ -72,7 +73,7 @@ export default async function PartyAccount({ params, searchParams }: { params: P
           </table></div>)}
       </div>
       {may && <details className="card"><summary style={{ cursor: 'pointer', fontWeight: 600 }}>Edit details</summary>
-        <form action={updatePartyAction.bind(null, id)} style={{ marginTop: 10 }}>
+        <form action={updatePartyAction.bind(null, id, p.type)} style={{ marginTop: 10 }}>
           <PartyFields kind={kind} types={types} p={p} />
           <div className="row" style={{ justifyContent: 'space-between', marginTop: 12 }}>
             {vendor ? <button className="btn" formAction={subAction.bind(null, id, !p.is_sub)} formNoValidate>{p.is_sub ? 'Move to Vendors' : 'Move to Subcontractors'}</button> : <span />}

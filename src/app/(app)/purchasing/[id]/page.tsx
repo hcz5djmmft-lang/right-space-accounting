@@ -91,7 +91,7 @@ export default async function PurchasePage({ params, searchParams }: { params: P
           <div className="grid g3" style={{ marginBottom: 10 }}>
             <label className="f"><span>Vendor</span><select className="inp" name="vendor" defaultValue={r.vendor_id ?? ''}><option value="">Select…</option>{vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select></label>
             <label className="f"><span>VAT</span><select className="inp" name="vat" defaultValue={String(r.vat_rate)}><option value="0">0%</option><option value="14">14%</option></select></label>
-            <div className="f"><span>&nbsp;</span><Link href="/parties?tab=vendor">Add a vendor in Customers &amp; vendors</Link></div>
+            <div className="f"><span>&nbsp;</span><Link href="/vendors">Add a vendor in Vendors &amp; subcontractors</Link></div>
           </div>
           <div className="tw"><table>
             <thead><tr><th>Material</th><th className="hide-sm">GL code</th><th className="num">Qty</th><th>Unit</th><th className="num">Unit price</th></tr></thead>

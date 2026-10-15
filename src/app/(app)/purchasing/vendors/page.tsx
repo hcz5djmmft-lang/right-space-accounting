@@ -3,15 +3,15 @@ import { requireUser } from '@/lib/auth';
 import { fmt } from '@/lib/money';
 import { VENDOR_CATEGORIES, listVendors, stars } from '@/lib/procurement';
 
-/** The vendor list with categories, rating, open POs and spend; the master data stays in Customers & vendors. */
+/** The vendor list with categories, rating, open POs and spend; the master data stays in Vendors & subcontractors. */
 export default async function VendorsPage({ searchParams }: { searchParams: Promise<{ category?: string }> }) {
   await requireUser();
   const { category = '' } = await searchParams;
   const vendors = await listVendors(category || undefined);
   return (
     <>
-      <div className="head"><div><h1>Vendors</h1><p>Suppliers and subcontractors with their categories, documents, price history and rating. Add a vendor in Customers &amp; vendors; open one here for its profile.</p></div>
-        <div className="row"><Link className="btn pri" href="/parties?tab=vendor">Customers &amp; vendors</Link><Link className="btn" href="/purchasing">Purchasing</Link></div></div>
+      <div className="head"><div><h1>Vendors</h1><p>Suppliers and subcontractors with their categories, documents, price history and rating. Add a vendor in Vendors &amp; subcontractors; open one here for its profile.</p></div>
+        <div className="row"><Link className="btn pri" href="/vendors">Vendors &amp; subcontractors</Link><Link className="btn" href="/purchasing">Purchasing</Link></div></div>
       <div className="tabs"><Link href="/purchasing/vendors" className={!category ? 'on' : ''}>All</Link>{VENDOR_CATEGORIES.map(c => <Link key={c} href={`/purchasing/vendors?category=${encodeURIComponent(c)}`} className={category === c ? 'on' : ''}>{c}</Link>)}</div>
       {vendors.length === 0 ? <div className="empty card">No vendor here yet.</div> : (
         <div className="tw"><table>

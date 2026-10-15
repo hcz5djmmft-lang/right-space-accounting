@@ -20,6 +20,7 @@ const AR: Record<string, string> = {
   'Month-end close': 'إقفال الشهر', 'Budgets': 'الموازنات', 'Fixed assets': 'الأصول الثابتة', 'Banks & cash': 'البنوك والنقدية', 'Petty cash': 'العهدة النقدية',
   'Partners': 'الشركاء', 'Payment requests': 'طلبات الصرف', 'Payables': 'المستحقات للموردين', 'Collections': 'التحصيلات', 'Collections follow-up': 'متابعة التحصيل',
   'Sales invoices': 'فواتير المبيعات', 'Customers & vendors': 'العملاء والموردون', 'Payroll': 'المرتبات', 'Requests': 'الطلبات',
+  'AP': 'الموردون والمدفوعات', 'AR': 'العملاء والتحصيل', 'Closing': 'الإقفال', 'Customers': 'العملاء', 'Vendors & subcontractors': 'الموردون ومقاولو الباطن',
   'Purchasing': 'المشتريات', 'Purchase requests': 'طلبات الشراء', 'Material plan': 'خطة الخامات', 'Vendors': 'الموردون', 'Work orders': 'أوامر الشغل',
   'Site stock': 'مخزون الموقع', 'Progress claims': 'المستخلصات', 'Procurement reports': 'تقارير المشتريات', 'Materials': 'الخامات',
   'HR': 'الموارد البشرية', 'Employees': 'الموظفون', 'Attendance': 'الحضور والانصراف', 'Pay items': 'بنود المرتب', 'HR reports': 'تقارير الموارد البشرية',
