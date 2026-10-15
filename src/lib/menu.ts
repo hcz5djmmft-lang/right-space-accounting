@@ -2,7 +2,7 @@
 // Finance is one heading again, opening AP, AR and Closing (each a heading of its own) and then its five pages; Projects is
 // Engineering, opening Technical Office, Design and Site; Purchasing is Procurement.
 // Headings in Adel's order (2026-10-15): Partners, Finance, Engineering, Procurement, HR & Admin (the
-// administrative department's HR pages), then System admin (Settings and Audit log, Management only). What a person sees follows the
+// administrative department's HR pages), then Settings (Management only) just above My account; Audit log under Closing. What a person sees follows the
 // sub-categories they were given (src/lib/access.ts). Plain data, no server code, so the sidebar and the phone tab row
 // (a client component) and the tests share it.
 
@@ -50,7 +50,8 @@ export function buildMenu(f: MenuFlags): MenuItem[] {
         { href: '/close', label: 'Month-end close' },
         { href: '/bank-reconciliation', label: 'Bank reconciliation' },
         { href: '/fixed-assets', label: 'Fixed assets' },
-        { href: '/reports', label: 'Reports' }])),
+        { href: '/reports', label: 'Reports' },
+        ...(f.management ? [{ href: '/settings/audit', label: 'Audit log' }] : [])])),
       ...when('books', [
         { href: '/entries', label: 'Entries' },
         { href: '/accounts', label: 'Chart of accounts' },
@@ -79,7 +80,7 @@ export function buildMenu(f: MenuFlags): MenuItem[] {
       { href: '/purchasing/work-orders', label: 'Work orders' }, { href: '/purchasing/stock', label: 'Site stock' }, { href: '/claims', label: 'Progress claims' },
       { href: '/purchasing/reports', label: 'Procurement reports' }, { href: '/purchasing/materials', label: 'Materials' }])),
     ...when('hr', g('HR & Admin', [{ href: '/hr', label: 'Employees' }, { href: '/attendance', label: 'Attendance' }, { href: '/hr/pay-items', label: 'Pay items' }, { href: '/hr/reports', label: 'HR reports' }])),
-    ...(f.management ? g('System admin', [{ href: '/settings', label: 'Settings' }, { href: '/settings/audit', label: 'Audit log' }]) : []),
+    ...(f.management ? [{ href: '/settings', label: 'Settings' }] : []),
     { href: '/account', label: 'My account' },
   ];
 }
