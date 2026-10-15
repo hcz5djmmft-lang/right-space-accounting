@@ -1,6 +1,7 @@
 // The menu (update 20). Headings fold open on a tap and are closed by default, except the ones holding the page you are on.
 // Finance is one heading again, opening AP, AR and Closing (each a heading of its own) and then its five pages; Projects is
-// Engineering, opening Technical Office, Design and Site; Purchasing is Procurement. What a person sees follows the
+// Engineering, opening Technical Office, Design and Site; Purchasing is Procurement.
+// Headings in Adel's order (2026-10-15): Partners, Finance, Engineering, Procurement, then HR & Admin as one heading. What a person sees follows the
 // sub-categories they were given (src/lib/access.ts). Plain data, no server code, so the sidebar and the phone tab row
 // (a client component) and the tests share it.
 
@@ -28,6 +29,9 @@ export function buildMenu(f: MenuFlags): MenuItem[] {
     { href: '/tasks', label: 'Tasks', badge: f.tasks },
     { href: '/purchasing/new', label: 'New purchase request' },
     ...(f.site && !has('site') ? [{ href: '/site', label: 'Site' }] : []),
+    ...when('partners', g('Partners', [
+      { href: '/partners', label: 'Partners' },
+      { href: '/dashboard', label: "Partners' dashboard" }])),
     ...g('Finance', [
       ...when('ap', g('AP', [
         { href: '/banks', label: 'Banks & cash' },
@@ -54,9 +58,6 @@ export function buildMenu(f: MenuFlags): MenuItem[] {
         { href: '/budgets', label: 'Budgets' }]),
       ...when('payroll', [{ href: '/payroll', label: 'Payroll' }]),
     ]),
-    ...when('partners', g('Partners', [
-      { href: '/partners', label: 'Partners' },
-      { href: '/dashboard', label: "Partners' dashboard" }])),
     ...g('Engineering', [
       ...when('cost_centers', [{ href: '/cost-centers', label: 'Cost centers' }]),
       ...when('tech_office', g('Technical Office', [
@@ -77,8 +78,9 @@ export function buildMenu(f: MenuFlags): MenuItem[] {
       { href: '/purchasing/plan', label: 'Material plan' }, { href: '/purchasing/vendors', label: 'Vendors' },
       { href: '/purchasing/work-orders', label: 'Work orders' }, { href: '/purchasing/stock', label: 'Site stock' }, { href: '/claims', label: 'Progress claims' },
       { href: '/purchasing/reports', label: 'Procurement reports' }, { href: '/purchasing/materials', label: 'Materials' }])),
-    ...when('hr', g('HR', [{ href: '/hr', label: 'Employees' }, { href: '/attendance', label: 'Attendance' }, { href: '/hr/pay-items', label: 'Pay items' }, { href: '/hr/reports', label: 'HR reports' }])),
-    ...(f.management ? g('Admin', [{ href: '/settings', label: 'Settings' }]) : []),
+    ...g('HR & Admin', [
+      ...when('hr', [{ href: '/hr', label: 'Employees' }, { href: '/attendance', label: 'Attendance' }, { href: '/hr/pay-items', label: 'Pay items' }, { href: '/hr/reports', label: 'HR reports' }]),
+      ...(f.management ? [{ href: '/settings', label: 'Settings' }] : [])]),
     { href: '/account', label: 'My account' },
   ];
 }
