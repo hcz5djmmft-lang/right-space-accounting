@@ -5,7 +5,7 @@ import { RuleError } from './ledger';
 import { hasRole, type User } from './roles';
 import { TZ } from './dates';
 import { addAttachment } from './attachments';
-import { appUrl, sendMail } from './mail';
+import { appUrl, deliver, sendMail } from './mail';
 import { startOnClockIn } from './tasks';
 import { type HrSettings, type Pin, LOCATION_HELP, hourlyRate, hrSettings, lateMinutes, localParts, officeSet, placeOf, timesheetAmounts, whereText, workedAndOvertime } from './attendance-calc';
 import { CATEGORIES, type Category, type Pick, categoryOf, clockCategories, defaultPick, offeredCategories, whatLabel, whatPhrase } from './clock-categories';
@@ -129,10 +129,16 @@ export async function hrEmails(s: HrSettings, tx: Tx = sql) {
   return (await tx<{ email: string }[]>`select email from users where active and 'hr' = any(coalesce(access, '{}')) and not ('management' = any(roles)) order by name`).map(u => u.email);
 }
 
+/** HR's Send test email button: the same recipients as a site clock-in, and what the sender answered. */
+export async function testHrEmail() {
+  const to = await hrEmails(await getHr());
+  return deliver({ to, subject: 'Right Space test email', text: `This is a test from Settings for site clock-in emails.\n\n${appUrl('/attendance')}\n\nRight Space` });
+}
+
 /** Item 4 of update 20: a clock-in on site emails HR where the phone was, with a map link. HR also sees it under Attendance. */
 async function emailSiteClockIn(s: HrSettings, name: string, code: string, at: Date, pos: Pos, place: string | null, distance: number | null) {
   const to = await hrEmails(s);
-  if (!to.length) return;
+  if (!to.length) { console.log(`[site clock-in email not sent: no HR address] ${name} on ${code}`); return; }
   const time = at.toLocaleString('en-GB', { timeZone: TZ, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   const where = pos ? `Location: https://maps.google.com/?q=${pos.lat},${pos.lng}${pos.acc ? ` (accurate to about ${pos.acc} m)` : ''}` : 'The phone gave no location.';
   const vs = distance !== null ? `\nDistance from the ${code} site pin: about ${distance} m${place === 'away' ? ' (outside the allowed distance)' : ''}.` : '';
