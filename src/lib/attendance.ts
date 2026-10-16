@@ -2,7 +2,8 @@ import 'server-only';
 import { sql, type Tx } from './db';
 import { audit, getSettings } from './books';
 import { RuleError } from './ledger';
-import { hasRole, type User } from './roles';
+import { hasRole, resolveUser, type Role, type User } from './roles';
+import { accessFromRoles, rolesFromAccess } from './access';
 import { TZ } from './dates';
 import { addAttachment } from './attachments';
 import { appUrl, deliver, sendMail } from './mail';
@@ -126,7 +127,13 @@ export async function clockIn(user: User, pos: Pos, photo: { name: string; body:
 /** Who hears of a site clock-in: the address in HR's attendance settings, else everyone given HR who is not Management. */
 export async function hrEmails(s: HrSettings, tx: Tx = sql) {
   if (s.hr_email) return [s.hr_email];
-  return (await tx<{ email: string }[]>`select email from users where active and 'hr' = any(coalesce(access, '{}')) and not ('management' = any(roles)) order by name`).map(u => u.email);
+  // read access the way Settings > People shows it: ticks set on the person, else what their department gives
+  const users = await tx<{ email: string; roles: Role[]; access: string[] | null; dept_roles: string[] | null }[]>`
+    select u.email, u.roles, u.access, d.roles || coalesce(p.roles, '{}') dept_roles
+    from users u left join departments d on d.id = u.dept_id and d.active left join departments p on p.id = d.parent_id and p.active
+    where u.active order by u.name`;
+  return users.map(u => resolveUser(u, u.dept_roles, accessFromRoles, rolesFromAccess))
+    .filter(u => u.access.includes('hr') && !u.roles.includes('management')).map(u => u.email);
 }
 
 /** HR's Send test email button: the same recipients as a site clock-in, and what the sender answered. */
