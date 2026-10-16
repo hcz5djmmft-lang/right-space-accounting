@@ -7,7 +7,7 @@
 // (a client component) and the tests share it.
 
 export type MenuLink = { href: string; label: string; badge?: number };
-export type MenuGroup = { group: string; items: MenuItem[] };
+export type MenuGroup = { group: string; items: MenuItem[]; /** the English name when `group` is translated (the phone picks an icon by it) */ key?: string };
 export type MenuItem = MenuLink | MenuGroup;
 
 export const isGroup = (i: MenuItem): i is MenuGroup => 'group' in i;
