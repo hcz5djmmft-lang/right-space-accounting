@@ -1,7 +1,7 @@
 import { requireUser } from '@/lib/auth';
 import { getHr } from '@/lib/attendance';
 import { UseMyLocation } from '@/components/UseMyLocation';
-import { saveHrAction } from '../../attendance/actions';
+import { saveHrAction, testHrEmailAction } from '../../attendance/actions';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -12,7 +12,7 @@ export default async function HrSettings({ searchParams }: { searchParams: Promi
   return (
     <>
       <div className="head"><div><h1>Attendance settings</h1><p>Where the office is, when the day starts and ends, and how overtime and lateness reach payroll.</p></div></div>
-      {saved && <div className="msg good">Saved.</div>}
+      {saved && <div className="msg good">{saved === '1' ? 'Saved.' : saved}</div>}
       {error && <div className="msg bad">{error}</div>}
       <form action={saveHrAction}>
         <div className="card">
@@ -26,6 +26,7 @@ export default async function HrSettings({ searchParams }: { searchParams: Promi
           <div style={{ marginTop: 10 }}><UseMyLocation /></div>
           <label className="f" style={{ marginTop: 12 }}><span>Email each site clock-in to (empty: everyone given HR under Settings &gt; People)</span>
             <input className="inp" type="email" name="hr_email" defaultValue={s.hr_email} placeholder="hr@…" /></label>
+          <div style={{ marginTop: 10 }}><button className="btn" formAction={testHrEmailAction} formNoValidate>Send test email</button> <span className="muted">to the address above (or everyone given HR) and shows what happened</span></div>
         </div>
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Working day</h2>

@@ -55,3 +55,11 @@ export async function saveHrAction(f: FormData) {
   revalidatePath('/', 'layout');
   redirect('/hr/settings?saved=1');
 }
+
+/** Sends one test email to the site clock-in recipients and shows what happened. */
+export async function testHrEmailAction() {
+  await requireUser('hr');
+  const r = await att.testHrEmail();
+  const who = r.to.length ? `To ${r.to.join(', ')}: ` : '';
+  redirect(`/hr/settings?${r.sent ? 'saved' : 'error'}=${encodeURIComponent(who + r.detail)}`);
+}
