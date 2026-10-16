@@ -18,7 +18,7 @@ function TradeList({ t, cur, step }: { t: T; cur?: Trade; step: string }) {
     <div className="card" style={{ padding: 8 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: '70vh', overflow: 'auto' }}>
         {t.trades.map(tr => (
-          <Link key={tr.id} href={`/tenders/${t.id}?step=${step}&trade=${tr.id}`} className="btn" style={{ justifyContent: 'space-between', ...(tr.id === cur?.id ? { borderColor: 'var(--gold, #e5b35a)', background: 'var(--bg)' } : {}) }}>
+          <Link key={tr.id} href={`/tenders/${t.id}?step=${step}&trade=${tr.id}`} className="btn" style={{ justifyContent: 'space-between', ...(tr.id === cur?.id ? { borderColor: 'var(--gold-ink, #8a6420)', background: 'var(--bg)' } : {}) }}>
             <span dir="auto" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{tr.name}</span><span className="muted mono" style={{ fontSize: 11 }}>{step === 'bids' ? `${tr.bidders.length} bid` : tr.items.length}</span></Link>))}
       </div>
       {step === 'boq' && (
