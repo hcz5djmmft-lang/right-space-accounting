@@ -1,36 +1,37 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { LangSwitch } from './LangSwitch';
-import type { Lang } from '@/lib/i18n';
-import { type MenuItem, type MenuLink, activeHref, isGroup, openPathFor } from '@/lib/menu';
+import { Icon, type IconName } from './Icons';
+import { type Lang, tr } from '@/lib/i18n';
+import { type MenuGroup, type MenuItem, type MenuLink, activeHref, allLinks, isGroup, openPathFor } from '@/lib/menu';
 
 export type NavItem = MenuItem;
 
-/** The sidebar (computer) and the tab rows (phone). Each heading folds open on a tap and is closed by default; the ones
- *  holding the page you are on open by itself. A heading inside a heading (Finance > AP) opens the same way. */
+/** The bottom bar on phones holds Home, Clock in, Tasks and Approvals; everything else is on the More page. */
+const BAR = ['/', '/clock', '/tasks', '/approvals'];
+const YOU = ['/settings', '/account'];
+const ICON: Record<string, IconName> = {
+  '/': 'home', '/clock': 'clock', '/tasks': 'tasks', '/approvals': 'stamp', '/leave': 'calendar', '/purchasing/new': 'cart', '/site': 'pin', '/settings': 'gear', '/account': 'user',
+  Partners: 'people', Finance: 'bank', Engineering: 'ruler', Procurement: 'box', 'HR & Admin': 'folder', AP: 'cash', AR: 'doc', Closing: 'lock', 'Technical Office': 'ruler', Design: 'pen', Site: 'pin',
+};
+const iconOf = (i: MenuItem): IconName => (isGroup(i) ? ICON[i.key ?? i.group] ?? 'folder' : ICON[i.href] ?? 'doc');
+const names = (g: MenuGroup) => g.items.slice(0, 3).map(x => (isGroup(x) ? x.group : x.label)).join(' · ') + (g.items.length > 3 ? ' · …' : '');
+
+/** The sidebar (computer) and, on phones, the slim header, the bottom bar and the More page. Each sidebar heading folds open on a
+ *  tap and is closed by default; the ones holding the page you are on open by itself. On the phone a heading is a card on the More
+ *  page that opens its pages (and its own headings) with a Back button. */
 export function Nav({ items, user, logout, lang = 'en', signOutLabel = 'Sign out' }: { items: MenuItem[]; user: string; logout: () => Promise<void>; lang?: Lang; signOutLabel?: string }) {
   const path = usePathname();
+  const t = (s: string) => tr(lang, s);
   const best = activeHref(items, path);
   const here = openPathFor(items, best);
   const hereKey = here.join('|');
   const on = (href: string) => (href === best ? 'on' : '');
-  // the sidebar keeps any number of headings open; the phone shows one heading's pages at a time, a row per level
+  // the sidebar keeps any number of headings open
   const [open, setOpen] = useState<string[]>(here);
-  const [phone, setPhone] = useState<string[]>(here);
-  useEffect(() => {
-    if (here.length) setOpen(o => [...new Set([...o, ...here])]);
-    setPhone(here);
-  }, [path, hereKey]);
-  // on the phone, slide each row so the open heading and the page you are on are in view
-  const top = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    top.current?.querySelectorAll<HTMLElement>('.topbar').forEach(bar => {
-      const el = bar.querySelector<HTMLElement>('.open, a.on');
-      if (el && (el.offsetLeft < bar.scrollLeft || el.offsetLeft + el.offsetWidth > bar.scrollLeft + bar.clientWidth)) bar.scrollLeft = el.offsetLeft - 24;
-    });
-  }, [path, phone]);
+  useEffect(() => { if (here.length) setOpen(o => [...new Set([...o, ...here])]); }, [path, hereKey]);
   const toggle = (k: string) => setOpen(o => (o.includes(k) ? o.filter(x => x !== k && !x.startsWith(k + '/')) : [...o, k]));
   const link = (l: MenuLink) => <Link key={l.href} href={l.href} className={on(l.href)}>{l.label}{l.badge ? <span className="badge">{l.badge}</span> : null}</Link>;
   const side = (list: MenuItem[], prefix: string, depth: number): React.ReactNode => list.map(i => {
@@ -43,15 +44,29 @@ export function Nav({ items, user, logout, lang = 'en', signOutLabel = 'Sign out
         {open.includes(k) && <div className={depth ? 'nest' : ''}>{side(i.items, k, depth + 1)}</div>}
       </div>);
   });
-  // phone rows: the top row, then one row for each open heading
-  const rows: { key: string; list: MenuItem[] }[] = [{ key: '', list: items }];
-  for (const k of phone) {
-    const parent = rows[rows.length - 1];
-    const g = parent.list.find(i => isGroup(i) && (parent.key ? `${parent.key}/${i.group}` : i.group) === k);
-    if (!g || !isGroup(g)) break;
-    rows.push({ key: k, list: g.items });
-  }
-  const tapPhone = (k: string, depth: number) => setPhone(p => (p[depth] === k ? p.slice(0, depth) : [...p.slice(0, depth), k]));
+
+  // the phone: the More page closes when the page changes; while it is open the page behind it does not scroll
+  const [more, setMore] = useState(false);
+  const [stack, setStack] = useState<MenuGroup[]>([]);
+  useEffect(() => { setMore(false); setStack([]); }, [path]);
+  useEffect(() => { document.body.classList.toggle('more-open', more); return () => document.body.classList.remove('more-open'); }, [more]);
+  const links = allLinks(items);
+  const bar = BAR.map(h => links.find(l => l.href === h)).filter((l): l is MenuLink => !!l);
+  const inBar = !!best && BAR.includes(best);
+  const pages = items.filter((i): i is MenuLink => !isGroup(i) && !BAR.includes(i.href) && !YOU.includes(i.href));
+  const depts = items.filter(isGroup);
+  const you = items.filter((i): i is MenuLink => !isGroup(i) && YOU.includes(i.href));
+  const title = links.find(l => l.href === best)?.label ?? '';
+  const cur = stack[stack.length - 1];
+  const card = (i: MenuItem) => {
+    const ic = <span className="ic"><Icon name={iconOf(i)} /></span>;
+    if (isGroup(i)) return (
+      <button key={'g' + i.group} type="button" className="crd" onClick={() => setStack(s => [...s, i])}>
+        {ic}<span className="tx"><span className="t">{i.group}</span><span className="d">{names(i)}</span></span><span className="ch"><Icon name="chev" /></span></button>);
+    return (
+      <Link key={i.href} href={i.href} className={'crd ' + on(i.href)} aria-current={best === i.href ? 'page' : undefined} onClick={() => setMore(false)}>
+        {ic}<span className="tx"><span className="t">{i.label}</span></span>{i.badge ? <span className="badge">{i.badge}</span> : <span className="ch"><Icon name="chev" /></span>}</Link>);
+  };
   return (
     <>
       <aside className="side">
@@ -59,20 +74,31 @@ export function Nav({ items, user, logout, lang = 'en', signOutLabel = 'Sign out
         {side(items, '', 0)}
         <div className="who">{user}<br /><form action={logout}><button>{signOutLabel}</button></form><Suspense><LangSwitch lang={lang} /></Suspense></div>
       </aside>
-      <div className="topwrap" ref={top}>
-        {rows.map((r, depth) => (
-          <nav key={'row' + r.key} className={'topbar' + (depth ? ' sub' : '')}>
-            {r.list.map(i => {
-              if (!isGroup(i)) return <Link key={i.href} href={i.href} className={on(i.href)}>{i.label}{i.badge ? ` (${i.badge})` : ''}</Link>;
-              const k = r.key ? `${r.key}/${i.group}` : i.group;
-              return <button key={'g' + k} type="button" className={'tabcat' + (phone[depth] === k ? ' open' : '') + (here[depth] === k ? ' here' : '')} aria-expanded={phone[depth] === k}
-                onClick={() => tapPhone(k, depth)}>{i.group} <span aria-hidden>{phone[depth] === k ? '▴' : '▾'}</span></button>;
-            })}
-            {depth === 0 && <>
-              <Suspense><LangSwitch lang={lang} className="btn sm langsw" /></Suspense>
-              <form action={logout}><button className="btn sm" style={{ background: 'none', color: 'var(--nav-muted)', border: 0 }}>{signOutLabel}</button></form></>}
-          </nav>))}
-      </div>
+
+      {path !== '/' && <header className="phead"><img src="/logo.svg" alt="Right Space" /><span className="ttl" dir="auto">{title}</span></header>}
+      {more && (
+        <div className="more" role="dialog" aria-label={t('Menu')}>
+          <header className="phead">
+            {cur ? <button type="button" className="rbtn back" onClick={() => setStack(s => s.slice(0, -1))} aria-label={t('Back')}><Icon name="back" /></button> : <img src="/logo.svg" alt="Right Space" />}
+            <span className="ttl">{cur ? cur.group : t('More')}</span>
+          </header>
+          <div className="page">
+            {cur ? cur.items.map(card) : <>
+              {pages.length > 0 && <><div className="grp-h">{t('Pages')}</div>{pages.map(card)}</>}
+              {depts.length > 0 && <><div className="grp-h">{t('Departments')}</div>{depts.map(card)}</>}
+              <div className="grp-h">{t('You')}</div>
+              {you.map(card)}
+              <div className="crd"><span className="ic"><Icon name="globe" /></span><span className="tx"><span className="t"><Suspense><LangSwitch lang={lang} className="crd-lang" /></Suspense></span><span className="d">{t('Switch the language')}</span></span></div>
+              <form action={logout}><button className="crd bad"><span className="ic"><Icon name="out" /></span><span className="tx"><span className="t">{signOutLabel}</span><span className="d" dir="auto">{user}</span></span></button></form>
+            </>}
+          </div>
+        </div>)}
+      <nav className="bbar" aria-label={t('Menu')}>
+        {bar.map(l => (
+          <Link key={l.href} href={l.href} className={!more ? on(l.href) : ''} aria-current={!more && best === l.href ? 'page' : undefined} onClick={() => setMore(false)}>
+            <Icon name={ICON[l.href]} />{l.href === '/' ? t('Home') : l.label}{l.badge ? <span className="badge">{l.badge}</span> : null}</Link>))}
+        <button type="button" className={more || !inBar ? 'on' : ''} aria-expanded={more} onClick={() => { setMore(m => !m); setStack([]); }}><Icon name="more" />{t('More')}</button>
+      </nav>
     </>
   );
 }

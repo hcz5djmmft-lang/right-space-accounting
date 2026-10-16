@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 // a request that waits on the database gives up after half a minute instead of Vercel's five
 export const maxDuration = 30;
 // the phone's browser tints its own bars with the cocoa of the tab row (Warm sand look)
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#3a2b1c' };
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover', themeColor: '#3a2b1c' };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = await getLang();

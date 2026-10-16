@@ -32,6 +32,9 @@ const AR: Record<string, string> = {
   'Approve': 'اعتماد', 'Approved.': 'تم الاعتماد.', 'View': 'عرض', 'Approve signs it here; open the number to read it or to return it.': 'اعتماد يوقّع هنا؛ افتح الرقم لقراءته أو لإرجاعه.',
   'Good day': 'أهلاً', 'Your access does not include that page.': 'صلاحياتك لا تشمل هذه الصفحة.', 'All pending steps': 'كل الخطوات المنتظرة', 'Sales & Marketing': 'المبيعات والتسويق', 'Approvals waiting for me': 'موافقات بانتظاري', 'My tasks': 'مهامي', 'Clocked in now': 'الحاضرون الآن', 'Alerts': 'تنبيهات',
   'Insight': 'التقارير', 'Reports': 'التقارير', 'Admin': 'الإدارة', 'Settings': 'الإعدادات', 'Audit log': 'سجل التغييرات', 'My account': 'حسابي',
+  // the phone app: bottom bar, Home and the More page
+  'Home': 'الرئيسية', 'More': 'المزيد', 'Menu': 'القائمة', 'Pages': 'الصفحات', 'Departments': 'الأقسام', 'You': 'أنت', 'Back': 'رجوع', 'Switch the language': 'تغيير اللغة',
+  'Quick actions': 'إجراءات سريعة', 'New request': 'طلب جديد', 'Cash and bank': 'النقدية والبنوك', 'Hide balances': 'إخفاء الأرصدة', 'Show balances': 'إظهار الأرصدة', 'Today': 'اليوم',
 
   // clock in
   'Your login is not linked to an employee file yet, so there is nothing to clock.': 'حسابك غير مربوط بملف موظف بعد، لذلك لا يوجد حضور لتسجيله.',
