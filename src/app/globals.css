@@ -20,6 +20,7 @@ h1, h2, h3 { font-family: 'Nunito', 'Readex Pro', sans-serif; font-weight: 800; 
 h1 { font-size: 24px; } h2 { font-size: 18px; }
 .mono, .num { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 .num { text-align: right; white-space: nowrap; }
+td.mono { white-space: nowrap; } /* a date or a document number never breaks in a narrow table; the table scrolls instead */
 .muted { color: var(--muted); }
 
 .shell { display: grid; grid-template-columns: 236px 1fr; min-height: 100vh; }
@@ -62,14 +63,15 @@ main { padding: 22px 26px 60px; min-width: 0; }
 .tw { overflow-x: auto; border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow); }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: 9px 12px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: top; }
-th { font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; background: var(--panel); border-bottom-color: var(--line); position: sticky; top: 0; }
+th { font-size: 12px; color: var(--muted); font-weight: 700; background: var(--panel); border-bottom-color: var(--line); position: sticky; top: 0; }
+main th, .tw th { letter-spacing: .04em; text-transform: uppercase; } /* app tables only: printed documents keep their own headers */
 th[dir="auto"], th[dir="auto"] * { text-transform: none; letter-spacing: 0; } /* a bidder or vendor name in a header cell stays as typed */
 tr:last-child td { border-bottom: 0; }
 tfoot td { font-weight: 700; background: var(--bg); }
 td a { text-decoration: none; } td a:hover { text-decoration: underline; }
 .lvl1 td:first-child { padding-left: 26px; } .hdr td { font-weight: 700; }
 
-.pill { display: inline-flex; align-items: center; min-height: 26px; font-size: 12px; padding: 0 12px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink); font-weight: 700; text-transform: capitalize; white-space: nowrap; }
+.pill { display: inline-flex; align-items: center; gap: .3em; min-height: 26px; font-size: 12px; padding: 0 12px; border-radius: 999px; background: var(--gold-soft); color: var(--gold-ink); font-weight: 700; text-transform: capitalize; white-space: nowrap; }
 .pill.posted { background: var(--good-soft); color: var(--good); } .pill.pending { background: var(--warn-soft); color: var(--warn); }
 .pill.rejected { background: var(--bad-soft); color: var(--bad); }
 .pill.nocap { text-transform: none; }
@@ -211,7 +213,7 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; colo
 [dir="rtl"] th.num, [dir="rtl"] td.num { text-align: left; }
 [dir="rtl"] .lvl1 td:first-child { padding-left: 10px; padding-right: 26px; }
 [dir="rtl"] .mono, [dir="rtl"] .num, [dir="rtl"] input[type="date"], [dir="rtl"] input[inputmode="decimal"] { direction: ltr; unicode-bidi: isolate; }
-[dir="rtl"] .side .grp, [dir="rtl"] th { letter-spacing: 0; text-transform: none; }
+[dir="rtl"] .side .grp, [dir="rtl"] main th, [dir="rtl"] .tw th { letter-spacing: 0; text-transform: none; }
 [dir="rtl"] .side .cat .chev { transform: scaleX(-1); }
 [dir="rtl"] .side .cat.open .chev { transform: rotate(90deg); }
 [dir="rtl"] .side .cat .nest { margin-left: 0; margin-right: 12px; border-left: 0; border-right: 1px solid var(--nav-line); padding-left: 0; padding-right: 2px; }
