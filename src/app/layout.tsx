@@ -16,7 +16,8 @@ export const metadata: Metadata = {
 };
 // a request that waits on the database gives up after half a minute instead of Vercel's five
 export const maxDuration = 30;
-export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#f6f1e7' };
+// the phone's browser tints its own bars with the cocoa of the tab row (Warm sand look)
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#3a2b1c' };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const lang = await getLang();
@@ -24,7 +25,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={lang} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       <head>
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Montserrat:wght@600;700&display=swap" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Readex+Pro:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" />
       </head>
       <body>{children}</body>
     </html>
