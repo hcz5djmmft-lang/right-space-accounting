@@ -6,11 +6,11 @@ import { PushButton } from '@/components/PushButton';
 import { Headline } from '@/components/Headline';
 import { Icon } from '@/components/Icons';
 import { pendingSteps } from '@/lib/pending';
-import { waitingForUser } from '@/lib/documents';
 import { bankAccounts } from '@/lib/banks';
 import { employeeOf, openRecord, openSession } from '@/lib/attendance';
 import { categoryOf, whatLabel } from '@/lib/clock-categories';
 import { fmt } from '@/lib/money';
+import { today } from '@/lib/dates';
 import { DASHBOARDS, dashboard, dashboardsFor, type DashKey } from '@/lib/home';
 import { type Lang, tr } from '@/lib/i18n';
 import { getLang } from '@/lib/lang';
@@ -29,7 +29,9 @@ async function headline(user: User, lang: Lang) {
   const now = me && open ? (await openSession(me.id)) ?? open : null;
   const c = now ? categoryOf(now.category) : null;
   const what = !c || !now ? '' : lang === 'ar' ? (c.project && now.project_code ? `${t(c.short)} ${t('on')} ${now.project_code}` : t(c.project ? c.short : c.label)) : whatLabel(c, now.project_code);
-  return { label: t('Today'), value: open ? `${t('Clocked in at')} ${open.in_time}` : t('Not clocked in'), sub: what, money: false };
+  // a day left open (no clock-out) is not "today": say since when, so the person knows why Clock in refuses until HR closes it
+  const stale = !!open && open.day !== today();
+  return { label: t(stale ? 'Clock in' : 'Today'), value: !open ? t('Not clocked in') : stale ? `${t('Still clocked in since')} ${open.day} ${open.in_time}` : `${t('Clocked in at')} ${open.in_time}`, sub: what, money: false };
 }
 
 /**
@@ -43,9 +45,9 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   const mine = await dashboardsFor(user);
   const key = (mine.includes(d as DashKey) ? d : mine[0]) as DashKey | undefined;
   const lang = await getLang();
-  const [steps, dash, { publicKey }, waiting, hl] = await Promise.all([pendingSteps(user), key ? dashboard(key, user) : null, pushKeys(), waitingForUser(user), headline(user, lang)]);
+  const [steps, dash, { publicKey }, hl] = await Promise.all([pendingSteps(user), key ? dashboard(key, user) : null, pushKeys(), headline(user, lang)]);
   const t = (x: string) => tr(lang, x);
-  const n = waiting.length;
+  const n = steps.filter(s => s.kind === 'approval').length; // the same count as the bar's Approvals badge
   return (
     <>
       <header className="hero">

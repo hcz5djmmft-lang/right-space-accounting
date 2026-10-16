@@ -34,7 +34,7 @@ const AR: Record<string, string> = {
   'Insight': 'التقارير', 'Reports': 'التقارير', 'Admin': 'الإدارة', 'Settings': 'الإعدادات', 'Audit log': 'سجل التغييرات', 'My account': 'حسابي',
   // the phone app: bottom bar, Home and the More page
   'Home': 'الرئيسية', 'More': 'المزيد', 'Menu': 'القائمة', 'Pages': 'الصفحات', 'Departments': 'الأقسام', 'You': 'أنت', 'Back': 'رجوع', 'Switch the language': 'تغيير اللغة',
-  'Quick actions': 'إجراءات سريعة', 'New request': 'طلب جديد', 'Cash and bank': 'النقدية والبنوك', 'Hide balances': 'إخفاء الأرصدة', 'Show balances': 'إظهار الأرصدة', 'Today': 'اليوم',
+  'Quick actions': 'إجراءات سريعة', 'New request': 'طلب جديد', 'Cash and bank': 'النقدية والبنوك', 'Hide balances': 'إخفاء الأرصدة', 'Show balances': 'إظهار الأرصدة', 'Today': 'اليوم', 'Still clocked in since': 'ما زلت مسجل الحضور منذ',
 
   // clock in
   'Your login is not linked to an employee file yet, so there is nothing to clock.': 'حسابك غير مربوط بملف موظف بعد، لذلك لا يوجد حضور لتسجيله.',

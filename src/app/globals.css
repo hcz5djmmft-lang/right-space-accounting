@@ -102,7 +102,7 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; colo
   .side { display: none; }
   html { background: var(--nav); } body { background: var(--bg); min-height: 100vh; } /* over-scroll at the top shows cocoa, not a sand strip */
   main { padding: 16px 16px calc(104px + env(safe-area-inset-bottom)); }
-  .phead { display: flex; align-items: center; gap: 12px; min-height: 60px; background: var(--nav); color: var(--nav-ink); padding: calc(10px + env(safe-area-inset-top)) 18px 10px; border-radius: 0 0 22px 22px; box-shadow: var(--shadow); position: sticky; top: 0; z-index: 5; }
+  .phead { display: flex; min-width: 0; align-items: center; gap: 12px; min-height: 60px; background: var(--nav); color: var(--nav-ink); padding: calc(10px + env(safe-area-inset-top)) 18px 10px; border-radius: 0 0 22px 22px; box-shadow: var(--shadow); position: sticky; top: 0; z-index: 5; }
   .phead img { height: 24px; display: block; }
   .phead .ttl { font-size: 17px; font-weight: 800; margin-inline-start: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rbtn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 999px; border: 1.5px solid rgba(255, 255, 255, .35); background: none; color: var(--nav-ink); cursor: pointer; padding: 0; flex: 0 0 auto; }
@@ -127,9 +127,9 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; colo
   .crd .ch svg { width: 20px; height: 20px; }
   .crd .badge { margin-inline-start: auto; }
   .crd.bad .t { color: var(--bad); }
-  .crd-lang { background: none; border: 0; padding: 0; font: inherit; font-size: 16px; font-weight: 800; color: var(--text); cursor: pointer; text-align: inherit; }
+  .more .ttl:focus { outline: none; }
   /* Home, like the bank app: the cocoa hero with the headline figure, the floating quick actions, the round + button */
-  .hero { display: block; background: var(--nav); color: var(--nav-ink); margin: -16px -16px 0; padding: calc(16px + env(safe-area-inset-top)) 20px 64px; border-radius: 0 0 10px 10px; }
+  .hero { display: block; background: var(--nav); color: var(--nav-ink); margin: -16px -16px 0; padding: calc(16px + env(safe-area-inset-top)) 20px 60px; border-radius: 0 0 10px 10px; }
   .hero .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .hero .top img { height: 26px; display: block; }
   .hero .co { font-size: 13px; color: var(--nav-muted); margin-top: 6px; }
@@ -138,7 +138,7 @@ label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; colo
   .hero .fig .v { font-size: 30px; font-weight: 800; margin-top: 2px; letter-spacing: -.01em; overflow-wrap: anywhere; }
   .hero .fig .v small { font-family: 'Nunito', 'Readex Pro', sans-serif; font-size: 15px; font-weight: 800; margin-inline-start: 6px; }
   .hero .fig .s { font-size: 14px; margin-top: 2px; }
-  .hero .fig .h { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; min-height: 36px; padding: 0 10px; background: none; border: 0; font: inherit; font-size: 13px; font-weight: 700; color: var(--nav-muted); cursor: pointer; }
+  .hero .fig .h { display: inline-flex; align-items: center; gap: 6px; margin-top: 0; min-height: 44px; padding: 0 10px; background: none; border: 0; font: inherit; font-size: 13px; font-weight: 700; color: var(--nav-muted); cursor: pointer; }
   .hero .fig .h svg { width: 16px; height: 16px; }
   .quick { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--panel); border-radius: 22px; box-shadow: var(--shadow); margin: -50px 4px 18px; padding: 14px 6px; position: relative; }
   .quick a { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 56px; position: relative; font-size: 13px; font-weight: 700; color: var(--text); text-decoration: none; text-align: center; }
