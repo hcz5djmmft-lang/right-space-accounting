@@ -70,7 +70,7 @@ export function Nav({ items, user, logout, lang = 'en', signOutLabel = 'Sign out
             })}
             {depth === 0 && <>
               <Suspense><LangSwitch lang={lang} className="btn sm langsw" /></Suspense>
-              <form action={logout}><button className="btn sm" style={{ background: 'none', color: 'var(--muted)', border: 0 }}>{signOutLabel}</button></form></>}
+              <form action={logout}><button className="btn sm" style={{ background: 'none', color: 'var(--nav-muted)', border: 0 }}>{signOutLabel}</button></form></>}
           </nav>))}
       </div>
     </>
